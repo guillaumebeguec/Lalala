@@ -66,18 +66,37 @@ class WikiSummary:
     extract: str
 
 
+class WikipediaRateLimited(httpx.TransportError):
+    """HTTP 429 : on attend (Retry-After) et on réessaie."""
+
+
 class Wikipedia:
+    # Wikimedia demande un User-Agent identifiable et un débit raisonnable : on se limite
+    # à ~4 req/s et on respecte Retry-After sur 429 (observé le 28/10 à ~5 req/s soutenues).
+    MIN_INTERVAL = 0.25
+
     def __init__(self, langs: tuple[str, ...] = ("fr", "en"), timeout: float = 15.0):
         self.langs = langs
         self._http = httpx.Client(timeout=timeout, headers={"User-Agent": _UA}, follow_redirects=True)
         self._cache = DiskCache("wikipedia")
+        self._last = 0.0
 
-    @retry(retry=retry_if_exception_type(httpx.TransportError), stop=stop_after_attempt(4),
-           wait=wait_exponential(multiplier=1, min=1, max=10), reraise=True)
+    @retry(retry=retry_if_exception_type(httpx.TransportError), stop=stop_after_attempt(6),
+           wait=wait_exponential(multiplier=2, min=2, max=60), reraise=True)
     def _get(self, url: str, params: dict[str, Any] | None = None) -> Any:
+        import time
+        wait = self.MIN_INTERVAL - (time.monotonic() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        self._last = time.monotonic()
         r = self._http.get(url, params=params)
         if r.status_code == 404:
             return None
+        if r.status_code == 429:
+            retry_after = float(r.headers.get("Retry-After", "5") or 5)
+            logger.warning("Wikipédia 429, pause %.0f s", retry_after)
+            time.sleep(min(retry_after, 60))
+            raise WikipediaRateLimited("429")
         r.raise_for_status()
         return r.json()
 
