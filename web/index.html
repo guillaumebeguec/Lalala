@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SoundTrace</title>
+<style>
+  :root {
+    --bg: #f6f7fb; --panel: #ffffff; --text: #16181d; --muted: #5d6470; --line: #e3e6ee;
+    --accent: #2f6bff; --accent-2: #ff6b35; --ok: #1f9d55; --bar: #dfe6ff; --bar-fill: #2f6bff;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #0f1116; --panel: #171a21; --text: #f1f3f8; --muted: #9aa3b2; --line: #2a2f3a; --bar: #26304a; --bar-fill: #6b93ff; }
+  }
+  :root[data-theme="dark"] { --bg: #0f1116; --panel: #171a21; --text: #f1f3f8; --muted: #9aa3b2; --line: #2a2f3a; --bar: #26304a; --bar-fill: #6b93ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 18px; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  header h1 { margin: 0; font-size: 24px; letter-spacing: .5px; }
+  header h1 span { color: var(--accent); }
+  header .sub { color: var(--muted); font-size: 15px; }
+  header .actions { display: flex; gap: 8px; align-items: center; }
+  main { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; padding: 18px 24px; max-width: 1500px; margin: 0 auto; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; padding: 16px; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .panel h2 { margin: 0 0 10px; font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  #chat { display: flex; flex-direction: column; gap: 10px; min-height: 320px; max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+  .msg { padding: 10px 14px; border-radius: 12px; max-width: 90%; line-height: 1.35; }
+  .msg.user { align-self: flex-end; background: var(--accent); color: #fff; }
+  .msg.agent { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); }
+  .msg.sys { align-self: center; color: var(--muted); font-size: 14px; }
+  .options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  button { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.rec { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+  button:disabled { opacity: .5; cursor: default; }
+  form#compose { display: flex; gap: 8px; margin-top: 12px; }
+  form#compose input { flex: 1; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .cards { display: grid; gap: 10px; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: center; }
+  .card .t { font-weight: 600; font-size: 19px; }
+  .card .a { color: var(--muted); }
+  .card .why { grid-column: 1 / -1; font-size: 15px; color: var(--muted); }
+  .card audio { grid-column: 1 / -1; width: 100%; height: 36px; }
+  .card .conf { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--accent); }
+  .card .src { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .card .verdict { grid-column: 1 / -1; display: flex; gap: 8px; }
+  .hyp { display: grid; grid-template-columns: 1fr 3fr auto; gap: 6px 10px; align-items: center; font-size: 15px; }
+  .hyp .bar { height: 12px; background: var(--bar); border-radius: 6px; overflow: hidden; }
+  .hyp .bar i { display: block; height: 100%; background: var(--bar-fill); }
+  .hyp .p { font-variant-numeric: tabular-nums; color: var(--muted); }
+  ul.log { list-style: none; padding: 0; margin: 0; font-size: 15px; display: grid; gap: 4px; }
+  ul.log li::before { content: "•"; color: var(--accent); margin-right: 6px; }
+  ul.log li.clue::before { content: "💡"; }
+  ul.log li.search::before { content: "🔎"; }
+  ul.log li.web::before { content: "🌐"; }
+  svg#entropy { width: 100%; height: 150px; }
+  .kpi { display: flex; gap: 18px; font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+  .kpi b { color: var(--text); font-size: 20px; }
+  .stack { display: grid; gap: 14px; }
+  #isolation { display: none; }
+  #isolation.show { display: block; }
+  .hint { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Sound<span>Trace</span></h1><div class="sub">Shazam reconnaît un enregistrement. SoundTrace retrouve une chanson.</div></div>
+  <div class="actions">
+    <select id="replaySel" title="Rejouer une session enregistrée"><option value="">Rejouer…</option></select>
+    <button id="saveBtn" title="Enregistrer cette session">Enregistrer</button>
+    <button id="newBtn">Nouvelle enquête</button>
+    <button id="themeBtn" title="Thème clair / sombre">◐</button>
+  </div>
+</header>
+<main>
+  <section class="stack">
+    <div class="panel">
+      <h2>Conversation</h2>
+      <div id="chat"></div>
+      <form id="compose">
+        <input id="text" placeholder="Décrivez le morceau de mémoire… (ex. « une pub de voiture vers 2008, un sifflement »)" autocomplete="off">
+        <button class="primary" type="submit">Envoyer</button>
+        <button type="button" id="recBtn" class="rec" title="Enregistrer 10 s au micro">🎤 10 s</button>
+        <label title="Déposer une vidéo" style="display:flex;align-items:center;"><input type="file" id="videoIn" accept="video/*,audio/*" style="display:none"><button type="button" onclick="document.getElementById('videoIn').click()">📹</button></label>
+      </form>
+      <div class="hint">Questions en boutons ; « non » sur une proposition relance l'enquête.</div>
+    </div>
+    <div class="panel">
+      <h2>Candidats</h2>
+      <div id="cards" class="cards"></div>
+    </div>
+    <div class="panel" id="isolation">
+      <h2>Isolation de la musique (SAM Audio)</h2>
+      <div>Avant <audio id="before" controls></audio></div>
+      <div>Après <audio id="after" controls></audio></div>
+    </div>
+  </section>
+  <aside class="stack">
+    <div class="panel">
+      <h2>Enquête</h2>
+      <div class="kpi"><div>Entropie <b id="ent">–</b></div><div>Questions <b id="nq">0</b></div><div>Recherches <b id="ns">0</b></div></div>
+      <svg id="entropy" viewBox="0 0 400 150" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="panel">
+      <h2>Hypothèses</h2>
+      <div id="hyp" class="hyp"></div>
+    </div>
+    <div class="panel">
+      <h2>Indices et requêtes</h2>
+      <ul id="log" class="log"></ul>
+    </div>
+  </aside>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const state = { sid: null, entropies: [], nq: 0, ns: 0, titles: {}, recorder: null };
+
+function theme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem('theme', t); } catch (e) {} }
+try { const t = localStorage.getItem('theme'); if (t) theme(t); } catch (e) {}
+$('#themeBtn').onclick = () => theme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+function msg(kind, html) { const d = document.createElement('div'); d.className = 'msg ' + kind; d.innerHTML = html; $('#chat').appendChild(d); $('#chat').scrollTop = 1e9; return d; }
+function log(kind, text) { const li = document.createElement('li'); li.className = kind; li.textContent = text; $('#log').prepend(li); }
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function newSession() {
+  const r = await fetch('/session', { method: 'POST' }); state.sid = (await r.json()).session_id;
+  state.entropies = []; state.nq = 0; state.ns = 0; state.titles = {};
+  $('#chat').innerHTML = ''; $('#cards').innerHTML = ''; $('#hyp').innerHTML = ''; $('#log').innerHTML = ''; drawEntropy(); kpi();
+  msg('agent', 'Décrivez-moi le morceau que vous avez en tête, ou enregistrez-le au micro.');
+}
+function kpi() { $('#ent').textContent = state.entropies.length ? state.entropies.at(-1).toFixed(2) + ' bits' : '–'; $('#nq').textContent = state.nq; $('#ns').textContent = state.ns; }
+
+function drawEntropy() {
+  const svg = $('#entropy'); const pts = state.entropies; svg.innerHTML = '';
+  const W = 400, H = 150, pad = 24; const n = Math.max(pts.length, 2); const maxY = Math.max(1, ...pts);
+  const x = i => pad + i * (W - 2 * pad) / (n - 1), y = v => H - pad - v * (H - 2 * pad) / maxY;
+  let s = `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--line)"/><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="var(--line)"/>`;
+  s += `<text x="${pad+4}" y="${pad+10}" font-size="11" fill="var(--muted)">${maxY.toFixed(1)} bits</text>`;
+  if (pts.length) {
+    s += `<polyline fill="none" stroke="var(--accent)" stroke-width="3" points="${pts.map((v,i)=>x(i)+','+y(v)).join(' ')}"/>`;
+    pts.forEach((v,i)=>{ s += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="var(--accent-2)"/>`; });
+  }
+  svg.innerHTML = s;
+}
+
+function renderHyp(dist) {
+  $('#hyp').innerHTML = dist.map(d => {
+    const name = d.id === '__other__' ? 'autre morceau (hors candidats)' : (state.titles[d.id] || d.id);
+    return `<div>${esc(name)}</div><div class="bar"><i style="width:${(d.p*100).toFixed(1)}%"></i></div><div class="p">${(d.p*100).toFixed(0)} %</div>`;
+  }).join('');
+}
+
+function renderCards(cands, proposal) {
+  $('#cards').innerHTML = cands.map(c => {
+    state.titles[c.track_id] = `${c.titre} — ${c.artiste}`;
+    const conf = proposal ? `<span class="conf">${Math.round((c.confiance ?? c.score) * 100)} %</span>` : `<span class="conf">${(c.score).toFixed(2)}</span>`;
+    const src = `<span class="src">${c.source}${c.in_catalog === false ? ' · hors catalogue' : ''}</span>`;
+    const audio = c.in_catalog === false ? `<div class="why">Pas d'extrait : <a href="${esc(c.search_url)}" target="_blank">chercher sur Deezer</a></div>`
+      : (c.preview_url ? `<audio controls preload="none" src="/preview/${encodeURIComponent(c.track_id)}"></audio>` : '');
+    const verdict = proposal ? `<div class="verdict"><button class="primary" onclick="send('oui, c\\'est celui-là : ${esc(c.titre)}')">✅ C'est celui-là</button><button onclick="send('non')">❌ Non</button></div>` : '';
+    return `<div class="card"><div><div class="t">${esc(c.titre)}</div><div class="a">${esc(c.artiste)}${c.annee ? ' · ' + c.annee : ''}</div></div><div>${conf} ${src}</div>${c.raison ? `<div class="why">${esc(c.raison)}</div>` : ''}${audio}${verdict}</div>`;
+  }).join('');
+}
+
+function handle(type, data) {
+  if (type === 'clue') { log('clue', data.text + (data.inferred ? ' (déduit)' : '')); }
+  else if (type === 'search') { state.ns++; log(data.tool === 'web_search' ? 'web' : 'search', `${data.tool} « ${data.query || 'audio'} » → ${data.n} résultats`); kpi(); }
+  else if (type === 'candidates') { renderCards(data.candidates, false); }
+  else if (type === 'question') {
+    state.nq++; kpi();
+    const gain = data.expected_gain != null ? `<div class="hint">gain d'information attendu : ${data.expected_gain.toFixed(2)} bits</div>` : '';
+    const d = msg('agent', `${esc(data.question)}${gain}<div class="options">${data.options.map(o => `<button onclick="send(${JSON.stringify(o)})">${esc(o)}</button>`).join('')}</div>`);
+  }
+  else if (type === 'proposal') { msg('agent', 'Je pense que c\'est l\'un de ces morceaux :'); renderCards(data.candidates, true); }
+  else if (type === 'belief') { state.entropies.push(data.entropy); drawEntropy(); kpi(); renderHyp(data.distribution); }
+  else if (type === 'message') { msg('agent', esc(data.text)); }
+  else if (type === 'error') { msg('sys', 'Erreur : ' + esc(data.text)); }
+}
+
+async function stream(url, body) {
+  const r = await fetch(url, { method: 'POST', body });
+  if (!r.ok) { msg('sys', 'Erreur serveur ' + r.status); return; }
+  const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+  while (true) {
+    const { value, done } = await reader.read(); if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+      const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+      let type = 'message', data = '{}';
+      chunk.split('\n').forEach(l => { if (l.startsWith('event:')) type = l.slice(6).trim(); else if (l.startsWith('data:')) data = l.slice(5).trim(); });
+      if (type === 'end') continue;
+      try { handle(type, JSON.parse(data)); } catch (e) { console.error(e, chunk); }
+    }
+  }
+}
+
+async function send(text) {
+  if (!text) return; msg('user', esc(text)); $('#text').value = '';
+  document.querySelectorAll('.options button, .verdict button').forEach(b => b.disabled = true);
+  const fd = new FormData(); fd.append('text', text);
+  await stream(`/session/${state.sid}/message`, fd);
+}
+window.send = send;
+$('#compose').onsubmit = e => { e.preventDefault(); send($('#text').value.trim()); };
+$('#newBtn').onclick = newSession;
+$('#saveBtn').onclick = async () => { const name = prompt('Nom de la session à enregistrer ?'); if (!name) return; const r = await fetch(`/session/${state.sid}/save/${encodeURIComponent(name)}`, { method: 'POST' }); msg('sys', 'Session enregistrée : ' + (await r.json()).name); loadReplays(); };
+async function loadReplays() { try { const names = await (await fetch('/replays')).json(); $('#replaySel').innerHTML = '<option value="">Rejouer…</option>' + names.map(n => `<option>${esc(n)}</option>`).join(''); } catch (e) {} }
+$('#replaySel').onchange = async e => { const n = e.target.value; if (!n) return; await newSession(); msg('sys', 'Rejeu de « ' + esc(n) + ' »'); await stream(`/replay/${encodeURIComponent(n)}`, null); e.target.value = ''; };
+
+$('#recBtn').onclick = async () => {
+  if (state.recorder) { state.recorder.stop(); return; }
+  try {
+    const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : (MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '');
+    const rec = new MediaRecorder(ms, mime ? { mimeType: mime } : undefined); const chunks = [];
+    rec.ondataavailable = e => chunks.push(e.data);
+    rec.onstop = async () => {
+      ms.getTracks().forEach(t => t.stop()); state.recorder = null; $('#recBtn').textContent = '🎤 10 s';
+      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+      msg('user', '🎤 enregistrement (' + Math.round(blob.size / 1024) + ' ko)');
+      const fd = new FormData(); fd.append('file', blob, 'rec.' + ((rec.mimeType || 'audio/webm').includes('mp4') ? 'm4a' : 'webm'));
+      await stream(`/session/${state.sid}/audio`, fd);
+    };
+    rec.start(); state.recorder = rec; $('#recBtn').textContent = '■ stop'; let s = 10;
+    const tick = setInterval(() => { s--; if (!state.recorder || s <= 0) { clearInterval(tick); if (state.recorder) state.recorder.stop(); } else $('#recBtn').textContent = '■ ' + s + ' s'; }, 1000);
+  } catch (e) { msg('sys', 'Micro indisponible : ' + e.message); }
+};
+$('#videoIn').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; msg('user', '📹 ' + esc(f.name));
+  const fd = new FormData(); fd.append('file', f, f.name);
+  await stream(`/session/${state.sid}/${f.type.startsWith('video') ? 'video' : 'audio'}`, fd); e.target.value = '';
+};
+
+newSession(); loadReplays();
+</script>
+</body>
+</html>
