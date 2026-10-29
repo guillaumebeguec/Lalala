@@ -1,0 +1,28 @@
+# Données locales (extraits audio, caches, index, jeux de test) : jamais commitées
+data/
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+
+# Caches de modèles et artefacts
+.cache/
+*.faiss
+*.npy
+*.npz
+*.pt
+*.safetensors
+
+# Éditeurs / OS
+.DS_Store
+.vscode/
+.idea/
