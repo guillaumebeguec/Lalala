@@ -46,7 +46,7 @@ class Settings:
     search_api_key: str = ""
 
     # Embedders actifs
-    embedders: list[str] = field(default_factory=lambda: ["clap", "peav", "gemini"])
+    embedders: list[str] = field(default_factory=lambda: ["clap", "peav", "gemma", "gemini"])
 
     # Données
     data_dir: Path = PROJECT_ROOT / "data"
@@ -107,6 +107,6 @@ def get_settings() -> Settings:
         gemini_model=env.get("GEMINI_MODEL", Settings.gemini_model),
         search_provider=env.get("SEARCH_PROVIDER", Settings.search_provider),
         search_api_key=env.get("SEARCH_API_KEY", ""),
-        embedders=_as_list(env.get("EMBEDDERS"), ["clap", "peav", "gemini"]),
+        embedders=_as_list(env.get("EMBEDDERS"), ["clap", "peav", "gemma", "gemini"]),
         data_dir=data_dir,
     )

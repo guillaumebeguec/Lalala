@@ -135,18 +135,18 @@ AUDIO_DESC_SCHEMA = {
     "type": "object",
     "required": ["description", "instruments", "tempo", "vocals", "mood"],
     "properties": {
-        "description": {"type": "string", "description": "2-3 sentences in English describing how the track probably sounds"},
-        "instruments": {"type": "array", "items": {"type": "string"}},
+        "description": {"type": "string", "description": "ONE sentence (max 30 words) in English on how the track sounds"},
+        "instruments": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
         "tempo": {"type": "string", "enum": ["slow", "medium", "fast", "unknown"]},
         "vocals": {"type": "string", "enum": ["male", "female", "mixed", "instrumental", "unknown"]},
-        "mood": {"type": "array", "items": {"type": "string"}},
+        "mood": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
     },
 }
 
 _DESC_SYSTEM = (
     "You are a music expert. From song metadata only (title, artist, year, genre, language, short context), "
     "write a plausible description of how the track sounds, as a caption for an audio search engine: "
-    "instruments, tempo, vocals, mood, production style. English only. Never quote lyrics. "
+    "instruments, tempo, vocals, mood, production style. English only, ONE short sentence, be terse. Never quote lyrics. "
     "If you genuinely know the song, describe it; otherwise infer from the artist, genre and era. "
     "Do not mention that you are guessing."
 )
@@ -156,14 +156,14 @@ def audio_description(meta: dict[str, Any], model: str | None = None) -> dict | 
     """Description audio JSON générée une fois par Llama et mise en cache (hash des métadonnées)."""
     cache = DiskCache("llama_audio_desc")
     payload = {k: meta.get(k) for k in ("title", "artist", "year", "genre", "language", "wiki_summary")}
-    key = cache.key(str(sorted(payload.items())), model=model or get_settings().llm_model, v=1)
+    key = cache.key(str(sorted(payload.items())), model=model or get_settings().llm_model, v=2)
     hit = cache.get(key)
     if hit is not None:
         return hit["v"]
     user = "Metadata:\n" + "\n".join(f"- {k}: {v}" for k, v in payload.items() if v)
     try:
         r = llm.chat([{"role": "system", "content": _DESC_SYSTEM}, {"role": "user", "content": user}],
-                     json_schema=AUDIO_DESC_SCHEMA, temperature=0.2, max_tokens=400, model=model)
+                     json_schema=AUDIO_DESC_SCHEMA, temperature=0.2, max_tokens=160, model=model)
         out = r.json
     except llm.LLMError as e:
         logger.warning("description audio impossible pour %s — %s : %s", meta.get("title"), meta.get("artist"), e)

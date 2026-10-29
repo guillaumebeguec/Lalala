@@ -29,7 +29,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=None)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    for name in ("httpx", "httpcore", "openai"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     cat = cb.load(args.subset)
     if args.limit:
         cat = cat.head(args.limit)
