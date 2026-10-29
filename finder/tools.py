@@ -125,6 +125,33 @@ class Toolbox:
                          year=int(r.year) if pd.notna(r.year) else None, score=float(score), source=source,
                          reason=reason, preview_url=prev if isinstance(prev, str) else None)
 
+    def meta_for_belief(self, track_id: str) -> dict:
+        """Métadonnées lues par le modèle d'observation (phase 7) : année, langue, genre, bpm,
+        usage, et les champs générés des fiches (tempo, voix) quand ils existent."""
+        if track_id not in self.catalog.index:
+            return {}
+        r = self.catalog.loc[track_id]
+        out = {"year": int(r.year) if pd.notna(r.year) else None, "language": r.language if isinstance(r.language, str) else None,
+               "genre": r.genre if isinstance(r.genre, str) else None, "usage": r.usage if isinstance(r.usage, str) else None,
+               "bpm": None}
+        if len(self.previews) and track_id in self.previews.index:
+            bpm = self.previews.at[track_id, "bpm"]
+            out["bpm"] = float(bpm) if bpm is not None and not pd.isna(bpm) and bpm > 0 else None
+        extra = self._card_fields().get(track_id, {})
+        out.update({k: v for k, v in extra.items() if v})
+        return out
+
+    def _card_fields(self) -> dict[str, dict]:
+        if not hasattr(self, "_card_fields_cache"):
+            p = get_settings().data_dir / "catalog" / f"cards_{self.subset}.parquet"
+            cache: dict[str, dict] = {}
+            if p.exists():
+                df = pd.read_parquet(p)
+                for r in df.itertuples(index=False):
+                    cache[r.track_id] = {"tempo": getattr(r, "desc_tempo", None), "vocals": getattr(r, "desc_vocals", None)}
+            self._card_fields_cache = cache
+        return self._card_fields_cache
+
     def meta_for_bonus(self, ids: list[str]) -> dict[str, dict]:
         out = {}
         for i in ids:
