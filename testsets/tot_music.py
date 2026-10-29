@@ -175,3 +175,45 @@ if __name__ == "__main__":
     print(f"{len(qs)} demandes, {len(answer_ids(qs))} morceaux réponses distincts")
     print("splits :", collections.Counter(q.split for q in qs))
     print("décennies (balises) :", collections.Counter(q.tag_decade for q in qs).most_common(8))
+
+
+# --------------------------------------------------------------------------- Phase 2 : jeu T1 figé
+
+def build_t1(catalog: "pd.DataFrame", previews: "pd.DataFrame | None" = None, n_eval: int = 200,
+             seed: int = 20261028) -> tuple[list[dict], list[dict]]:
+    """T1 : demandes dont la réponse est dans le catalogue **avec extrait** ; 200 en éval,
+    stratifiées par décennie du morceau réponse, le reste en réserve.
+    Champs : id, texte, reponse_id (+ decennie pour l'analyse, jamais montré à l'agent)."""
+    import pandas as pd  # noqa: F811
+    import random
+
+    cat = catalog.set_index("wasabi_id", drop=False)
+    with_preview = set(previews[previews.status == "ok"].track_id) if previews is not None else None
+    rows = []
+    for q in load():
+        if q.answer_wasabi_id not in cat.index:
+            continue
+        c = cat.loc[q.answer_wasabi_id]
+        if isinstance(c, pd.DataFrame):
+            c = c.iloc[0]
+        if with_preview is not None and c.track_id not in with_preview:
+            continue
+        year = int(c.year) if pd.notna(c.year) else None
+        rows.append({"id": q.id, "texte": q.visible_text, "reponse_id": c.track_id,
+                     "decennie": f"{year // 10 * 10}s" if year else "inconnue", "split_article": q.split,
+                     "query_types": q.query_types})
+    rng = random.Random(seed)
+    rng.shuffle(rows)
+    by_dec: dict[str, list[dict]] = {}
+    for r in rows:
+        by_dec.setdefault(r["decennie"], []).append(r)
+    total = len(rows)
+    eval_rows: list[dict] = []
+    # allocation proportionnelle (au moins 1 par décennie représentée), puis complément
+    for dec, lst in sorted(by_dec.items(), key=lambda kv: -len(kv[1])):
+        k = max(1, round(n_eval * len(lst) / total))
+        eval_rows += lst[:k]
+    eval_rows = eval_rows[:n_eval]
+    chosen = {r["id"] for r in eval_rows}
+    reserve = [r for r in rows if r["id"] not in chosen]
+    return eval_rows, reserve
