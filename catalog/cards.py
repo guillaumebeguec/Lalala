@@ -212,7 +212,9 @@ def build_cards(catalog: pd.DataFrame, with_wiki: bool = True, with_llm: bool = 
     rows = []
     for i, r in enumerate(catalog.itertuples(index=False), 1):
         meta = r._asdict()
-        meta["chart_years"] = list(meta.get("chart_years") or [])
+        cy = meta.get("chart_years")
+        meta["chart_years"] = [int(y) for y in cy] if cy is not None and len(cy) else []
+        meta["year"] = int(meta["year"]) if meta.get("year") is not None and not pd.isna(meta["year"]) else None
         ws = None
         if wiki:
             try:
