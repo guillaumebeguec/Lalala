@@ -33,10 +33,11 @@ class PEAVEmbedder(Embedder):
     supports_video = True
     languages = "en"
 
-    def __init__(self, model_id: str = MODEL_ID, text_space: str = "audio"):
+    def __init__(self, model_id: str = MODEL_ID, text_space: str = "audio", autocast: bool = False):
         super().__init__()
         self.model_id = model_id
         self.text_space = text_space  # "audio" : texte aligné à l'audio ; "video" : aligné à la vidéo
+        self.autocast = autocast      # fp16/bf16 sur MPS : NaN ou plus lent que fp32 (mesuré 28/10) → désactivé
         self._model = None
         self._processor = None
         self.sr = None
@@ -73,35 +74,46 @@ class PEAVEmbedder(Embedder):
         x, sr = item
         return resample(to_mono(np.asarray(x)), sr, self.sr)
 
-    def _forward(self, **kw):
-        inputs = self._processor(return_tensors="pt", padding=True, **kw)
-        inputs = inputs.to(self.device)
-        with torch.inference_mode():
-            return self._model(**inputs)
+    def _inputs(self, **kw):
+        # Le forward complet exige ≥ 2 modalités ; pour une seule, on passe par les méthodes get_*_embeds.
+        return self._processor(return_tensors="pt", padding=True, **kw).to(self.device)
+
+    @staticmethod
+    def _np(t: torch.Tensor) -> np.ndarray:
+        return t.float().cpu().numpy()
+
+    def _ctx(self):
+        if self.autocast and self.device.type in ("mps", "cuda"):
+            return torch.autocast(self.device.type, dtype=torch.float16)
+        import contextlib
+        return contextlib.nullcontext()
 
     def _embed_audio(self, items: Sequence[AudioItem]) -> np.ndarray:
         self._load()
-        out = self._forward(audio=[self._to_wave(it) for it in items], sampling_rate=self.sr)
-        emb = getattr(out, "audio_embeds", None)
-        if emb is None:
-            raise RuntimeError(f"PE-AV : sortie sans audio_embeds ; clés : {list(out.keys())}")
+        inp = self._inputs(audio=[self._to_wave(it) for it in items], sampling_rate=self.sr)
+        with torch.inference_mode(), self._ctx():
+            emb = self._model.get_audio_embeds(inp["input_values"], padding_mask=inp.get("padding_mask"))
         self.dim = emb.shape[-1]
-        return emb.float().cpu().numpy()
+        return self._np(emb)
 
     def _embed_text(self, texts: Sequence[str], task: str) -> np.ndarray:
         self._load()
-        out = self._forward(text=list(texts))
-        key = "text_audio_embeds" if self.text_space == "audio" else "text_video_embeds"
-        emb = getattr(out, key, None)
-        if emb is None:
-            raise RuntimeError(f"PE-AV : sortie sans {key} ; clés : {list(out.keys())}")
+        inp = self._inputs(text=list(texts))
+        # transformers 5.21 : PeAudioVideoModel.get_text_audio_embeds appelle une méthode inexistante,
+        # et PeAudioModel.get_text_audio_embeds lit `hidden_states[-1]` sans les demander. On reproduit
+        # le calcul : dernier état caché du modèle texte, token [CLS], puis tête contrastive texte→audio.
+        if self.text_space != "audio":
+            raise NotImplementedError("PE-AV : seul l'espace texte↔audio est exposé (pas de méthode texte côté vidéo)")
+        sub = self._model.audio_model
+        with torch.inference_mode(), self._ctx():
+            out = sub.text_model(input_ids=inp["input_ids"], attention_mask=inp.get("attention_mask"), return_dict=True)
+            emb = sub.text_audio_head(out.last_hidden_state[:, 0])
         self.dim = emb.shape[-1]
-        return emb.float().cpu().numpy()
+        return self._np(emb)
 
     def _embed_video(self, paths: Sequence[str]) -> np.ndarray:
         self._load()
-        out = self._forward(videos=list(paths))
-        emb = getattr(out, "video_embeds", None)
-        if emb is None:
-            raise RuntimeError(f"PE-AV : sortie sans video_embeds ; clés : {list(out.keys())}")
-        return emb.float().cpu().numpy()
+        inp = self._inputs(videos=list(paths))
+        with torch.inference_mode(), self._ctx():
+            emb = self._model.get_video_embeds(inp["pixel_values_videos"], padding_mask_videos=inp.get("padding_mask_videos"))
+        return self._np(emb)
