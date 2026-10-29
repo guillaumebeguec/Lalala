@@ -125,6 +125,7 @@ SONG_SCHEMA = pa.schema([
     ("album_title", pa.string()),
     ("album_id", pa.string()),
     ("year", pa.int32()),
+    ("deezer_year", pa.int32()),
     ("album_genre", pa.string()),
     ("language", pa.string()),
     ("deezer_id", pa.int64()),
@@ -155,7 +156,10 @@ def project_song(d: dict) -> dict:
         "artist": d.get("name") or None,
         "album_title": d.get("albumTitle") or None,
         "album_id": _oid(d.get("id_album")),
-        "year": _year(d.get("publicationDate"), d.get("publicationDateAlbum")),
+        # `publicationDateAlbum` = année de sortie originale (LyricsWikia) ; `publicationDate` =
+        # date de l'édition Deezer (souvent une réédition/remaster), gardée à part.
+        "year": _year(d.get("publicationDateAlbum"), d.get("publicationDate")),
+        "deezer_year": _year(d.get("publicationDate")),
         "album_genre": d.get("album_genre") or None,
         "language": lang,
         "deezer_id": _int(d.get("id_song_deezer")),

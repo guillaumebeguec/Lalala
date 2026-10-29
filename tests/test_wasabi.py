@@ -17,16 +17,16 @@ SONG = {
 
 def test_project_song_fields_and_no_lyrics():
     r = wasabi.project_song(SONG)
-    assert r["wasabi_id"] == "abc" and r["artist"] == "A" and r["year"] == 1998
+    assert r["wasabi_id"] == "abc" and r["artist"] == "A" and r["year"] == 1997 and r["deezer_year"] == 1998
     assert r["deezer_id"] == 67354194 and r["available_fr"] is True and r["n_countries"] == 2
     assert r["language"] == "english" and r["valence"] == 0.4 and r["url_wikipedia"] is None
     assert "lyrics" not in r and "summary" not in r
     assert set(r) == set(wasabi.SONG_SCHEMA.names)
 
 
-def test_year_fallback_to_album():
-    r = wasabi.project_song({**SONG, "publicationDate": ""})
-    assert r["year"] == 1997
+def test_year_fallback_to_deezer_date():
+    r = wasabi.project_song({**SONG, "publicationDateAlbum": ""})
+    assert r["year"] == 1998
     assert wasabi.project_song({**SONG, "publicationDate": "", "publicationDateAlbum": ""})["year"] is None
 
 

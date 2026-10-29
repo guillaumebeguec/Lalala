@@ -28,6 +28,7 @@ def main() -> int:
     ap.add_argument("--tolerate-truncated", action="store_true", help="accepter un JSON tronqué (échantillons)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
     t0 = time.time()
     counts = wasabi.extract(args.src, args.dst, tolerate_truncated=args.tolerate_truncated, force=args.force)
     print(f"\nExtraction terminée en {time.time() - t0:.0f} s : {counts}")
