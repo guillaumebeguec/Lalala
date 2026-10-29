@@ -16,8 +16,9 @@ def test_gemini_text_embedding_dimension():
     client = genai.Client(api_key=s.gemini_api_key)
     resp = client.models.embed_content(
         model=s.gemini_model,
-        contents="a slow piano ballad with a female voice",
-        config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY", output_dimensionality=s.gemini_dim),
+        # gemini-embedding-2 : pas de task_type, l'instruction est un préfixe texte (doc officielle)
+        contents="task: search result | query: a slow piano ballad with a female voice",
+        config=types.EmbedContentConfig(output_dimensionality=s.gemini_dim),
     )
     vec = np.asarray(resp.embeddings[0].values, dtype="float32")
     assert vec.shape == (s.gemini_dim,)

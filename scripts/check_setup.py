@@ -55,8 +55,8 @@ def main() -> int:
             from google.genai import types
             client = genai.Client(api_key=s.gemini_api_key)
             resp = client.models.embed_content(
-                model=s.gemini_model, contents="test",
-                config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY", output_dimensionality=s.gemini_dim))
+                model=s.gemini_model, contents="task: search result | query: test",
+                config=types.EmbedContentConfig(output_dimensionality=s.gemini_dim))
             dim = len(resp.embeddings[0].values)
             line("Gemini " + s.gemini_model, dim == s.gemini_dim, f"dimension {dim} (attendu {s.gemini_dim})")
         except Exception as e:  # noqa: BLE001
