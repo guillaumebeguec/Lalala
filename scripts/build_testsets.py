@@ -25,7 +25,7 @@ from testsets.common import read_jsonl, testsets_dir, write_jsonl  # noqa: E402
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--sets", default="t1,t2,t3,t4")
+    ap.add_argument("--sets", default="t1,t2,t3,t4,t6a")
     ap.add_argument("--t4-hits", type=int, default=300)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -42,9 +42,21 @@ def main() -> int:
         write_jsonl(d / "t1_tot_reserve.jsonl", res)
         dec = collections.Counter(r["decennie"] for r in ev)
         qt = collections.Counter(t for r in ev for t in r["query_types"])
-        report += ["## T1 — ToT_Music", "", f"{len(ev)} demandes d'évaluation, {len(res)} en réserve (réponse dans le catalogue avec extrait).", "",
+        splits = collections.Counter(r["split_article"] for r in ev)
+        multi = sum(1 for r in ev if len(r.get("reponse_ids", [])) > 1)
+        # C1 : `user_created` = demandes accompagnées d'un enregistrement de l'utilisateur (étiquette
+        # « Recording » de l'article : vocaroo, etc.). On compte celles dont le texte contient encore un lien.
+        from testsets import tot_music as tm
+        all_q = tm.load(download_if_missing=False)
+        uc = [q for q in all_q if "user_created" in q.query_types]
+        uc_links = sum(1 for q in uc if "http" in (q.text or "").lower())
+        report += ["## T1 — ToT_Music", "", f"{len(ev)} demandes d'évaluation, {len(res)} en réserve (réponse dans le catalogue avec extrait).",
+                   f"Split de l'article dans l'échantillon d'éval : {dict(splits)} (C1 : tiré du split `test`). "
+                   f"{multi} demandes ont plusieurs enregistrements acceptables (ISRC multiples).", "",
                    "| Décennie | Éval |", "|---|---|", *[f"| {k} | {v} |" for k, v in sorted(dec.items())], "",
-                   "Types de demande (éval) : " + ", ".join(f"{k} {v}" for k, v in qt.most_common()), ""]
+                   "Types de demande (éval) : " + ", ".join(f"{k} {v}" for k, v in qt.most_common()), "",
+                   f"`user_created` (C1) : {len(uc)} demandes dans tout ToT_Music ; {uc_links} contiennent encore un lien vers un média "
+                   "de l'utilisateur (vocaroo…), dont l'accessibilité n'a pas été vérifiée (pas de téléchargement).", ""]
     if "t2" in sets:
         out = fr_memories.write_t2(cat)
         rows = read_jsonl(out)
@@ -62,6 +74,12 @@ def main() -> int:
         report += ["## T4 — Reprises", "", f"{len(rows)} paires reprise → original ({len({r['reponse_id'] for r in rows})} originaux).", "",
                    "| Type | Paires |", "|---|---|", *[f"| {k} | {v} |" for k, v in kinds.most_common()], "",
                    "Contrôle manuel de 20 paires : à faire (voir `scripts/review_pairs.py`).", ""]
+    if "t6a" in sets:
+        from testsets import chad
+        out, stats = chad.write_t6a(cat, prev)
+        report += ["## T6a — Fredonnements CHAD", "", f"{stats['cases']} fredonnements → original du catalogue ; groupes CHAD {stats['groups']}, "
+                   f"titre YouTube lu {stats['with_title']}, titre/artiste parsés {stats['parsed']}, dans le catalogue {stats['in_catalog']}, "
+                   f"avec extrait {stats['with_preview']}. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).", ""]
     vids = sorted((get_settings().manual_dir / "video").glob("*.mp4"))
     report += ["## T5 — Vidéo", "", f"{len(vids)} extraits dans `data/manual/video/`.", ""]
     path = PROJECT_ROOT / "eval" / "testsets.md"

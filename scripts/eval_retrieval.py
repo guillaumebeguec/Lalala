@@ -45,11 +45,25 @@ def _restrict(cases: list[dict], ids: set[str]) -> list[dict]:
     return [c for c in cases if c["reponse_id"] in ids]
 
 
+def _rank(hits, case: dict) -> int | None:
+    """C1 : rang du premier enregistrement acceptable (`reponse_ids`, sinon `reponse_id`)."""
+    ok = set(case.get("reponse_ids") or [case["reponse_id"]])
+    for i, (id_, _) in enumerate(hits, 1):
+        if id_ in ok:
+            return i
+    return None
+
+
 def eval_text_set(name: str, cases: list[dict], embedders: list[str], subset: str, bm25: BM25Index | None) -> dict[str, list]:
     runs: dict[str, list] = defaultdict(list)  # système → liste de hits par cas
     if bm25:
         for c in cases:
             runs["bm25"].append(bm25.search(c["texte"], k=K))
+        # C1 / C6 : reformulations LLM de l'article ToT_Music comme baseline directe (BM25 sur `reform`)
+        if any(c.get("reformulations") for c in cases):
+            for c in cases:
+                rf = (c.get("reformulations") or {}).get("reform") or (c.get("reformulations") or {}).get("reform_50")
+                runs["bm25:reformulation-article"].append(bm25.search(rf, k=K) if rf else [])
     for name_e in embedders:
         emb = get_embedder(name_e)
         q = emb.embed_text([c["texte"] for c in cases], task="query")
@@ -164,19 +178,33 @@ def main() -> int:
         add_fusions(runs, len(cases))
         report += [f"## {name}", "", f"{len(cases)} cas ; {time.time() - t0:.0f} s.", "", "| Système | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
         for sysname, lists in runs.items():
-            ranks = [rank_of(h, c["reponse_id"]) for h, c in zip(lists, cases)]
+            ranks = [_rank(h, c) for h, c in zip(lists, cases)]
             m = summarize(ranks)
             report.append(f"| {sysname} | {m['top1']:.3f} | {m['top5']:.3f} | {m['top10']:.3f} | {m['mrr']:.3f} |")
             rows_csv.append({"set": name, "system": sysname, **{k: round(v, 4) for k, v in m.items()}})
             if sysname.startswith("rrf(k=60)"):
                 for h, c, r in list(zip(lists, cases, ranks))[:5]:
                     examples.append((name, c, r, h[:3]))
-        # exemples qualitatifs par SNR / type
-        if kind == "audio" and runs:
-            best = max(runs, key=lambda k: summarize([rank_of(h, c["reponse_id"]) for h, c in zip(runs[k], cases)])["top5"])
+        # C1 : découpage par type de demande (T1)
+        if kind == "text" and runs and any(c.get("query_types") for c in cases):
+            best = max(runs, key=lambda k: summarize([_rank(h, c) for h, c in zip(runs[k], cases)])["top10"])
             by = defaultdict(list)
             for h, c in zip(runs[best], cases):
-                by[str(c.get("snr_db", c.get("kind")))].append(rank_of(h, c["reponse_id"]))
+                for t in c.get("query_types") or ["?"]:
+                    by[t].append(_rank(h, c))
+            report += ["", f"Détail de `{best}` par type de demande (`query_types`) :", "", "| Type | n | top-1 | top-5 | top-10 |", "|---|---|---|---|---|"]
+            for g, rk in sorted(by.items()):
+                m = summarize(rk)
+                report.append(f"| {g} | {m['n']} | {m['top1']:.3f} | {m['top5']:.3f} | {m['top10']:.3f} |")
+            if "bm25" in runs:
+                report += ["", "Comparabilité (C6) : la ligne `bm25` reproduit la baseline de l'article (requête complète) sur le split test de ToT_Music, "
+                           f"mais sur notre catalogue de {len(ids)} morceaux au lieu du corpus WASABI complet : la tâche y est plus facile, les chiffres ne sont pas directement comparables."]
+        # exemples qualitatifs par SNR / type
+        if kind == "audio" and runs:
+            best = max(runs, key=lambda k: summarize([_rank(h, c) for h, c in zip(runs[k], cases)])["top5"])
+            by = defaultdict(list)
+            for h, c in zip(runs[best], cases):
+                by[str(c.get("snr_db", c.get("kind")))].append(_rank(h, c))
             report += ["", f"Détail de `{best}` par sous-groupe (SNR dB ou type) :", "", "| Groupe | n | top-1 | top-5 |", "|---|---|---|---|"]
             for g, rk in sorted(by.items(), key=str):
                 m = summarize(rk)
