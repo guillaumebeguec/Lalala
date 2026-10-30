@@ -182,17 +182,49 @@ def storage_mode() -> str:
 
 
 _audio_http = httpx.Client(timeout=30, follow_redirects=True, headers={"User-Agent": "SoundTrace/0.1"})
+_fresh: dict[str, tuple[float, str | None]] = {}
+_FRESH_TTL = 20 * 60  # les URL d'extrait Deezer sont signées (`hdnea`) et expirent en moins d'une heure
+_dz_client = None
+
+
+def fresh_preview_url(track_id: str, fallback: str | None = None) -> str | None:
+    """URL d'extrait courante : relue via `/track/{id}` (sans cache) si l'identifiant est Deezer ;
+    mémorisée 20 min. Pour iTunes (URL stables), on renvoie `fallback`."""
+    global _dz_client
+    now = time.time()
+    hit = _fresh.get(track_id)
+    if hit and now - hit[0] < _FRESH_TTL:
+        return hit[1] or fallback
+    if not track_id.startswith("dz"):
+        return fallback
+    try:
+        if _dz_client is None:
+            _dz_client = DeezerClient()
+        t = _dz_client.get(f"/track/{int(track_id[2:])}", use_cache=False)
+        url = (t or {}).get("preview") or None
+    except (DeezerError, ValueError) as e:
+        logger.warning("rafraîchissement d'extrait %s : %s", track_id, e)
+        url = None
+    _fresh[track_id] = (now, url)
+    return url or fallback
 
 
 @retry(retry=retry_if_exception_type(httpx.TransportError), stop=stop_after_attempt(4),
        wait=wait_exponential(min=1, max=15), reraise=True)
 def fetch_audio(track_id: str, preview_url: str) -> bytes | None:
-    """Octets MP3 de l'extrait. En mode `disk`, cache dans data/previews/<track_id>.mp3."""
+    """Octets MP3 de l'extrait. En mode `disk`, cache dans data/previews/<track_id>.mp3.
+    Sur 403/404 (URL signée expirée), l'URL est rafraîchie une fois via l'API Deezer."""
     mode = storage_mode()
     path = get_settings().previews_dir / f"{track_id}.mp3"
     if mode == "disk" and path.exists():
         return path.read_bytes()
-    r = _audio_http.get(preview_url)
+    hit = _fresh.get(track_id)
+    url = hit[1] if hit and time.time() - hit[0] < _FRESH_TTL and hit[1] else preview_url
+    r = _audio_http.get(url)
+    if r.status_code in (403, 404, 410) and track_id.startswith("dz"):
+        url2 = fresh_preview_url(track_id)
+        if url2 and url2 != url:
+            r = _audio_http.get(url2)
     if r.status_code in (403, 404, 410):
         logger.warning("extrait indisponible (%s) : %s", r.status_code, track_id)
         return None
