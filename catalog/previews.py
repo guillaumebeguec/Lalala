@@ -97,21 +97,26 @@ def resolve_one(dz: DeezerClient, row, min_sim: float = 0.7) -> dict:
     """Retourne la ligne previews pour un morceau du catalogue (sans audio)."""
     out = {"track_id": row.track_id, "deezer_id": None, "preview_url": None, "provider": None, "status": "none",
            "match_score": None, "resolved_title": None, "resolved_artist": None, "release_date": None,
-           "bpm": None, "rank": None, "duration": None}
+           "bpm": None, "rank": None, "duration": None, "resolved_by": None}
     t = None
     try:
         if pd.notna(row.deezer_id):
             t = dz.track(int(row.deezer_id))
             if t and (not t.get("readable", True) or not t.get("preview")):
                 t = None
+            if t:
+                out["resolved_by"] = "id"
         if t is None and isinstance(row.isrc, str) and row.isrc:
             t = dz.track_by_isrc(row.isrc)
             if t and (not t.get("readable", True) or not t.get("preview")):
                 t = None
+            if t:
+                out["resolved_by"] = "isrc"
         if t is None:
             for c in dz.search_track(row.artist, row.title, limit=5):
                 if c.get("preview") and c.get("readable", True) and _match_score(row.title, row.artist, c) >= 0.85:
                     t = c
+                    out["resolved_by"] = "search"
                     break
     except DeezerError as e:
         logger.warning("deezer %s : %s", row.track_id, e)
@@ -160,9 +165,9 @@ def resolve_all(catalog: pd.DataFrame, use_itunes: bool = True, workers: int = 4
                     logger.warning("itunes %s : %s", row.name, e)
                     continue
                 if m:
-                    df.loc[idx, ["preview_url", "provider", "status", "resolved_title", "resolved_artist", "match_score"]] = [
+                    df.loc[idx, ["preview_url", "provider", "status", "resolved_title", "resolved_artist", "match_score", "resolved_by"]] = [
                         m["previewUrl"], "itunes", "ok", m.get("trackName"), m.get("artistName"),
-                        round(0.6 * similarity(row.title, m.get("trackName")) + 0.4 * similarity(row.artist, m.get("artistName")), 3)]
+                        round(0.6 * similarity(row.title, m.get("trackName")) + 0.4 * similarity(row.artist, m.get("artistName")), 3), "itunes"]
     df.to_parquet(out, index=False)
     logger.info("résolution terminée : %d lignes, ok %.1f %% (deezer %d, itunes %d), mismatch %d, none %d ; requêtes Deezer %d, cache %d",
                 len(df), 100 * df.status.eq("ok").mean(), int((df.provider == "deezer").sum()), int((df.provider == "itunes").sum()),

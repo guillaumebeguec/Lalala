@@ -49,6 +49,16 @@ def write_catalog_report(df: pd.DataFrame, path: Path | None = None, previews: p
         lines += ["## Extraits audio", "", f"Extraits obtenus : {_pct(ok)} ({int(previews.status.eq('ok').sum())} / {len(previews)}).", ""]
         by = previews.groupby("provider").status.apply(lambda s: s.eq("ok").mean())
         lines += ["| Fournisseur | Taux |", "|---|---|", *[f"| {k} | {_pct(v)} |" for k, v in by.items()], ""]
+        if "resolved_by" in previews.columns:
+            okp = previews[previews.status == "ok"]
+            tot_ids = set(df[df.is_tot_answer].track_id)
+            lines += ["Mode de résolution des extraits (C1) :", "", "| Mode | Tous | Réponses ToT |", "|---|---|---|"]
+            for mode in ("id", "isrc", "search", "itunes"):
+                n_all = int((okp.resolved_by == mode).sum())
+                n_tot = int((okp[okp.track_id.isin(tot_ids)].resolved_by == mode).sum())
+                lines.append(f"| {mode} | {n_all} | {n_tot} |")
+            n_none = int((previews.status != "ok").sum()); n_none_tot = int((previews[previews.track_id.isin(tot_ids)].status != "ok").sum())
+            lines += [f"| non trouvé | {n_none} | {n_none_tot} |", ""]
     lines += [
         "## Réponses ToT_Music",
         "",
