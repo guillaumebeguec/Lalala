@@ -36,7 +36,7 @@ router = APIRouter(prefix="/api")
 
 _TOOLBOX = None
 RESULTS: dict[str, dict[str, Any]] = {}
-MODEL_LABELS = {"clap": "CLAP", "peav": "PE-AV", "gemma": "EmbeddingGemma 2", "gemini": "Gemini"}
+MODEL_LABELS = {"clap": "CLAP", "peav": "PE-AV", "gemma": "EmbeddingGemma 2", "gemini": "Gemini", "coverhunter": "CoverHunter"}
 
 
 def toolbox():
@@ -164,9 +164,11 @@ class Pipeline:
         else:
             yield self.emit("input", {"kind": "text", "note": self.text, "waveform": []})
 
-        emb_label = " · ".join(MODEL_LABELS.get(n, n) for n in tb.active_embedders())
+        general = [n for n in tb.active_embedders() if n != "coverhunter"]
+        has_cover = "coverhunter" in tb.active_embedders()
+        emb_label = " · ".join(MODEL_LABELS.get(n, n) for n in general)
         audio_steps = [Step("isolate", "Isolating the music", "SAM Audio"), Step("exact", "Exact match check", "Chromaprint"),
-                       Step("audio_sim", "Audio similarity search", emb_label)]
+                       Step("audio_sim", "Audio similarity search", emb_label)] + ([Step("version", "Version matching", "CoverHunter")] if has_cover else [])
         text_steps = [Step("analyze", "Reading your description", "Llama 3.1"), Step("catalog", "Catalogue search", "BM25 · " + emb_label)]
         common = [Step("rank", "Ranking candidates", "Llama 3.1"), Step("verify", "Verification", "Web")]
         self.steps = (audio_steps if self.audio else []) + (text_steps if self.text else []) + common
@@ -195,6 +197,14 @@ class Pipeline:
             yield self.step(s_sim, "running", "Comparing the sound of the music itself…")
             absorb(res["candidates"], "audio")
             yield self.step(s_sim, "done", f"{len(res['candidates'])} candidates by audio similarity.")
+            if has_cover:
+                s_ver = self._find("version")
+                n_ver = (res.get("lists") or {}).get("coverhunter", 0)
+                if n_ver:
+                    yield self.step(s_ver, "running", "Looking for the same song in another version…")
+                    yield self.step(s_ver, "done", "Compared melody and harmony across versions.")
+                else:
+                    yield self.step(s_ver, "skipped", "Skipped")
         if self.text:
             s_an, s_cat = self._find("analyze"), self._find("catalog")
             yield self.step(s_an, "running", "Extracting clues (era, language, instruments)…")
@@ -232,6 +242,8 @@ class Pipeline:
             proofs.append({"source": "Fingerprint", "text": "The audio fingerprint matches this exact recording."})
         if best.reason:
             proofs.append({"source": "Context", "text": best.reason})
+        if self.audio and not exact and best.source == "version":
+            proofs.append({"source": "Version", "text": "Same song, different version (cover or live)."})
         if self.audio and not exact:
             proofs.append({"source": "Audio", "text": "The music itself sounds closest to this track across the audio encoders."})
         h = analysis.get("hints") or {}

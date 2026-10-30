@@ -97,7 +97,7 @@ class Embedder(ABC):
 
 
 def get_embedder(name: str) -> Embedder:
-    """Fabrique par nom (`clap`, `peav`, `gemma`, `gemini`), import différé pour ne charger que le nécessaire."""
+    """Fabrique par nom (`clap`, `peav`, `gemma`, `gemini`, `coverhunter`), import différé pour ne charger que le nécessaire."""
     if name == "clap":
         from core.embedders.clap import ClapEmbedder
         return ClapEmbedder()
@@ -110,4 +110,7 @@ def get_embedder(name: str) -> Embedder:
     if name == "gemini":
         from core.embedders.gemini import GeminiEmbedder
         return GeminiEmbedder()
+    if name == "coverhunter":
+        from core.embedders.coverhunter import CoverHunterEmbedder
+        return CoverHunterEmbedder()
     raise ValueError(f"embedder inconnu : {name}")

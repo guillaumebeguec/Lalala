@@ -72,7 +72,7 @@ def text_vectors(emb, cards: pd.DataFrame, batch: int, limit: int | None) -> tup
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--embedder", required=True, choices=["clap", "peav", "gemma", "gemini"])
+    ap.add_argument("--embedder", required=True, choices=["clap", "peav", "gemma", "gemini", "coverhunter"])
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
     ap.add_argument("--modality", default="audio,text")
     ap.add_argument("--batch", type=int, default=8)
@@ -91,6 +91,9 @@ def main() -> int:
         stats.update(subset=args.subset, dim=int(V.shape[1]) if len(V) else emb.dim)
         (index_dir(args.embedder, "audio") / "stats.json").write_text(json.dumps(stats, indent=1))
         log.info("audio : %s", stats)
+    if "text" in mods and args.embedder == "coverhunter":
+        log.info("coverhunter : pas d'index texte (audio seulement)")
+        mods.discard("text")
     if "text" in mods:
         cards_path = get_settings().data_dir / "catalog" / f"cards_{args.subset}.parquet"
         if not cards_path.exists():

@@ -229,17 +229,28 @@ class Toolbox:
                     exact = self._candidate(hits[0][0], hits[0][1], "fingerprint", "empreinte audio identique (même enregistrement)")
             except Exception as e:  # noqa: BLE001
                 logger.warning("chromaprint : %s", e)
-        lists = []
+        lists, weights, names = [], [], []
         for name in self.active_embedders():
             va = self.vec(name, "audio")
             if va is None:
                 continue
             lists.append(va.search(self.emb(name).embed_audio([audio]), k=50)[0])
-        fused = rrf(lists, k=self.rrf_k, top=self.top_k) if lists else []
-        cands = [c for c in (self._candidate(i, s, "catalog") for i, s in fused) if c]
+            # C2 : sans empreinte exacte, la requête est probablement une autre version → CoverHunter pèse plus
+            weights.append((2.0 if exact is None else 1.0) if name == "coverhunter" else 1.0)
+            names.append(name)
+        fused = rrf(lists, k=self.rrf_k, weights=weights, top=self.top_k) if lists else []
+        cover_top = {i for i, _ in lists[names.index("coverhunter")][:5]} if "coverhunter" in names else set()
+        cands = []
+        for i, sc in fused:
+            c = self._candidate(i, sc, "catalog")
+            if c:
+                if i in cover_top and exact is None:
+                    c.reason = "Same song, different version (cover or live)."
+                    c.source = "version"
+                cands.append(c)
         if exact:
             cands = [exact] + [c for c in cands if c.track_id != exact.track_id]
-        return {"candidates": cands, "exact": exact}
+        return {"candidates": cands, "exact": exact, "lists": dict(zip(names, [len(l) for l in lists]))}
 
     def web_search(self, query: str, k: int = 6) -> list[dict]:
         self.queries_done.append("web:" + query)
