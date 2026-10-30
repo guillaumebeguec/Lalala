@@ -113,4 +113,7 @@ def get_embedder(name: str) -> Embedder:
     if name == "coverhunter":
         from core.embedders.coverhunter import CoverHunterEmbedder
         return CoverHunterEmbedder()
+    if name == "hum2song":
+        from core.embedders.hum2song import Hum2SongEmbedder
+        return Hum2SongEmbedder()
     raise ValueError(f"embedder inconnu : {name}")
