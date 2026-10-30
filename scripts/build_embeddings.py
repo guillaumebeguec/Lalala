@@ -96,6 +96,7 @@ def main() -> int:
     ap.add_argument("--modality", default="audio,text")
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--extra-ids", default=None, help="fichiers jsonl (séparés par des virgules) dont les `reponse_id` sont ajoutés au pool indexé (ex. T6a)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     for name in ("httpx", "httpcore", "openai", "urllib3"):
@@ -103,6 +104,15 @@ def main() -> int:
     names = [n.strip() for n in args.embedder.split(",") if n.strip()]
     embs = {n: get_embedder(n) for n in names}
     cat = cb.load(args.subset)
+    if args.extra_ids:
+        from testsets.common import read_jsonl
+        extra = set()
+        for f in args.extra_ids.split(","):
+            extra |= {c["reponse_id"] for c in read_jsonl(Path(f.strip()))}
+        full = cb.load("full")
+        add = full[full.track_id.isin(extra) & ~full.track_id.isin(set(cat.track_id))]
+        log.info("pool : %d morceaux du sous-ensemble + %d cibles supplémentaires", len(cat), len(add))
+        cat = pd.concat([cat, add], ignore_index=True)
     mods = {m.strip() for m in args.modality.split(",")}
     if "audio" in mods:
         prev = load_previews()

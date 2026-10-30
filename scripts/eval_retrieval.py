@@ -77,7 +77,7 @@ def eval_text_set(name: str, cases: list[dict], embedders: list[str], subset: st
 
 
 def _query_audio(case: dict, catalog_prev: pd.DataFrame | None) -> bytes | tuple[np.ndarray, int] | None:
-    if case.get("kind") == "real" and case.get("file"):
+    if case.get("file"):   # enregistrements réels, fredonnements CHAD (T6a)
         return Path(case["file"]).read_bytes()
     if "cover_preview_url" in case:
         return fetch_audio(f"cover{case['cover_deezer_id']}", case["cover_preview_url"], deezer_id=case["cover_deezer_id"])
@@ -139,7 +139,7 @@ def add_fusions(runs: dict[str, list], n: int) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
-    ap.add_argument("--sets", default="t1,t2,t3,t4")
+    ap.add_argument("--sets", default="t1,t2,t3,t4,t6a")
     ap.add_argument("--embedders", default=None, help="défaut : embedders actifs de la config")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--no-fingerprint", action="store_true")
@@ -162,9 +162,14 @@ def main() -> int:
               f"Catalogue : {len(cat)} morceaux ; embedders : {', '.join(embedders)} ; BM25 : {'oui' if bm25 else 'non'} ; Chromaprint : {'oui' if fp else 'non'}.", ""]
     rows_csv = []
     examples = []
+    # le pool évalué = sous-ensemble + cibles ajoutées aux index (--extra-ids de build_embeddings)
+    for name_e in embedders:
+        if VectorIndex.exists(name_e, "audio"):
+            ids |= set(VectorIndex.load(name_e, "audio").ids)
     for name, fname, kind in (("T1 ToT_Music", "t1_tot_eval.jsonl", "text"), ("T2 Souvenirs FR", "t2_fr_memories.jsonl", "text"),
-                              ("T3 Bruit", "t3_noisy.jsonl", "audio"), ("T4 Reprises", "t4_covers.jsonl", "audio")):
-        key = name.split()[0].lower()
+                              ("T3 Bruit", "t3_noisy.jsonl", "audio"), ("T4 Reprises", "t4_covers.jsonl", "audio"),
+                              ("T6a Fredonnements CHAD", "t6a_chad_hummings.jsonl", "audio")):
+        key = name.split()[0].lower()  # t1, t2, t3, t4, t6a
         if key not in sets or not (d / fname).exists():
             continue
         cases = _restrict(read_jsonl(d / fname), ids)
@@ -204,7 +209,11 @@ def main() -> int:
             best = max(runs, key=lambda k: summarize([_rank(h, c) for h, c in zip(runs[k], cases)])["top5"])
             by = defaultdict(list)
             for h, c in zip(runs[best], cases):
-                by[str(c.get("snr_db", c.get("kind")))].append(_rank(h, c))
+                g = c.get("snr_db", c.get("kind"))
+                if c.get("original_interval"):
+                    a = c["original_interval"][0]
+                    g = f"fragment à {a:.0f}-{c['original_interval'][1]:.0f} s ({'début' if a < 60 else 'milieu' if a < 150 else 'fin'})"
+                by[str(g)].append(_rank(h, c))
             report += ["", f"Détail de `{best}` par sous-groupe (SNR dB ou type) :", "", "| Groupe | n | top-1 | top-5 |", "|---|---|---|---|"]
             for g, rk in sorted(by.items(), key=str):
                 m = summarize(rk)
