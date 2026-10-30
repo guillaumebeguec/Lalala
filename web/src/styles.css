@@ -1,0 +1,28 @@
+@import "@fontsource/bricolage-grotesque/800.css";
+@import "@fontsource/dm-sans/400.css";
+@import "@fontsource/dm-sans/500.css";
+@import "@fontsource/dm-sans/700.css";
+@import "@fontsource/dm-mono/400.css";
+@import "@fontsource/dm-mono/500.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #ff6fb5;
+  --accent-soft: #ffc2e0;
+  --scale: 1;
+}
+:root[data-accent="mint"] { --accent: #7ce0c3; --accent-soft: #c9f3e6; }
+:root[data-accent="violet"] { --accent: #8b7cff; --accent-soft: #d2ccff; }
+
+html { background: #15122B; }
+body { @apply bg-bg text-text font-sans antialiased; margin: 0; font-size: calc(16px * var(--scale)); }
+#root { min-height: 100vh; }
+
+*:focus-visible { outline: 3px solid #FFE066; outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

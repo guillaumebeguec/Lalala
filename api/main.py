@@ -34,6 +34,9 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SoundTrace", version="0.1")
 
+from api.demo import router as demo_router  # noqa: E402 — routes /api/* du front « Lalala » (FRONT_PLAN.md)
+app.include_router(demo_router)
+
 SESSIONS: dict[str, dict[str, Any]] = {}
 _TOOLBOX = None
 
@@ -189,9 +192,18 @@ def list_replays():
     return sorted(p.stem for p in replays_dir().glob("*.json"))
 
 
+_DIST = PROJECT_ROOT / "web" / "dist"
+if _DIST.exists():
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="assets")
+
+
 @app.get("/")
 def index():
-    return FileResponse(PROJECT_ROOT / "web" / "index.html")
+    """Build Vite du front (web/dist) en démo ; sinon l'ancien front vanilla (web_legacy)."""
+    if (_DIST / "index.html").exists():
+        return FileResponse(_DIST / "index.html")
+    return FileResponse(PROJECT_ROOT / "web_legacy" / "index.html")
 
 
 @app.get("/health")
