@@ -24,6 +24,15 @@ Généré depuis `data/catalog/catalog.parquet` (24361 morceaux, 2000 dans le so
 | langue | 88.6 % |
 | MusicBrainz | 12.4 % |
 
+## Extraits audio
+
+Extraits obtenus : 97.1 % (23659 / 24361).
+
+| Fournisseur | Taux |
+|---|---|
+| deezer | 97.7 % |
+| itunes | 100.0 % |
+
 ## Réponses ToT_Music
 
 1715 morceaux réponses distincts dans le catalogue, 100.0 % avec identifiant Deezer courant.
