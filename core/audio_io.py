@@ -32,29 +32,76 @@ def resample(x: np.ndarray, sr: int, target_sr: int) -> np.ndarray:
     return librosa.resample(x, orig_sr=sr, target_sr=target_sr, res_type="soxr_hq").astype(np.float32)
 
 
-def load_audio(src: bytes | str | Path, sr: int | None = None, mono: bool = True) -> tuple[np.ndarray, int]:
-    """Charge un fichier ou des octets (mp3, wav, m4a…). Renvoie (signal, sr)."""
-    import soundfile as sf
-    try:
-        f = io.BytesIO(src) if isinstance(src, (bytes, bytearray)) else str(src)
-        x, native_sr = sf.read(f, dtype="float32", always_2d=False)
-    except Exception as e:  # noqa: BLE001 — libsndfile sans mp3/m4a : repli audioread via librosa
-        logger.debug("soundfile a échoué (%s), repli librosa", e)
-        import librosa
-        if isinstance(src, (bytes, bytearray)):
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix=".mp3", delete=True) as tmp:
-                tmp.write(src)
-                tmp.flush()
-                x, native_sr = librosa.load(tmp.name, sr=None, mono=False)
-        else:
-            x, native_sr = librosa.load(str(src), sr=None, mono=False)
-        x = x.T if x.ndim == 2 else x
+def sniff_suffix(data: bytes) -> str:
+    """Extension probable d'après les octets de tête (webm/opus, mp4/m4a, ogg, wav, flac, mp3)."""
+    head = data[:16]
+    if head.startswith(b"\x1a\x45\xdf\xa3"):
+        return ".webm"
+    if head[4:8] == b"ftyp":
+        return ".m4a"
+    if head.startswith(b"OggS"):
+        return ".ogg"
+    if head.startswith(b"RIFF"):
+        return ".wav"
+    if head.startswith(b"fLaC"):
+        return ".flac"
+    return ".mp3"
+
+
+def _decode_with_ffmpeg(src: Path | str, sr: int | None, mono: bool) -> tuple[np.ndarray, int]:
+    """Décodage par ffmpeg (webm/opus, m4a/aac, mp4, mp3 abîmé…) vers PCM float32."""
+    import shutil
+    import subprocess
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("ffmpeg introuvable (brew install ffmpeg)")
+    cmd = [ffmpeg, "-v", "error", "-nostdin", "-i", str(src), "-f", "f32le", "-acodec", "pcm_f32le"]
     if mono:
-        x = to_mono(x)
-    if sr is not None:
-        x = resample(x, native_sr, sr)
-        native_sr = sr
+        cmd += ["-ac", "1"]
+    if sr:
+        cmd += ["-ar", str(sr)]
+    cmd.append("-")
+    out = subprocess.run(cmd, capture_output=True, check=False)
+    if out.returncode != 0 or not out.stdout:
+        raise RuntimeError(f"ffmpeg : {out.stderr.decode(errors='ignore')[:200]}")
+    x = np.frombuffer(out.stdout, dtype=np.float32)
+    if not sr:
+        # fréquence native : relue via ffprobe
+        ffprobe = shutil.which("ffprobe")
+        probe = subprocess.run([ffprobe, "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate",
+                                "-of", "csv=p=0", str(src)], capture_output=True, text=True) if ffprobe else None
+        sr = int(probe.stdout.strip().splitlines()[0]) if probe and probe.stdout.strip() else 48_000
+    return x.copy(), int(sr)
+
+
+def load_audio(src: bytes | str | Path, sr: int | None = None, mono: bool = True) -> tuple[np.ndarray, int]:
+    """Charge un fichier ou des octets (mp3, wav, webm/opus, m4a, mp4…). Renvoie (signal, sr).
+
+    libsndfile d'abord (wav, flac, mp3) ; sinon ffmpeg (enregistrements du navigateur en
+    webm/opus ou m4a/aac, vidéos)."""
+    import soundfile as sf
+    is_bytes = isinstance(src, (bytes, bytearray))
+    suffix = sniff_suffix(bytes(src[:16])) if is_bytes else Path(str(src)).suffix.lower()
+    if suffix in (".wav", ".flac", ".mp3", ".ogg"):
+        try:
+            f = io.BytesIO(src) if is_bytes else str(src)
+            x, native_sr = sf.read(f, dtype="float32", always_2d=False)
+            if mono:
+                x = to_mono(x)
+            if sr is not None:
+                x = resample(x, native_sr, sr)
+                native_sr = sr
+            return x.astype(np.float32), int(native_sr)
+        except Exception as e:  # noqa: BLE001 — mp3 abîmé, codec non géré : on passe à ffmpeg
+            logger.debug("soundfile a échoué (%s), repli ffmpeg", e)
+    if is_bytes:
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
+            tmp.write(src)
+            tmp.flush()
+            x, native_sr = _decode_with_ffmpeg(tmp.name, sr, mono)
+    else:
+        x, native_sr = _decode_with_ffmpeg(src, sr, mono)
     return x.astype(np.float32), int(native_sr)
 
 
