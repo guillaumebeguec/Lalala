@@ -105,9 +105,21 @@ class Toolbox:
         return self.embedders if self.embedders is not None else get_settings().active_embedders
 
     def vec(self, embedder: str, modality: str) -> VectorIndex | None:
+        """Index FAISS (embedder × modalité), chargé à la demande. Un index absent est re-testé à
+        chaque appel (bon marché) pour que l'API en cours d'exécution voie les index construits
+        après son démarrage ; un index mis à jour sur disque est rechargé (mtime)."""
         key = (embedder, modality)
-        if key not in self._vec:
-            self._vec[key] = VectorIndex.load(embedder, modality) if VectorIndex.exists(embedder, modality) else None
+        d = get_settings().index_dir / f"{embedder}_{modality}"
+        p = d / "vectors.npy"
+        if not p.exists():
+            self._vec.pop(key, None)
+            return None
+        mtime = p.stat().st_mtime
+        cached = self._vec.get(key)
+        if cached is None or getattr(cached, "_mtime", None) != mtime:
+            vi = VectorIndex.load(embedder, modality)
+            vi._mtime = mtime
+            self._vec[key] = vi
         return self._vec[key]
 
     def emb(self, name: str):
