@@ -46,7 +46,7 @@ def audio_vectors(embs: dict, cat: pd.DataFrame, prev: pd.DataFrame, batch: int,
         items, keep = [], []
         for tid in chunk:
             try:
-                data = fetch_audio(tid, ok.at[tid, "preview_url"])
+                data = fetch_audio(tid, ok.at[tid, "preview_url"], deezer_id=ok.at[tid, "deezer_id"])
             except Exception as e:  # noqa: BLE001
                 log.warning("extrait %s : %s", tid, e)
                 data = None

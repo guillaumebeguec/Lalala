@@ -159,7 +159,7 @@ def preview(track_id: str):
     if len(tb.previews) and track_id in tb.previews.index:
         from catalog.previews import fresh_preview_url
         url = tb.previews.at[track_id, "preview_url"]
-        url = fresh_preview_url(track_id, url if isinstance(url, str) else None)
+        url = fresh_preview_url(track_id, url if isinstance(url, str) else None, deezer_id=tb.previews.at[track_id, "deezer_id"])
         if isinstance(url, str) and url:
             return RedirectResponse(url)
     raise HTTPException(404, "pas d'extrait pour ce morceau")

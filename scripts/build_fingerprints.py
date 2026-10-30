@@ -41,7 +41,7 @@ def main() -> int:
     n_fail = 0
     for i, tid in enumerate(ids, 1):
         try:
-            data = fetch_audio(tid, prev.at[tid, "preview_url"])
+            data = fetch_audio(tid, prev.at[tid, "preview_url"], deezer_id=prev.at[tid, "deezer_id"])
             if data:
                 fps[tid] = fpcalc_raw(data)
             else:

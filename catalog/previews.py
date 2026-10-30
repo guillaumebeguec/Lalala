@@ -192,20 +192,24 @@ _FRESH_TTL = 20 * 60  # les URL d'extrait Deezer sont signées (`hdnea`) et expi
 _dz_client = None
 
 
-def fresh_preview_url(track_id: str, fallback: str | None = None) -> str | None:
-    """URL d'extrait courante : relue via `/track/{id}` (sans cache) si l'identifiant est Deezer ;
-    mémorisée 20 min. Pour iTunes (URL stables), on renvoie `fallback`."""
+def fresh_preview_url(track_id: str, fallback: str | None = None, deezer_id: int | None = None) -> str | None:
+    """URL d'extrait courante : relue via `/track/{deezer_id}` (sans cache) ; mémorisée 20 min.
+    `deezer_id` est l'identifiant **résolu** (colonne `deezer_id` de previews.parquet), qui peut
+    différer de celui du track_id (identifiant WASABI périmé, non lisible). Pour iTunes (URL
+    stables), on renvoie `fallback`."""
     global _dz_client
     now = time.time()
     hit = _fresh.get(track_id)
     if hit and now - hit[0] < _FRESH_TTL:
         return hit[1] or fallback
-    if not track_id.startswith("dz"):
-        return fallback
+    if deezer_id is None or (isinstance(deezer_id, float) and deezer_id != deezer_id):
+        if not track_id.startswith("dz"):
+            return fallback
+        deezer_id = int(track_id[2:])
     try:
         if _dz_client is None:
             _dz_client = DeezerClient()
-        t = _dz_client.get(f"/track/{int(track_id[2:])}", use_cache=False)
+        t = _dz_client.get(f"/track/{int(deezer_id)}", use_cache=False)
         url = (t or {}).get("preview") or None
     except (DeezerError, ValueError) as e:
         logger.warning("rafraîchissement d'extrait %s : %s", track_id, e)
@@ -216,9 +220,10 @@ def fresh_preview_url(track_id: str, fallback: str | None = None) -> str | None:
 
 @retry(retry=retry_if_exception_type(httpx.TransportError), stop=stop_after_attempt(4),
        wait=wait_exponential(min=1, max=15), reraise=True)
-def fetch_audio(track_id: str, preview_url: str) -> bytes | None:
+def fetch_audio(track_id: str, preview_url: str, deezer_id: int | None = None) -> bytes | None:
     """Octets MP3 de l'extrait. En mode `disk`, cache dans data/previews/<track_id>.mp3.
-    Sur 403/404 (URL signée expirée), l'URL est rafraîchie une fois via l'API Deezer."""
+    Sur 403/404 (URL signée expirée), l'URL est rafraîchie une fois via l'API Deezer
+    (`deezer_id` = identifiant résolu, colonne de previews.parquet)."""
     mode = storage_mode()
     path = get_settings().previews_dir / f"{track_id}.mp3"
     if mode == "disk" and path.exists():
@@ -226,8 +231,8 @@ def fetch_audio(track_id: str, preview_url: str) -> bytes | None:
     hit = _fresh.get(track_id)
     url = hit[1] if hit and time.time() - hit[0] < _FRESH_TTL and hit[1] else preview_url
     r = _audio_http.get(url)
-    if r.status_code in (403, 404, 410) and track_id.startswith("dz"):
-        url2 = fresh_preview_url(track_id)
+    if r.status_code in (403, 404, 410) and (deezer_id is not None or track_id.startswith("dz")):
+        url2 = fresh_preview_url(track_id, deezer_id=deezer_id)
         if url2 and url2 != url:
             r = _audio_http.get(url2)
     if r.status_code in (403, 404, 410):
@@ -248,7 +253,7 @@ def iter_audio(previews: pd.DataFrame, track_ids: list[str] | None = None) -> It
         df = df[df.track_id.isin(track_ids)]
     for r in df.itertuples(index=False):
         try:
-            data = fetch_audio(r.track_id, r.preview_url)
+            data = fetch_audio(r.track_id, r.preview_url, deezer_id=getattr(r, "deezer_id", None))
         except httpx.HTTPError as e:
             logger.warning("extrait %s : %s", r.track_id, e)
             continue

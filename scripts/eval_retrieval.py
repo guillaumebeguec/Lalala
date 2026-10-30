@@ -80,10 +80,10 @@ def _query_audio(case: dict, catalog_prev: pd.DataFrame | None) -> bytes | tuple
     if case.get("kind") == "real" and case.get("file"):
         return Path(case["file"]).read_bytes()
     if "cover_preview_url" in case:
-        return fetch_audio(f"cover{case['cover_deezer_id']}", case["cover_preview_url"])
+        return fetch_audio(f"cover{case['cover_deezer_id']}", case["cover_preview_url"], deezer_id=case["cover_deezer_id"])
     if "noise_parts" in case:
         from testsets.noisy import render, SR
-        clean = fetch_audio(case["reponse_id"], catalog_prev.at[case["reponse_id"], "preview_url"])
+        clean = fetch_audio(case["reponse_id"], catalog_prev.at[case["reponse_id"], "preview_url"], deezer_id=catalog_prev.at[case["reponse_id"], "deezer_id"])
         if not clean:
             return None
         mixed, _ = render(case, clean)
