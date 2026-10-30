@@ -232,24 +232,29 @@ class Toolbox:
         fused, reasons = self.rerank_candidates(text, ret["fused"], ret["hints"])
         return {"candidates": self.to_candidates(fused, reasons), "rewrite": rw, "lists": ret["lists"]}
 
-    def audio_match(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
-        """Embedding audio → audio (fusion des embedders) + Chromaprint en parallèle."""
-        exact = None
+    def fingerprint_match(self, audio: bytes | tuple[np.ndarray, int]) -> Candidate | None:
+        """Étape empreinte : Chromaprint ; un candidat `fingerprint` si le même enregistrement est trouvé."""
         fp = self.fingerprints()
-        if fp is not None:
-            try:
-                hits = fp.search(fpcalc_raw(audio), k=3)
-                if hits and hits[0][1] >= FINGERPRINT_EXACT:
-                    exact = self._candidate(hits[0][0], hits[0][1], "fingerprint", "empreinte audio identique (même enregistrement)")
-            except Exception as e:  # noqa: BLE001
-                logger.warning("chromaprint : %s", e)
+        if fp is None:
+            return None
+        try:
+            hits = fp.search(fpcalc_raw(audio), k=3)
+            if hits and hits[0][1] >= FINGERPRINT_EXACT:
+                return self._candidate(hits[0][0], hits[0][1], "fingerprint", "empreinte audio identique (même enregistrement)")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("chromaprint : %s", e)
+        return None
+
+    def audio_similarity(self, audio: bytes | tuple[np.ndarray, int], exact: Candidate | None = None,
+                         embedders: list[str] | None = None) -> dict[str, Any]:
+        """Étape similarité : audio → audio pour les embedders demandés (par défaut tous les actifs),
+        fusion RRF pondérée (CoverHunter ×2 sans empreinte exacte). Renvoie {candidates, lists}."""
         lists, weights, names = [], [], []
-        for name in self.active_embedders():
+        for name in (embedders or self.active_embedders()):
             va = self.vec(name, "audio")
             if va is None:
                 continue
             lists.append(va.search(self.emb(name).embed_audio([audio]), k=50)[0])
-            # C2 : sans empreinte exacte, la requête est probablement une autre version → CoverHunter pèse plus
             weights.append((2.0 if exact is None else 1.0) if name == "coverhunter" else 1.0)
             names.append(name)
         fused = rrf(lists, k=self.rrf_k, weights=weights, top=self.top_k) if lists else []
@@ -262,9 +267,16 @@ class Toolbox:
                     c.reason = "Same song, different version (cover or live)."
                     c.source = "version"
                 cands.append(c)
+        return {"candidates": cands, "lists": dict(zip(names, [len(l) for l in lists]))}
+
+    def audio_match(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
+        """Empreinte puis similarité (agent conversationnel et évaluation)."""
+        exact = self.fingerprint_match(audio)
+        res = self.audio_similarity(audio, exact)
+        cands = res["candidates"]
         if exact:
             cands = [exact] + [c for c in cands if c.track_id != exact.track_id]
-        return {"candidates": cands, "exact": exact, "lists": dict(zip(names, [len(l) for l in lists]))}
+        return {"candidates": cands, "exact": exact, "lists": res["lists"]}
 
     def web_search(self, query: str, k: int = 6) -> list[dict]:
         self.queries_done.append("web:" + query)

@@ -191,18 +191,20 @@ class Pipeline:
             yield self.step(self._find("isolate"), "skipped", "Skipped")
             s_exact, s_sim = self._find("exact"), self._find("audio_sim")
             yield self.step(s_exact, "running", "Comparing the fingerprint with the catalogue…")
-            res = tb.audio_match(self.audio)
-            exact = res.get("exact")
+            exact = tb.fingerprint_match(self.audio)
             yield self.step(s_exact, "done", "Same recording found." if exact else "No identical recording — not a Shazam case.")
             yield self.step(s_sim, "running", "Comparing the sound of the music itself…")
+            res = tb.audio_similarity(self.audio, exact, embedders=general)
             absorb(res["candidates"], "audio")
             yield self.step(s_sim, "done", f"{len(res['candidates'])} candidates by audio similarity.")
             if has_cover:
                 s_ver = self._find("version")
-                n_ver = (res.get("lists") or {}).get("coverhunter", 0)
-                if n_ver:
+                if tb.vec("coverhunter", "audio") is not None:
                     yield self.step(s_ver, "running", "Looking for the same song in another version…")
-                    yield self.step(s_ver, "done", "Compared melody and harmony across versions.")
+                    res_v = tb.audio_similarity(self.audio, exact, embedders=["coverhunter"])
+                    absorb(res_v["candidates"], "version")
+                    lists["audio"] = lists.get("audio", []) + lists.get("version", [])
+                    yield self.step(s_ver, "done", f"{len(res_v['candidates'])} candidates by melody and harmony.")
                 else:
                     yield self.step(s_ver, "skipped", "Skipped")
         text_hints: dict = {}
