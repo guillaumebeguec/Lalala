@@ -39,8 +39,17 @@ class FakeTB:
     def catalog_search(self, text, hints=None):
         return {"candidates": self._cands(), "rewrite": None, "lists": {"bm25:brut": 50}}
 
+    def fingerprint_match(self, audio):
+        return None
+
+    def vec(self, name, modality):
+        return None
+
+    def audio_similarity(self, audio, exact=None, embedders=None):
+        return {"candidates": [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.7, "catalog")], "lists": {"clap": 50}}
+
     def audio_match(self, audio):
-        return {"candidates": [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.7, "catalog")], "exact": None}
+        return {"candidates": [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.7, "catalog")], "exact": None, "lists": {}}
 
 
 def _events(text):
