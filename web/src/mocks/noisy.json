@@ -1,0 +1,400 @@
+{
+ "events": [
+  {
+   "type": "input",
+   "data": {
+    "kind": "audio",
+    "duration_s": 10,
+    "noise_detected": true,
+    "note": "café, phone speaker",
+    "waveform": [
+     0.4,
+     0.653,
+     0.858,
+     0.979,
+     0.992,
+     0.894,
+     0.705,
+     0.459,
+     0.598,
+     0.818,
+     0.961,
+     0.999,
+     0.925,
+     0.754,
+     0.517,
+     0.542,
+     0.774,
+     0.937,
+     1.0,
+     0.951,
+     0.8,
+     0.574,
+     0.484,
+     0.726,
+     0.908,
+     0.995,
+     0.972,
+     0.842,
+     0.629,
+     0.425,
+     0.676,
+     0.874,
+     0.985,
+     0.987,
+     0.879,
+     0.683,
+     0.433,
+     0.622,
+     0.836,
+     0.969,
+     0.996,
+     0.912,
+     0.733,
+     0.492,
+     0.566,
+     0.794,
+     0.948,
+     1.0,
+     0.94,
+     0.78,
+     0.55,
+     0.509,
+     0.747,
+     0.921,
+     0.998,
+     0.963,
+     0.824,
+     0.606,
+     0.451,
+     0.698,
+     0.89,
+     0.99,
+     0.981,
+     0.864
+    ]
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "isolate",
+    "title": "Isolating the music",
+    "model": "SAM Audio",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "exact",
+    "title": "Exact match check",
+    "model": "Chromaprint",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "audio_sim",
+    "title": "Audio similarity search",
+    "model": "PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "isolate",
+    "title": "Isolating the music",
+    "model": "SAM Audio",
+    "status": "running",
+    "detail": "Separating music from the crowd…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "isolate",
+    "title": "Isolating the music",
+    "model": "SAM Audio",
+    "status": "done",
+    "detail": "Music isolated (crowd noise removed)",
+    "elapsed_ms": 1800
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "exact",
+    "title": "Exact match check",
+    "model": "Chromaprint",
+    "status": "running",
+    "detail": "Comparing the fingerprint…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "exact",
+    "title": "Exact match check",
+    "model": "Chromaprint",
+    "status": "done",
+    "detail": "Same recording found.",
+    "elapsed_ms": 500
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "audio_sim",
+    "title": "Audio similarity search",
+    "model": "PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "running",
+    "detail": "Comparing the sound…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "audio_sim",
+    "title": "Audio similarity search",
+    "model": "PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "done",
+    "detail": "20 candidates by audio similarity.",
+    "elapsed_ms": 1300
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "running",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "done",
+    "detail": "Top candidate: Sunny Side — Example Trio",
+    "elapsed_ms": 300
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "running",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "skipped",
+    "detail": "Skipped",
+    "elapsed_ms": 0
+   }
+  },
+  {
+   "type": "result",
+   "data": {
+    "query_id": "q_mock3",
+    "confidence": "high",
+    "best": {
+     "id": "mock3",
+     "title": "Sunny Side",
+     "artist": "Example Trio",
+     "album": "Morning",
+     "year": 2007,
+     "cover_url": "/mock/c3.svg",
+     "preview_url": "/mock/preview.wav",
+     "source": "catalog",
+     "in_catalog": true
+    },
+    "alternatives": [
+     {
+      "id": "mock4",
+      "title": "Night Drive",
+      "artist": "Sample Four",
+      "album": "After Dark",
+      "year": 2010,
+      "cover_url": "/mock/c4.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     },
+     {
+      "id": "mock1",
+      "title": "Whistle Song",
+      "artist": "The Demo Band",
+      "album": "Demo Album",
+      "year": 2008,
+      "cover_url": "/mock/c1.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     },
+     {
+      "id": "mock2",
+      "title": "Open Road",
+      "artist": "Mock Artists",
+      "album": "Highway",
+      "year": 2009,
+      "cover_url": "/mock/c2.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     }
+    ],
+    "proofs": [
+     {
+      "source": "Fingerprint",
+      "text": "The audio fingerprint matches this exact recording after isolating the music."
+     },
+     {
+      "source": "Audio",
+      "text": "The isolated music is closest to this track across all encoders."
+     }
+    ],
+    "scores": [
+     {
+      "track_id": "mock3",
+      "bm25": 0.9,
+      "emb": {
+       "PE-AV": {
+        "score": 0.8,
+        "rank": 1
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.78,
+        "rank": 1
+       },
+       "CLAP": {
+        "score": 0.7,
+        "rank": 2
+       }
+      },
+      "rerank": 9,
+      "final": 0.92
+     },
+     {
+      "track_id": "mock4",
+      "bm25": 0.7,
+      "emb": {
+       "PE-AV": {
+        "score": 0.65,
+        "rank": 2
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.66,
+        "rank": 2
+       },
+       "CLAP": {
+        "score": 0.6,
+        "rank": 3
+       }
+      },
+      "rerank": 7,
+      "final": 0.72
+     },
+     {
+      "track_id": "mock1",
+      "bm25": 0.5,
+      "emb": {
+       "PE-AV": {
+        "score": 0.5,
+        "rank": 3
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.54,
+        "rank": 3
+       },
+       "CLAP": {
+        "score": 0.5,
+        "rank": 4
+       }
+      },
+      "rerank": 5,
+      "final": 0.52
+     },
+     {
+      "track_id": "mock2",
+      "bm25": 0.3,
+      "emb": {
+       "PE-AV": {
+        "score": 0.35,
+        "rank": 4
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.42,
+        "rank": 4
+       },
+       "CLAP": {
+        "score": 0.4,
+        "rank": 5
+       }
+      },
+      "rerank": 3,
+      "final": 0.32
+     }
+    ],
+    "timings": [
+     {
+      "step": "Isolating the music",
+      "ms": 1800
+     },
+     {
+      "step": "Exact match check",
+      "ms": 500
+     },
+     {
+      "step": "Audio similarity search",
+      "ms": 1300
+     },
+     {
+      "step": "Ranking candidates",
+      "ms": 300
+     }
+    ],
+    "analysis": {
+     "hints": {}
+    }
+   }
+  }
+ ]
+}

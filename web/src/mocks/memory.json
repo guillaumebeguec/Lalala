@@ -1,0 +1,315 @@
+{
+ "events": [
+  {
+   "type": "input",
+   "data": {
+    "kind": "text",
+    "note": "whistling, car ad, ~2008",
+    "waveform": []
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "analyze",
+    "title": "Reading your description",
+    "model": "Llama 3.1",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "catalog",
+    "title": "Catalogue search",
+    "model": "BM25 · PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "analyze",
+    "title": "Reading your description",
+    "model": "Llama 3.1",
+    "status": "running",
+    "detail": "Extracting clues (era, language, instruments)…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "analyze",
+    "title": "Reading your description",
+    "model": "Llama 3.1",
+    "status": "done",
+    "detail": "Clues: decade 2000s, medium ad, whistling",
+    "elapsed_ms": 1400
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "catalog",
+    "title": "Catalogue search",
+    "model": "BM25 · PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "running",
+    "detail": "Searching cards and audio…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "catalog",
+    "title": "Catalogue search",
+    "model": "BM25 · PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "done",
+    "detail": "20 candidates (bm25, text→cards, captions→audio)",
+    "elapsed_ms": 900
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "running",
+    "detail": "Weighing each candidate against the clues…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "done",
+    "detail": "Top candidate: Whistle Song — The Demo Band",
+    "elapsed_ms": 2100
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "running",
+    "detail": "Checking usages…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "done",
+    "detail": "Confirmed: used in a 2008 car commercial",
+    "elapsed_ms": 800
+   }
+  },
+  {
+   "type": "result",
+   "data": {
+    "query_id": "q_mock1",
+    "confidence": "high",
+    "best": {
+     "id": "mock1",
+     "title": "Whistle Song",
+     "artist": "The Demo Band",
+     "album": "Demo Album",
+     "year": 2008,
+     "cover_url": "/mock/c1.svg",
+     "preview_url": "/mock/preview.wav",
+     "source": "catalog",
+     "in_catalog": true
+    },
+    "alternatives": [
+     {
+      "id": "mock2",
+      "title": "Open Road",
+      "artist": "Mock Artists",
+      "album": "Highway",
+      "year": 2009,
+      "cover_url": "/mock/c2.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     },
+     {
+      "id": "mock3",
+      "title": "Sunny Side",
+      "artist": "Example Trio",
+      "album": "Morning",
+      "year": 2007,
+      "cover_url": "/mock/c3.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     },
+     {
+      "id": "mock4",
+      "title": "Night Drive",
+      "artist": "Sample Four",
+      "album": "After Dark",
+      "year": 2010,
+      "cover_url": "/mock/c4.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     }
+    ],
+    "proofs": [
+     {
+      "source": "Context",
+      "text": "Released in 2008 and known for its whistled hook."
+     },
+     {
+      "source": "Web",
+      "text": "Used in a car commercial in 2008 and 2009."
+     },
+     {
+      "source": "Clues",
+      "text": "Matches the clues from your description: 2000s, ad, whistling."
+     }
+    ],
+    "scores": [
+     {
+      "track_id": "mock1",
+      "bm25": 0.9,
+      "emb": {
+       "PE-AV": {
+        "score": 0.8,
+        "rank": 1
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.78,
+        "rank": 1
+       },
+       "CLAP": {
+        "score": 0.7,
+        "rank": 2
+       }
+      },
+      "rerank": 9,
+      "final": 0.92
+     },
+     {
+      "track_id": "mock2",
+      "bm25": 0.7,
+      "emb": {
+       "PE-AV": {
+        "score": 0.65,
+        "rank": 2
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.66,
+        "rank": 2
+       },
+       "CLAP": {
+        "score": 0.6,
+        "rank": 3
+       }
+      },
+      "rerank": 7,
+      "final": 0.72
+     },
+     {
+      "track_id": "mock3",
+      "bm25": 0.5,
+      "emb": {
+       "PE-AV": {
+        "score": 0.5,
+        "rank": 3
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.54,
+        "rank": 3
+       },
+       "CLAP": {
+        "score": 0.5,
+        "rank": 4
+       }
+      },
+      "rerank": 5,
+      "final": 0.52
+     },
+     {
+      "track_id": "mock4",
+      "bm25": 0.3,
+      "emb": {
+       "PE-AV": {
+        "score": 0.35,
+        "rank": 4
+       },
+       "EmbeddingGemma 2": {
+        "score": 0.42,
+        "rank": 4
+       },
+       "CLAP": {
+        "score": 0.4,
+        "rank": 5
+       }
+      },
+      "rerank": 3,
+      "final": 0.32
+     }
+    ],
+    "timings": [
+     {
+      "step": "Reading your description",
+      "ms": 1400
+     },
+     {
+      "step": "Catalogue search",
+      "ms": 900
+     },
+     {
+      "step": "Ranking candidates",
+      "ms": 2100
+     },
+     {
+      "step": "Verification",
+      "ms": 800
+     }
+    ],
+    "analysis": {
+     "query": "whistling indie pop car ad 2008",
+     "captions": [
+      "whistled melody over acoustic guitar",
+      "mid-tempo indie pop",
+      "male vocals"
+     ],
+     "hints": {
+      "decade": "2000s",
+      "medium": "ad"
+     }
+    }
+   }
+  }
+ ]
+}

@@ -31,4 +31,17 @@ Les tests marqués `llm` et `gemini` sont ignorés automatiquement si Ollama n'e
 - **Métadonnées** : WASABI Song Corpus 2.0 (Zenodo 10.5281/zenodo.5603369, CC BY-NC 4.0 ; citer Buffa et al., ESWC 2021), sans paroles ; API Deezer et Wikipédia (résumés courts) ; ToT_Music (github.com/spotify-research/tot, CC0-1.0) ; MUSAN (openslr.org/17, CC BY 4.0) pour le bruit.
 - Aucune parole complète n'est stockée (le champ `lyrics` de WASABI est ignoré à l'extraction).
 
+## Front « Lalala » (FRONT_PLAN.md)
+
+```bash
+cd web && pnpm install
+pnpm dev                      # mode mock (fixtures, sans backend) sur http://localhost:5173
+VITE_API_MODE=live pnpm dev   # branché sur l'API FastAPI (proxy /api → :8000)
+pnpm test                     # Vitest ; pnpm e2e : Playwright (parcours mock)
+pnpm build                    # web/dist, servi par `uv run uvicorn api.main:app` sur /
+```
+
+Options d'URL : `?replay=memory|cover|noisy` (scène de secours), `?scale=1.25` (projection), `?accent=mint|violet`.
+Appui long (1 s) sur le logo : menu de rejeu.
+
 *(Sections à compléter au fil des phases : données, évaluation, démo.)*
