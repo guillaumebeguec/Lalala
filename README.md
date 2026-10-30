@@ -39,7 +39,11 @@ pnpm dev                      # mode mock (fixtures, sans backend) sur http://lo
 VITE_API_MODE=live pnpm dev   # branché sur l'API FastAPI (proxy /api → :8000)
 pnpm test                     # Vitest ; pnpm e2e : Playwright (parcours mock)
 pnpm build                    # web/dist, servi par `uv run uvicorn api.main:app` sur /
+pnpm dev:lan                  # exposé sur le réseau local en HTTPS auto-signé (micro OK sur téléphone), mode live
+pnpm dev:lan:mock             # idem en mode mock
 ```
+
+Pour un test depuis un téléphone : lancer le backend (`SOUNDTRACE_SUBSET=dev uv run uvicorn api.main:app --port 8000`), puis `pnpm dev:lan` et ouvrir `https://<ip-du-mac>:5173/` (accepter le certificat).
 
 Options d'URL : `?replay=memory|cover|noisy` (scène de secours), `?scale=1.25` (projection), `?accent=mint|violet`.
 Appui long (1 s) sur le logo : menu de rejeu.

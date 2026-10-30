@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "playwright test",
-    "build:prod": "tsc -b && vite build"
+    "build:prod": "tsc -b && vite build",
+    "dev:lan": "LAN=1 VITE_API_MODE=live vite",
+    "dev:lan:mock": "LAN=1 vite"
   },
   "dependencies": {
     "@fontsource/bricolage-grotesque": "^5.3.0",
@@ -29,6 +31,7 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.6.2",
     "eslint": "^10.13.0",
