@@ -56,6 +56,18 @@ def audio_vectors(embs: dict, cat: pd.DataFrame, prev: pd.DataFrame, batch: int,
             else:
                 n_fail += 1
         if items:
+            # décodage préalable : un extrait illisible est écarté sans faire échouer le lot
+            from core.audio_io import load_audio
+            good_items, good_ids = [], []
+            for data, tid in zip(items, keep):
+                try:
+                    load_audio(data, sr=16_000)
+                    good_items.append(data); good_ids.append(tid)
+                except Exception as e:  # noqa: BLE001
+                    n_fail += 1
+                    log.warning("extrait indécodable %s : %s", tid, str(e)[:120])
+            items, keep = good_items, good_ids
+        if items:
             for name, emb in embs.items():
                 t1 = time.time()
                 vecs[name].append(emb.embed_audio(items, batch_size=batch))

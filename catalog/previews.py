@@ -240,6 +240,10 @@ def fetch_audio(track_id: str, preview_url: str, deezer_id: int | None = None) -
         return None
     r.raise_for_status()
     data = r.content
+    ctype = r.headers.get("content-type", "")
+    if not data or data[:3] not in (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"RIF") and "audio" not in ctype and b"ftyp" not in data[:16]:
+        logger.warning("extrait non audio (%s, %d octets) : %s", ctype or "?", len(data), track_id)
+        return None
     if mode == "disk":
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
