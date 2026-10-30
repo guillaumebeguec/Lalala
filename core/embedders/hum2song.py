@@ -45,16 +45,23 @@ class Hum2SongEmbedder(Embedder):
     supports_video = False
     languages = "none"
 
-    def __init__(self, role: str = "song", checkpoint: str = "e2b", device: str | None = None):
+    def __init__(self, role: str = "song", checkpoint: str = "e2b", device: str | None = None,
+                 separate_vocals: bool | None = None, windows: bool | None = None, win_s: float = 12.0, hop_s: float = 3.0):
         super().__init__()
-        self.role = role          # "song" : contour entier ; "query" : rogné à 20 s (fredonnement)
+        self.role = role          # "song" : contour de l'extrait ; "query" : rogné à 20 s (fredonnement)
         self.checkpoint = checkpoint
         self._device_name = device or "cpu"   # RMVPE (RVC) et l'encodeur sont légers : CPU par défaut, stable
+        env = os.environ
+        # C4.2 : côté morceau, voix séparée par Demucs (htdemucs) et/ou fenêtres glissantes (score = max)
+        self.separate_vocals = (env.get("HUM2SONG_DEMUCS", "0") == "1") if separate_vocals is None else separate_vocals
+        self.windows = (env.get("HUM2SONG_WINDOWS", "0") == "1") if windows is None else windows
+        self.win_s, self.hop_s = win_s, hop_s
         self._model = None
         self._rmvpe = None
+        self._demucs = None
 
     def version(self) -> str:
-        return f"1-{self.checkpoint}-{self.role}"
+        return f"1-{self.checkpoint}-{self.role}-{'voc' if self.separate_vocals and self.role == 'song' else 'mix'}-{'win' if self.windows and self.role == 'song' else 'full'}"
 
     def _load(self):
         if self._model is not None:
@@ -84,25 +91,68 @@ class Hum2SongEmbedder(Embedder):
         x, sr = item
         return resample(to_mono(np.asarray(x)), sr, SR)
 
+    def _vocals(self, item: AudioItem) -> np.ndarray:
+        """Voix séparée par Demucs (htdemucs, 44,1 kHz stéréo) puis ramenée à 16 kHz mono."""
+        if self._demucs is None:
+            from demucs.pretrained import get_model
+            self._demucs = get_model("htdemucs").eval()
+        from demucs.apply import apply_model
+        if isinstance(item, (bytes, bytearray)):
+            x, sr = load_audio(bytes(item), sr=44_100, mono=False)
+        else:
+            x, sr = item
+            x = resample(to_mono(np.asarray(x)), sr, 44_100)
+        if x.ndim == 1:
+            x = np.stack([x, x], 1)
+        wav = torch.from_numpy(x.T.astype(np.float32)).unsqueeze(0)
+        with torch.inference_mode():
+            src = apply_model(self._demucs, wav, device=torch.device("cpu"), progress=False)[0]
+        v = src[self._demucs.sources.index("vocals")].mean(0).numpy()
+        return resample(v.astype(np.float32), 44_100, SR)
+
     def contour(self, item: AudioItem) -> np.ndarray:
         """Contour mélodique normalisé (trames de 20 ms) d'un audio, via RMVPE."""
         self._load()
         from hum2song.contour.features import rmvpe_contour  # type: ignore
         from hum2song.contour.evaluate import query_contour  # type: ignore
-        x = self._to_wave(item).astype(np.float32)
+        x = (self._vocals(item) if (self.role == "song" and self.separate_vocals) else self._to_wave(item)).astype(np.float32)
         track = self._trackers.rmvpe_track(self._rmvpe, x)
         c = rmvpe_contour(track)
         return query_contour(c) if self.role == "query" else c
 
+    def _windows(self, c: np.ndarray) -> list[np.ndarray]:
+        from hum2song.contour.evaluate import query_contour  # type: ignore
+        win, hop = int(self.win_s / 0.02), int(self.hop_s / 0.02)
+        if len(c) <= win:
+            return [query_contour(c)]
+        return [query_contour(c[s : s + win]) for s in range(0, len(c) - win + 1, hop)]
+
+    def embed_windows(self, item: AudioItem) -> np.ndarray:
+        """Embeddings (n_fenêtres, 256) d'un morceau ; score requête→morceau = max des similarités."""
+        self._load()
+        from hum2song.contour.evaluate import embed_contours  # type: ignore
+        c = self.contour(item)
+        if not len(c):
+            return np.zeros((0, self.dim), np.float32)
+        ws = [w for w in self._windows(c) if len(w)]
+        return l2_normalize(np.asarray(embed_contours(self._model, ws, self.device), dtype=np.float32)) if ws else np.zeros((0, self.dim), np.float32)
+
     def _embed_audio(self, items: Sequence[AudioItem]) -> np.ndarray:
         self._load()
         from hum2song.contour.evaluate import embed_contours  # type: ignore
-        contours = [self.contour(it) for it in items]
         out = np.zeros((len(items), self.dim), np.float32)
+        if self.role == "song" and self.windows:
+            # un seul vecteur par morceau dans l'index FAISS : moyenne normalisée des fenêtres
+            # (les fenêtres elles-mêmes servent au score max via `embed_windows`)
+            for i, it in enumerate(items):
+                W = self.embed_windows(it)
+                if len(W):
+                    out[i] = l2_normalize(W.mean(axis=0))[0]
+            return out
+        contours = [self.contour(it) for it in items]
         keep = [i for i, c in enumerate(contours) if len(c)]
         if keep:
-            E = embed_contours(self._model, [contours[i] for i in keep], self.device)
-            E = np.asarray(E, dtype=np.float32)
+            E = np.asarray(embed_contours(self._model, [contours[i] for i in keep], self.device), dtype=np.float32)
             for j, i in enumerate(keep):
                 out[i] = E[j]
         return out
