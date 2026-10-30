@@ -54,8 +54,16 @@ export function Capture() {
     nav(`/search/${id}`);
     await start(input);
   };
+  const [dragging, setDragging] = useState(false);
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragging(false);
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    onFile(f, f.type.startsWith("video") ? "video" : "audio");
+  };
   return (
-    <div className="mx-auto flex min-h-screen max-w-content flex-col px-6 py-6 md:px-10">
+    <div className={`mx-auto flex min-h-screen max-w-content flex-col px-6 py-6 md:px-10 ${dragging ? "outline outline-2 outline-dashed outline-yellow" : ""}`}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
       <Header onLogoLongPress={() => setMenu(true)} />
       <main className="flex flex-1 flex-col items-center justify-center gap-10 py-10 text-center">
         <h1 className="font-display text-[44px] font-extrabold leading-[1.02] tracking-[-0.04em] md:text-[64px]">{copy.capture.h1}</h1>

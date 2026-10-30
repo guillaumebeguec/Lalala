@@ -53,6 +53,7 @@ class Toolbox:
     use_rewrite: bool = True
     use_rerank: bool = True
     rerank_alpha: float = 0.5
+    rerank_top: int = 10            # candidats notés par Llama (2 lots de 5 : ≈ 30 s sur M2) ; 20 pour l'évaluation
     rrf_k: int = 60
     top_k: int = 20
     _catalog: pd.DataFrame | None = None
@@ -207,8 +208,12 @@ class Toolbox:
         fused = fused[: self.top_k]
         reasons: dict[str, str] = {}
         if self.use_rerank and fused and self.cards:
-            rr = rerank(text + ("\nClues: " + str({k: v for k, v in h.items() if v}) if h else ""), fused, self.cards, alpha=self.rerank_alpha)
-            fused = [(r.id, r.final) for r in rr]
+            head, tail = fused[: self.rerank_top], fused[self.rerank_top :]
+            rr = rerank(text + ("\nClues: " + str({k: v for k, v in h.items() if v}) if h else ""), head, self.cards,
+                        alpha=self.rerank_alpha, top=self.rerank_top)
+            floor = min((r.final for r in rr), default=0.0)
+            # les candidats non notés gardent l'ordre de fusion, sous les candidats notés
+            fused = [(r.id, r.final) for r in rr] + [(i, floor * 0.9 * (1 - k / max(len(tail), 1))) for k, (i, _) in enumerate(tail)]
             reasons = {r.id: r.reason for r in rr}
         cands = [c for c in (self._candidate(i, s, "catalog", reasons.get(i, "")) for i, s in fused) if c]
         return {"candidates": cands, "rewrite": rw, "lists": dict(zip(names, [len(l) for l in lists]))}

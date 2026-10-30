@@ -40,7 +40,7 @@ SCHEMA = {
 _SYSTEM = (
     "You are a music expert judging whether a candidate song matches a vague description written by someone "
     "trying to remember a song. For EACH candidate, give a score from 0 (impossible) to 10 (almost certainly it) "
-    "and a reason of at most 15 words. Judge on era, language, genre, sound, vocals, themes, usages (ads, films) "
+    "and a reason of at most 10 words. Judge on era, language, genre, sound, vocals, themes, usages (ads, films) "
     "and any quoted lyrics. Unknown facts are neutral, contradictions are penalised. JSON only: "
     "{\"scores\": [{\"id\": \"...\", \"score\": 0-10, \"reason\": \"...\"}, ...]} with exactly one entry per candidate id."
 )
@@ -66,7 +66,7 @@ def _score_batch(description: str, batch: Sequence[tuple[str, str]], model: str 
     out: dict[str, tuple[float, str]] = {}
     try:
         r = llm.chat([{"role": "system", "content": _SYSTEM}, {"role": "user", "content": user}],
-                     json_schema=SCHEMA, temperature=0.0, max_tokens=600, model=model)
+                     json_schema=SCHEMA, temperature=0.0, max_tokens=320, model=model)
         for item in (r.json or {}).get("scores", []):
             cid = str(item.get("id", "")).strip()
             try:
