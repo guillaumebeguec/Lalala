@@ -1,7 +1,7 @@
 // Contrat d'API (FRONT_PLAN.md § 4).
 export type Source = "catalog" | "web" | "fingerprint";
 export type Confidence = "high" | "medium" | "low";
-export type InputKind = "audio" | "video" | "text" | "mixed";
+export type InputKind = "audio" | "video" | "text" | "mixed" | "humming";
 export type StepStatus = "pending" | "running" | "done" | "skipped";
 
 export interface Track {

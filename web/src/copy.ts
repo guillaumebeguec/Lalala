@@ -28,6 +28,7 @@ export const copy = {
       video: (s?: number) => `Video clip${s ? ` · ${s} s` : ""}`,
       text: () => "Text description",
       mixed: (s?: number) => `Recording + note${s ? ` · ${s} s` : ""}`,
+      humming: (s?: number) => `Humming${s ? ` · ${s} s` : ""}`,
     },
     note: (n: string) => `Note: “${n}”`,
     skipped: "Skipped",
@@ -54,5 +55,5 @@ export const copy = {
     outOfCatalog: "Not in the catalogue — open on Deezer",
   },
   error: { banner: "Something went wrong. Try again.", retry: "Retry" },
-  replay: { title: "Replay a scene", scenes: { memory: "Memory", cover: "Cover", noisy: "Noisy" } },
+  replay: { title: "Replay a scene", scenes: { memory: "Memory", cover: "Cover", noisy: "Noisy", humming: "Humming" } },
 } as const;

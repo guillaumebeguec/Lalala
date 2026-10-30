@@ -52,6 +52,9 @@ class ToTQuery:
     answer_title: str
     answer_artists: list[str]
     answer_spotify_urls: list[str] = field(default_factory=list)
+    answer_isrcs: list[str] = field(default_factory=list)      # C1 : tous les enregistrements acceptables
+    reformulations: dict | None = None                          # C1 : reformulations LLM de l'article (baseline)
+    annotation_labels: list[str] = field(default_factory=list)  # C1 : étiquettes par phrase (genre, époque…)
     # indices « utilisateur informé » dérivés des balises du titre (décennie)
     tag_decade: str | None = None
     tag_genre: str | None = None
@@ -119,6 +122,19 @@ def _parse_row(row: dict) -> ToTQuery:
             if isinstance(a, dict) and a.get("name"):
                 artists.append(a["name"])
     decade, genre = _parse_tags(row.get("raw_title") or "")
+    isrcs: list[str] = []
+    for it in items:
+        for code in it.get("isrc") or []:
+            if code and code not in isrcs:
+                isrcs.append(code)
+    if row.get("wasabi_isrc") and row["wasabi_isrc"] not in isrcs:
+        isrcs.insert(0, row["wasabi_isrc"])
+    labels: list[str] = []
+    for a in row.get("annotations") or []:
+        for lab in (a.get("labels") or []):
+            lab = str(lab)
+            if lab not in labels:
+                labels.append(lab)
     return ToTQuery(
         id=row["id"],
         title=(row.get("title") or "").strip(),
@@ -131,6 +147,9 @@ def _parse_row(row: dict) -> ToTQuery:
         answer_title=sp.get("title") or "",
         answer_artists=artists,
         answer_spotify_urls=[it["url"] for it in items if it.get("url")],
+        answer_isrcs=isrcs,
+        reformulations=row.get("reformulations") or None,
+        annotation_labels=labels,
         tag_decade=decade,
         tag_genre=genre,
     )
@@ -181,13 +200,18 @@ if __name__ == "__main__":
 
 def build_t1(catalog: "pd.DataFrame", previews: "pd.DataFrame | None" = None, n_eval: int = 200,
              seed: int = 20261028) -> tuple[list[dict], list[dict]]:
-    """T1 : demandes dont la réponse est dans le catalogue **avec extrait** ; 200 en éval,
-    stratifiées par décennie du morceau réponse, le reste en réserve.
-    Champs : id, texte, reponse_id (+ decennie pour l'analyse, jamais montré à l'agent)."""
+    """T1 : demandes dont la réponse est dans le catalogue **avec extrait**.
+    C1 : l'échantillon d'évaluation est tiré du `split` **test** de l'article (stratifié par
+    décennie du morceau réponse) ; `train`/`val` et les demandes sans split vont en réserve
+    (réglage des hyperparamètres sur `train`/`val` uniquement). Un résultat est correct s'il
+    correspond à l'un des enregistrements acceptables (`reponse_ids`, tous les ISRC résolus).
+    Champs : id, texte, reponse_id (principal), reponse_ids, decennie, split_article, query_types,
+    labels, reformulations (jamais montrés à l'agent)."""
     import pandas as pd  # noqa: F811
     import random
 
     cat = catalog.set_index("wasabi_id", drop=False)
+    by_isrc = catalog[catalog.isrc.notna()].drop_duplicates("isrc").set_index("isrc")
     with_preview = set(previews[previews.status == "ok"].track_id) if previews is not None else None
     rows = []
     for q in load():
@@ -196,20 +220,24 @@ def build_t1(catalog: "pd.DataFrame", previews: "pd.DataFrame | None" = None, n_
         c = cat.loc[q.answer_wasabi_id]
         if isinstance(c, pd.DataFrame):
             c = c.iloc[0]
-        if with_preview is not None and c.track_id not in with_preview:
+        ids = [c.track_id] + [by_isrc.at[i, "track_id"] for i in q.answer_isrcs if i in by_isrc.index and by_isrc.at[i, "track_id"] != c.track_id]
+        if with_preview is not None:
+            ids = [i for i in ids if i in with_preview]
+        if not ids:
             continue
         year = int(c.year) if pd.notna(c.year) else None
-        rows.append({"id": q.id, "texte": q.visible_text, "reponse_id": c.track_id,
+        rows.append({"id": q.id, "texte": q.visible_text, "reponse_id": ids[0], "reponse_ids": ids,
                      "decennie": f"{year // 10 * 10}s" if year else "inconnue", "split_article": q.split,
-                     "query_types": q.query_types})
+                     "query_types": q.query_types, "labels": q.annotation_labels, "reformulations": q.reformulations})
     rng = random.Random(seed)
     rng.shuffle(rows)
+    test_rows = [r for r in rows if r["split_article"] == "test"]
+    pool = test_rows if len(test_rows) >= n_eval else rows
     by_dec: dict[str, list[dict]] = {}
-    for r in rows:
+    for r in pool:
         by_dec.setdefault(r["decennie"], []).append(r)
-    total = len(rows)
+    total = len(pool)
     eval_rows: list[dict] = []
-    # allocation proportionnelle (au moins 1 par décennie représentée), puis complément
     for dec, lst in sorted(by_dec.items(), key=lambda kv: -len(kv[1])):
         k = max(1, round(n_eval * len(lst) / total))
         eval_rows += lst[:k]

@@ -1,0 +1,420 @@
+{
+ "events": [
+  {
+   "type": "input",
+   "data": {
+    "kind": "humming",
+    "duration_s": 8,
+    "noise_detected": false,
+    "note": null,
+    "waveform": [
+     0.3,
+     0.415,
+     0.577,
+     0.705,
+     0.732,
+     0.641,
+     0.486,
+     0.351,
+     0.3,
+     0.338,
+     0.409,
+     0.436,
+     0.372,
+     0.364,
+     0.503,
+     0.568,
+     0.53,
+     0.422,
+     0.324,
+     0.305,
+     0.381,
+     0.503,
+     0.589,
+     0.578,
+     0.468,
+     0.318,
+     0.39,
+     0.412,
+     0.361,
+     0.306,
+     0.319,
+     0.426,
+     0.589,
+     0.724,
+     0.758,
+     0.672,
+     0.514,
+     0.364,
+     0.315,
+     0.318,
+     0.3,
+     0.333,
+     0.455,
+     0.638,
+     0.804,
+     0.873,
+     0.809,
+     0.647,
+     0.467,
+     0.345,
+     0.302,
+     0.301,
+     0.333,
+     0.445,
+     0.624,
+     0.802,
+     0.894,
+     0.853,
+     0.7,
+     0.509,
+     0.364,
+     0.304,
+     0.304,
+     0.305
+    ]
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "isolate",
+    "title": "Isolating the music",
+    "model": "SAM Audio",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "exact",
+    "title": "Exact match check",
+    "model": "Chromaprint",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "audio_sim",
+    "title": "Audio similarity search",
+    "model": "PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "version",
+    "title": "Version matching",
+    "model": "CoverHunter",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "melody",
+    "title": "Melody matching",
+    "model": "hum2song",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "pending",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "isolate",
+    "title": "Isolating the music",
+    "model": "SAM Audio",
+    "status": "running",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "isolate",
+    "title": "Isolating the music",
+    "model": "SAM Audio",
+    "status": "skipped",
+    "detail": "Skipped",
+    "elapsed_ms": 0
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "exact",
+    "title": "Exact match check",
+    "model": "Chromaprint",
+    "status": "running",
+    "detail": "Comparing the fingerprint…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "exact",
+    "title": "Exact match check",
+    "model": "Chromaprint",
+    "status": "done",
+    "detail": "No identical recording — a voice, not a record.",
+    "elapsed_ms": 400
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "audio_sim",
+    "title": "Audio similarity search",
+    "model": "PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "running",
+    "detail": "Comparing the sound…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "audio_sim",
+    "title": "Audio similarity search",
+    "model": "PE-AV · EmbeddingGemma 2 · CLAP",
+    "status": "done",
+    "detail": "Weak signal: a single voice.",
+    "elapsed_ms": 900
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "version",
+    "title": "Version matching",
+    "model": "CoverHunter",
+    "status": "running",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "version",
+    "title": "Version matching",
+    "model": "CoverHunter",
+    "status": "skipped",
+    "detail": "Skipped",
+    "elapsed_ms": 0
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "melody",
+    "title": "Melody matching",
+    "model": "hum2song",
+    "status": "running",
+    "detail": "Extracting the melodic contour…"
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "melody",
+    "title": "Melody matching",
+    "model": "hum2song",
+    "status": "done",
+    "detail": "Contour matched against 2 000 vocal lines.",
+    "elapsed_ms": 1100
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "running",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "rank",
+    "title": "Ranking candidates",
+    "model": "Llama 3.1",
+    "status": "done",
+    "detail": "Top candidate: Night Drive — Sample Four",
+    "elapsed_ms": 200
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "running",
+    "detail": ""
+   }
+  },
+  {
+   "type": "step",
+   "data": {
+    "id": "verify",
+    "title": "Verification",
+    "model": "Web",
+    "status": "skipped",
+    "detail": "Skipped",
+    "elapsed_ms": 0
+   }
+  },
+  {
+   "type": "result",
+   "data": {
+    "query_id": "q_hum",
+    "confidence": "medium",
+    "best": {
+     "id": "mock4",
+     "title": "Night Drive",
+     "artist": "Sample Four",
+     "album": "After Dark",
+     "year": 2010,
+     "cover_url": "/mock/c4.svg",
+     "preview_url": "/mock/preview.wav",
+     "source": "catalog",
+     "in_catalog": true
+    },
+    "alternatives": [
+     {
+      "id": "mock1",
+      "title": "Whistle Song",
+      "artist": "The Demo Band",
+      "album": "Demo Album",
+      "year": 2008,
+      "cover_url": "/mock/c1.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     },
+     {
+      "id": "mock3",
+      "title": "Sunny Side",
+      "artist": "Example Trio",
+      "album": "Morning",
+      "year": 2007,
+      "cover_url": "/mock/c3.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     },
+     {
+      "id": "mock2",
+      "title": "Open Road",
+      "artist": "Mock Artists",
+      "album": "Highway",
+      "year": 2009,
+      "cover_url": "/mock/c2.svg",
+      "preview_url": "/mock/preview.wav",
+      "source": "catalog",
+      "in_catalog": true
+     }
+    ],
+    "proofs": [
+     {
+      "source": "Melody",
+      "text": "Your hummed melody matches the vocal line."
+     },
+     {
+      "source": "Audio",
+      "text": "Timbre is uninformative for a hummed query; the melody carried the match."
+     }
+    ],
+    "scores": [
+     {
+      "track_id": "mock4",
+      "emb": {
+       "hum2song": {
+        "score": 0.82,
+        "rank": 1
+       }
+      },
+      "final": 0.8
+     },
+     {
+      "track_id": "mock1",
+      "emb": {
+       "hum2song": {
+        "score": 0.67,
+        "rank": 2
+       }
+      },
+      "final": 0.65
+     },
+     {
+      "track_id": "mock3",
+      "emb": {
+       "hum2song": {
+        "score": 0.52,
+        "rank": 3
+       }
+      },
+      "final": 0.5
+     },
+     {
+      "track_id": "mock2",
+      "emb": {
+       "hum2song": {
+        "score": 0.37,
+        "rank": 4
+       }
+      },
+      "final": 0.35
+     }
+    ],
+    "timings": [
+     {
+      "step": "Exact match check",
+      "ms": 400
+     },
+     {
+      "step": "Audio similarity search",
+      "ms": 900
+     },
+     {
+      "step": "Melody matching",
+      "ms": 1100
+     },
+     {
+      "step": "Ranking candidates",
+      "ms": 200
+     }
+    ],
+    "analysis": {}
+   }
+  }
+ ]
+}

@@ -37,3 +37,11 @@ test("noisy scene shows the noise badge and a promoted candidate", async ({ page
   await page.getByRole("button", { name: /Night Drive/ }).first().click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Night Drive");
 });
+
+test("humming scene shows the humming input kind and melody proof", async ({ page }) => {
+  await page.goto("/?replay=humming");
+  await expect(page.getByText("Humming · 8 s")).toBeVisible();
+  await expect(page.getByText("Melody matching")).toBeVisible();
+  await expect(page).toHaveURL(/\/result\//, { timeout: 20_000 });
+  await expect(page.getByText("Your hummed melody matches the vocal line.")).toBeVisible();
+});

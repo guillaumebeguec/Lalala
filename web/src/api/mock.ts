@@ -2,9 +2,10 @@ import type { SearchApi, SearchEvent, SearchInput } from "./types";
 import memory from "../mocks/memory.json";
 import cover from "../mocks/cover.json";
 import noisy from "../mocks/noisy.json";
+import humming from "../mocks/humming.json";
 
 type Fixture = { events: SearchEvent[] };
-const FIXTURES: Record<string, Fixture> = { memory: memory as Fixture, cover: cover as Fixture, noisy: noisy as Fixture };
+const FIXTURES: Record<string, Fixture> = { memory: memory as Fixture, cover: cover as Fixture, noisy: noisy as Fixture, humming: humming as Fixture };
 
 const sleep = (ms: number, signal?: AbortSignal) =>
   new Promise<void>((resolve) => {
