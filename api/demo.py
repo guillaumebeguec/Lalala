@@ -205,11 +205,11 @@ class Pipeline:
                     yield self.step(s_ver, "done", "Compared melody and harmony across versions.")
                 else:
                     yield self.step(s_ver, "skipped", "Skipped")
+        text_hints: dict = {}
         if self.text:
             s_an, s_cat = self._find("analyze"), self._find("catalog")
             yield self.step(s_an, "running", "Extracting clues (era, language, instruments)…")
-            res = tb.catalog_search(self.text)
-            rw = res.get("rewrite")
+            rw = tb.rewrite_query(self.text)
             if rw:
                 analysis = {"query": rw.query, "query_fr": rw.query_fr, "captions": rw.captions, "hints": {k: v for k, v in rw.hints.items() if v}}
                 clues = [f"{k}: {v}" for k, v in (analysis.get("hints") or {}).items() if k in ("decade", "language", "medium", "genre", "vocals")]
@@ -217,18 +217,29 @@ class Pipeline:
             else:
                 yield self.step(s_an, "done", "Used the description as is.")
             yield self.step(s_cat, "running", "Searching cards and audio…")
-            absorb(res["candidates"], "text")
-            yield self.step(s_cat, "done", f"{len(res['candidates'])} candidates ({', '.join(res.get('lists', {}).keys())}).")
+            ret = tb.retrieve(self.text, rw)
+            text_hints = ret["hints"]
+            absorb(tb.to_candidates(ret["fused"]), "text")
+            yield self.step(s_cat, "done", f"{len(ret['fused'])} candidates ({', '.join(ret.get('lists', {}).keys())}).")
 
         s_rank = self._find("rank")
         ranked = sorted(candidates.values(), key=lambda c: -c.score)
         if exact:
             ranked = [exact] + [c for c in ranked if c.track_id != exact.track_id]
-        yield self.step(s_rank, "running", "Weighing each candidate against the clues…")
+        yield self.step(s_rank, "running", "Weighing each candidate against the clues…" if tb.use_rerank else "Fusing the result lists…")
         if self.text and self.audio and ranked:
             from core.fusion import rrf
             order = {i: k for k, (i, _) in enumerate(rrf([lists.get("text", []), lists.get("audio", [])], k=60))}
             ranked.sort(key=lambda c: order.get(c.track_id, 1e9))
+        if self.text and ranked and not exact:
+            fused, reasons = tb.rerank_candidates(self.text, [(c.track_id, c.score) for c in ranked], text_hints)
+            by_id = {c.track_id: c for c in ranked}
+            ranked = []
+            for i, sc in fused:
+                c = by_id[i]; c.score = sc
+                if reasons.get(i):
+                    c.reason = reasons[i]
+                ranked.append(c)
         yield self.step(s_rank, "done", f"Top candidate: {ranked[0].title} — {ranked[0].artist}" if ranked else "No candidate.")
         yield self.step(self._find("verify"), "skipped", "Skipped")
 

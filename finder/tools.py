@@ -51,7 +51,7 @@ class Toolbox:
     subset: str = "dev"
     embedders: list[str] | None = None
     use_rewrite: bool = True
-    use_rerank: bool = True
+    use_rerank: bool = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_RERANK", "1") != "0")
     rerank_alpha: float = 0.5
     rerank_top: int = 10            # candidats notés par Llama (2 lots de 5 : ≈ 30 s sur M2) ; 20 pour l'évaluation
     rrf_k: int = 60
@@ -162,18 +162,21 @@ class Toolbox:
         return out
 
     # ---- outils ----
-    def catalog_search(self, text: str, hints: dict | None = None) -> dict[str, Any]:
-        """Recherche hybride : BM25 (requête brute + réécrite) + texte→fiches + texte→audio (légendes), RRF,
-        filtres doux, puis reranking Llama. Renvoie {candidates, rewrite, lists}."""
-        self.queries_done.append(text)
+    def rewrite_query(self, text: str):
+        """Étape 1 : réécriture Llama (légendes, indices, requête) ; None si indisponible."""
+        if not self.use_rewrite:
+            return None
+        try:
+            return query_rewrite.rewrite(text)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("réécriture impossible : %s", e)
+            return None
+
+    def retrieve(self, text: str, rw=None, hints: dict | None = None) -> dict[str, Any]:
+        """Étape 2 : BM25 (brut + réécrit) + texte→fiches + légendes→audio, RRF, filtres doux.
+        Renvoie {fused: [(id, score)], lists: {nom: n}, hints}."""
         lists: list[list[tuple[str, float]]] = []
         names: list[str] = []
-        rw = None
-        if self.use_rewrite:
-            try:
-                rw = query_rewrite.rewrite(text)
-            except Exception as e:  # noqa: BLE001
-                logger.warning("réécriture impossible : %s", e)
         bm = self.bm25()
         if bm is not None:
             lists.append(bm.search(text, k=50)); names.append("bm25:brut")
@@ -185,9 +188,9 @@ class Toolbox:
                 continue
             emb = self.emb(name)
             english_only = getattr(emb, "languages", "") == "en"
-            q_text = text
-            if english_only and rw and rw.query:
-                q_text = rw.query
+            if getattr(emb, "languages", "") == "none":
+                continue
+            q_text = rw.query if (english_only and rw and rw.query) else text
             if vt is not None:
                 lists.append(vt.search(emb.embed_text([q_text], task="query"), k=50)[0]); names.append(f"{name}:texte→fiches")
             if va is not None:
@@ -196,8 +199,7 @@ class Toolbox:
                     caps = caps + [text]
                 if caps:
                     V = emb.embed_text(caps, task="query")
-                    merged = va.search(np.mean(V, axis=0, keepdims=True), k=50)[0]
-                    lists.append(merged); names.append(f"{name}:légendes→audio")
+                    lists.append(va.search(np.mean(V, axis=0, keepdims=True), k=50)[0]); names.append(f"{name}:légendes→audio")
         fused = rrf(lists, k=self.rrf_k, top=max(self.top_k * 2, 40)) if lists else []
         h = dict(hints or {})
         if rw:
@@ -205,18 +207,30 @@ class Toolbox:
             h.setdefault("language", rw.language)
         if fused and (h.get("decade") or h.get("language")):
             fused = soft_bonus(fused, self.meta_for_bonus([i for i, _ in fused]), h)
-        fused = fused[: self.top_k]
-        reasons: dict[str, str] = {}
-        if self.use_rerank and fused and self.cards:
-            head, tail = fused[: self.rerank_top], fused[self.rerank_top :]
-            rr = rerank(text + ("\nClues: " + str({k: v for k, v in h.items() if v}) if h else ""), head, self.cards,
-                        alpha=self.rerank_alpha, top=self.rerank_top)
-            floor = min((r.final for r in rr), default=0.0)
-            # les candidats non notés gardent l'ordre de fusion, sous les candidats notés
-            fused = [(r.id, r.final) for r in rr] + [(i, floor * 0.9 * (1 - k / max(len(tail), 1))) for k, (i, _) in enumerate(tail)]
-            reasons = {r.id: r.reason for r in rr}
-        cands = [c for c in (self._candidate(i, s, "catalog", reasons.get(i, "")) for i, s in fused) if c]
-        return {"candidates": cands, "rewrite": rw, "lists": dict(zip(names, [len(l) for l in lists]))}
+        return {"fused": fused[: self.top_k], "lists": dict(zip(names, [len(l) for l in lists])), "hints": h}
+
+    def rerank_candidates(self, text: str, fused: list[tuple[str, float]], hints: dict | None = None) -> tuple[list[tuple[str, float]], dict[str, str]]:
+        """Étape 3 : reranking Llama du top `rerank_top` ; les autres gardent l'ordre de fusion."""
+        if not (self.use_rerank and fused and self.cards):
+            return fused, {}
+        h = {k: v for k, v in (hints or {}).items() if v}
+        head, tail = fused[: self.rerank_top], fused[self.rerank_top :]
+        rr = rerank(text + ("\nClues: " + str(h) if h else ""), head, self.cards, alpha=self.rerank_alpha, top=self.rerank_top)
+        floor = min((r.final for r in rr), default=0.0)
+        out = [(r.id, r.final) for r in rr] + [(i, floor * 0.9 * (1 - k / max(len(tail), 1))) for k, (i, _) in enumerate(tail)]
+        return out, {r.id: r.reason for r in rr}
+
+    def to_candidates(self, fused: list[tuple[str, float]], reasons: dict[str, str] | None = None, source: str = "catalog") -> list[Candidate]:
+        reasons = reasons or {}
+        return [c for c in (self._candidate(i, s, source, reasons.get(i, "")) for i, s in fused) if c]
+
+    def catalog_search(self, text: str, hints: dict | None = None) -> dict[str, Any]:
+        """Recherche hybride complète (réécriture → recherche → reranking). Renvoie {candidates, rewrite, lists}."""
+        self.queries_done.append(text)
+        rw = self.rewrite_query(text)
+        ret = self.retrieve(text, rw, hints)
+        fused, reasons = self.rerank_candidates(text, ret["fused"], ret["hints"])
+        return {"candidates": self.to_candidates(fused, reasons), "rewrite": rw, "lists": ret["lists"]}
 
     def audio_match(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
         """Embedding audio → audio (fusion des embedders) + Chromaprint en parallèle."""

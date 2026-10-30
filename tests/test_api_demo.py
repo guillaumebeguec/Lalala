@@ -14,12 +14,30 @@ class FakeTB:
         self.catalog = pd.DataFrame({"track_id": ["dz1", "dz2"], "album_title": ["Alb", None], "deezer_id": [1, 2]}).set_index("track_id", drop=False)
         self.previews = pd.DataFrame({"track_id": ["dz1"], "preview_url": ["http://x/1.mp3"]}).set_index("track_id")
 
+    use_rerank = True
+
     def active_embedders(self):
         return ["clap", "gemma"]
 
+    def _cands(self):
+        return [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.9, "catalog", "era matches", "http://x/1.mp3"),
+                Candidate("dz2", "Sweet Dreams", "Eurythmics", 1983, 0.4, "catalog")]
+
+    def rewrite_query(self, text):
+        return None
+
+    def retrieve(self, text, rw=None, hints=None):
+        return {"fused": [(c.track_id, c.score) for c in self._cands()], "lists": {"bm25:brut": 50}, "hints": {}}
+
+    def to_candidates(self, fused, reasons=None, source="catalog"):
+        by = {c.track_id: c for c in self._cands()}
+        return [by[i] for i, _ in fused if i in by]
+
+    def rerank_candidates(self, text, fused, hints=None):
+        return fused, {"dz1": "era matches"}
+
     def catalog_search(self, text, hints=None):
-        return {"candidates": [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.9, "catalog", "era matches", "http://x/1.mp3"),
-                               Candidate("dz2", "Sweet Dreams", "Eurythmics", 1983, 0.4, "catalog")], "rewrite": None, "lists": {"bm25:brut": 50}}
+        return {"candidates": self._cands(), "rewrite": None, "lists": {"bm25:brut": 50}}
 
     def audio_match(self, audio):
         return {"candidates": [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.7, "catalog")], "exact": None}
