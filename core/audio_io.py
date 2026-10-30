@@ -55,9 +55,7 @@ def _decode_with_ffmpeg(src: Path | str, sr: int | None, mono: bool) -> tuple[np
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg introuvable (brew install ffmpeg)")
-    cmd = [ffmpeg, "-v", "error", "-nostdin", "-i", str(src), "-f", "f32le", "-acodec", "pcm_f32le"]
-    if mono:
-        cmd += ["-ac", "1"]
+    cmd = [ffmpeg, "-v", "error", "-nostdin", "-i", str(src), "-f", "f32le", "-acodec", "pcm_f32le", "-ac", "1" if mono else "2"]
     if sr:
         cmd += ["-ar", str(sr)]
     cmd.append("-")
@@ -65,6 +63,8 @@ def _decode_with_ffmpeg(src: Path | str, sr: int | None, mono: bool) -> tuple[np
     if out.returncode != 0 or not out.stdout:
         raise RuntimeError(f"ffmpeg : {out.stderr.decode(errors='ignore')[:200]}")
     x = np.frombuffer(out.stdout, dtype=np.float32)
+    if not mono:
+        x = x.reshape(-1, 2)   # échantillons entrelacés → (n, 2) comme soundfile
     if not sr:
         # fréquence native : relue via ffprobe
         ffprobe = shutil.which("ffprobe")
