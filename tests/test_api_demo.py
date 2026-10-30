@@ -45,7 +45,7 @@ class FakeTB:
     def vec(self, name, modality):
         return None
 
-    def audio_similarity(self, audio, exact=None, embedders=None):
+    def audio_similarity(self, audio, exact=None, embedders=None, humming=False):
         return {"candidates": [Candidate("dz1", "Bette Davis Eyes", "Kim Carnes", 1981, 0.7, "catalog")], "lists": {"clap": 50}}
 
     def audio_match(self, audio):

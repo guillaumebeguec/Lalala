@@ -36,7 +36,7 @@ router = APIRouter(prefix="/api")
 
 _TOOLBOX = None
 RESULTS: dict[str, dict[str, Any]] = {}
-MODEL_LABELS = {"clap": "CLAP", "peav": "PE-AV", "gemma": "EmbeddingGemma 2", "gemini": "Gemini", "coverhunter": "CoverHunter"}
+MODEL_LABELS = {"clap": "CLAP", "peav": "PE-AV", "gemma": "EmbeddingGemma 2", "gemini": "Gemini", "coverhunter": "CoverHunter", "hum2song": "hum2song"}
 
 
 def toolbox():
@@ -152,6 +152,7 @@ class Pipeline:
 
     def run(self) -> Iterator[dict[str, Any]]:
         tb = self.tb
+        humming = False
         if self.audio:
             from core.audio_io import load_audio
             try:
@@ -159,16 +160,21 @@ class Pipeline:
             except Exception as e:  # noqa: BLE001
                 yield self.emit("error", {"message": f"Audio illisible : {e}"})
                 return
-            yield self.emit("input", {"kind": self.kind, "duration_s": round(len(x) / sr, 1), "noise_detected": noise_detected(x, sr),
+            has_hum = "hum2song" in tb.active_embedders() and tb.vec("hum2song", "audio") is not None
+            humming = bool(has_hum and self.kind in ("audio", "mixed") and tb.is_humming(self.audio))
+            kind = "humming" if humming else self.kind
+            yield self.emit("input", {"kind": kind, "duration_s": round(len(x) / sr, 1), "noise_detected": (not humming) and noise_detected(x, sr),
                                       "note": self.note, "waveform": waveform(x)})
         else:
             yield self.emit("input", {"kind": "text", "note": self.text, "waveform": []})
 
-        general = [n for n in tb.active_embedders() if n != "coverhunter"]
+        general = [n for n in tb.active_embedders() if n not in ("coverhunter", "hum2song")]
         has_cover = "coverhunter" in tb.active_embedders()
+        has_hum = "hum2song" in tb.active_embedders() and tb.vec("hum2song", "audio") is not None
         emb_label = " · ".join(MODEL_LABELS.get(n, n) for n in general)
         audio_steps = [Step("isolate", "Isolating the music", "SAM Audio"), Step("exact", "Exact match check", "Chromaprint"),
-                       Step("audio_sim", "Audio similarity search", emb_label)] + ([Step("version", "Version matching", "CoverHunter")] if has_cover else [])
+                       Step("audio_sim", "Audio similarity search", emb_label)] + ([Step("version", "Version matching", "CoverHunter")] if has_cover else []) \
+                      + ([Step("melody", "Melody matching", "hum2song")] if has_hum else [])
         text_steps = [Step("analyze", "Reading your description", "Llama 3.1"), Step("catalog", "Catalogue search", "BM25 · " + emb_label)]
         common = [Step("rank", "Ranking candidates", "Llama 3.1"), Step("verify", "Verification", "Web")]
         self.steps = (audio_steps if self.audio else []) + (text_steps if self.text else []) + common
@@ -194,9 +200,9 @@ class Pipeline:
             exact = tb.fingerprint_match(self.audio)
             yield self.step(s_exact, "done", "Same recording found." if exact else "No identical recording — not a Shazam case.")
             yield self.step(s_sim, "running", "Comparing the sound of the music itself…")
-            res = tb.audio_similarity(self.audio, exact, embedders=general)
+            res = tb.audio_similarity(self.audio, exact, embedders=general, humming=humming)
             absorb(res["candidates"], "audio")
-            yield self.step(s_sim, "done", f"{len(res['candidates'])} candidates by audio similarity.")
+            yield self.step(s_sim, "done", ("Weak signal: a single voice." if humming else f"{len(res['candidates'])} candidates by audio similarity."))
             if has_cover:
                 s_ver = self._find("version")
                 if tb.vec("coverhunter", "audio") is not None:
@@ -207,6 +213,13 @@ class Pipeline:
                     yield self.step(s_ver, "done", f"{len(res_v['candidates'])} candidates by melody and harmony.")
                 else:
                     yield self.step(s_ver, "skipped", "Skipped")
+            if has_hum:
+                s_mel = self._find("melody")
+                yield self.step(s_mel, "running", "Extracting the melodic contour…")
+                res_m = tb.audio_similarity(self.audio, exact, embedders=["hum2song"], humming=humming)
+                absorb(res_m["candidates"], "melody")
+                lists["audio"] = lists.get("audio", []) + lists.get("melody", [])
+                yield self.step(s_mel, "done", f"Contour matched against the vocal lines ({len(res_m['candidates'])} candidates).")
         text_hints: dict = {}
         if self.text:
             s_an, s_cat = self._find("analyze"), self._find("catalog")
@@ -257,6 +270,8 @@ class Pipeline:
             proofs.append({"source": "Context", "text": best.reason})
         if self.audio and not exact and best.source == "version":
             proofs.append({"source": "Version", "text": "Same song, different version (cover or live)."})
+        if self.audio and not exact and best.source == "melody":
+            proofs.append({"source": "Melody", "text": "Your hummed melody matches the vocal line."})
         if self.audio and not exact:
             proofs.append({"source": "Audio", "text": "The music itself sounds closest to this track across the audio encoders."})
         h = analysis.get("hints") or {}

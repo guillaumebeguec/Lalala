@@ -22,6 +22,11 @@ from core.fusion import rrf, soft_bonus
 from core.index import BM25Index, VectorIndex
 from core.rerank import rerank
 
+
+def resample_to16(x: np.ndarray, sr: int) -> np.ndarray:
+    from core.audio_io import resample, to_mono
+    return resample(to_mono(np.asarray(x)), sr, 16_000)
+
 logger = logging.getLogger(__name__)
 
 FINGERPRINT_EXACT = 0.85
@@ -108,8 +113,32 @@ class Toolbox:
     def emb(self, name: str):
         if name not in self._emb:
             from core.embedders.base import get_embedder
-            self._emb[name] = get_embedder(name)
+            if name == "hum2song":   # côté requête : contour rogné à 20 s (fredonnement)
+                from core.embedders.hum2song import Hum2SongEmbedder
+                self._emb[name] = Hum2SongEmbedder(role="query")
+            else:
+                self._emb[name] = get_embedder(name)
         return self._emb[name]
+
+    def is_humming(self, audio: bytes | tuple[np.ndarray, int]) -> bool:
+        """Heuristique « voix seule monophonique » (C4.3) : part de trames voisées à forte saillance
+        RMVPE élevée et spectre pauvre en hautes fréquences. Vrai → entrée `humming`, poids hum2song ×3."""
+        try:
+            from core.audio_io import load_audio
+            x, sr = (load_audio(bytes(audio), sr=16_000) if isinstance(audio, (bytes, bytearray)) else
+                     (resample_to16(audio[0], audio[1]), 16_000))
+            h = self.emb("hum2song")
+            h._load()
+            track = h._trackers.rmvpe_track(h._rmvpe, x.astype(np.float32))
+            sal = track[1]
+            voiced = float((sal > 0.5).mean())
+            spec = np.abs(np.fft.rfft(x[: sr * 10].astype(np.float64)))
+            freqs = np.fft.rfftfreq(min(len(x), sr * 10), 1 / sr)
+            hf = float(spec[freqs > 2500].sum() / (spec.sum() + 1e-9))
+            return voiced > 0.35 and hf < 0.25
+        except Exception as e:  # noqa: BLE001
+            logger.debug("détection fredonnement impossible : %s", e)
+            return False
 
     def fingerprints(self) -> FingerprintIndex | None:
         if self._fp is None and FingerprintIndex.path().exists():
@@ -246,24 +275,35 @@ class Toolbox:
         return None
 
     def audio_similarity(self, audio: bytes | tuple[np.ndarray, int], exact: Candidate | None = None,
-                         embedders: list[str] | None = None) -> dict[str, Any]:
+                         embedders: list[str] | None = None, humming: bool = False) -> dict[str, Any]:
         """Étape similarité : audio → audio pour les embedders demandés (par défaut tous les actifs),
-        fusion RRF pondérée (CoverHunter ×2 sans empreinte exacte). Renvoie {candidates, lists}."""
+        fusion RRF pondérée (CoverHunter ×2 sans empreinte exacte ; hum2song ×3 si fredonnement,
+        généralistes ×0,5 dans ce cas). Renvoie {candidates, lists}."""
         lists, weights, names = [], [], []
         for name in (embedders or self.active_embedders()):
             va = self.vec(name, "audio")
             if va is None:
                 continue
             lists.append(va.search(self.emb(name).embed_audio([audio]), k=50)[0])
-            weights.append((2.0 if exact is None else 1.0) if name == "coverhunter" else 1.0)
+            if name == "coverhunter":
+                w = 2.0 if exact is None else 1.0
+            elif name == "hum2song":
+                w = 3.0 if humming else 0.5
+            else:
+                w = 0.5 if humming else 1.0
+            weights.append(w)
             names.append(name)
         fused = rrf(lists, k=self.rrf_k, weights=weights, top=self.top_k) if lists else []
         cover_top = {i for i, _ in lists[names.index("coverhunter")][:5]} if "coverhunter" in names else set()
+        hum_top = {i for i, _ in lists[names.index("hum2song")][:5]} if "hum2song" in names else set()
         cands = []
         for i, sc in fused:
             c = self._candidate(i, sc, "catalog")
             if c:
-                if i in cover_top and exact is None:
+                if humming and i in hum_top:
+                    c.reason = "Your hummed melody matches the vocal line."
+                    c.source = "melody"
+                elif i in cover_top and exact is None:
                     c.reason = "Same song, different version (cover or live)."
                     c.source = "version"
                 cands.append(c)
