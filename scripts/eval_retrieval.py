@@ -66,6 +66,8 @@ def eval_text_set(name: str, cases: list[dict], embedders: list[str], subset: st
                 runs["bm25:reformulation-article"].append(bm25.search(rf, k=K) if rf else [])
     for name_e in embedders:
         emb = get_embedder(name_e)
+        if getattr(emb, "languages", "") == "none":   # audio seulement (CoverHunter, hum2song)
+            continue
         q = emb.embed_text([c["texte"] for c in cases], task="query")
         for mod in ("text", "audio"):
             if not VectorIndex.exists(name_e, mod):
