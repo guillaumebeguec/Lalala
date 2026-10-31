@@ -63,6 +63,8 @@ Appui long (1 s) sur le logo : menu de rejeu.
 | `SOUNDTRACE_RERANK` | `1` | reranking Llama (cross-encodeur) ; `0` pour la latence en direct |
 | `RERANK_MODE` | `pointwise` | `listwise` : un seul appel classe tous les candidats (modèles plus gros) |
 | `HUM2SONG_DEMUCS` / `HUM2SONG_WINDOWS` | `0` / `0` | côté morceau de hum2song : voix séparée (Demucs), fenêtres glissantes |
+| `SOUNDTRACE_ASR_MODEL` | `small` | modèle Whisper (faster-whisper, CPU int8) pour les paroles chantées ; `base` plus rapide, `medium` plus juste |
+| `SOUNDTRACE_FUSION` | `rrf` | `learned` : fusion apprise (`scripts/train_fusion.py`) si le modèle existe |
 | `PREVIEW_STORAGE` | `memory` | aucun audio écrit sur disque (voir ci-dessus) |
 | `OMP_NUM_THREADS` / `KMP_DUPLICATE_LIB_OK` | `1` / `TRUE` | posés par `core/__init__.py` : double runtime OpenMP faiss + torch sur macOS |
 
