@@ -165,6 +165,13 @@ class Toolbox:
             self._fp = FingerprintIndex.load()
         return self._fp
 
+    def audfprint(self):
+        """Base audfprint (empreinte robuste au micro, recommandation 8) si elle existe."""
+        if not hasattr(self, "_afp"):
+            from core.fingerprint_audfprint import AudfprintIndex
+            self._afp = AudfprintIndex.load() if AudfprintIndex.path().exists() else None
+        return self._afp
+
     # ---- candidats ----
     def _candidate(self, track_id: str, score: float, source: str, reason: str = "") -> Candidate | None:
         if track_id not in self.catalog.index:
@@ -327,7 +334,18 @@ class Toolbox:
         return {"candidates": self.to_candidates(fused, reasons), "rewrite": rw, "lists": ret["lists"]}
 
     def fingerprint_match(self, audio: bytes | tuple[np.ndarray, int]) -> Candidate | None:
-        """Étape empreinte : Chromaprint ; un candidat `fingerprint` si le même enregistrement est trouvé."""
+        """Étape empreinte : audfprint (landmarks, robuste au micro) puis Chromaprint ; un candidat
+        `fingerprint` si le même enregistrement est trouvé."""
+        afp = self.audfprint()
+        if afp is not None:
+            try:
+                from core.fingerprint_audfprint import MIN_ALIGNED
+                hits = afp.search(audio, k=3)
+                if hits and hits[0][1] >= MIN_ALIGNED:
+                    return self._candidate(hits[0][0], min(1.0, hits[0][1] / 50.0), "fingerprint",
+                                           f"empreinte audio identique (même enregistrement, {int(hits[0][1])} repères alignés)")
+            except Exception as e:  # noqa: BLE001
+                logger.warning("audfprint : %s", e)
         fp = self.fingerprints()
         if fp is None:
             return None
