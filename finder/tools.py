@@ -69,6 +69,7 @@ class Toolbox:
     text_to_audio: str = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_TEXT_TO_AUDIO", "auto"))  # auto|always|never
     gate_min_top1: dict = field(default_factory=lambda: {"clap:légendes→audio": 0.15, "gemma:légendes→audio": 0.35})
     gate_min_margin: float = 0.0
+    fusion_mode: str = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_FUSION", "rrf"))  # rrf | learned
     _catalog: pd.DataFrame | None = None
     _cards: dict[str, str] | None = None
     _bm25: BM25Index | None = None
@@ -164,6 +165,17 @@ class Toolbox:
         if self._fp is None and FingerprintIndex.path().exists():
             self._fp = FingerprintIndex.load()
         return self._fp
+
+    def learned_fusion(self):
+        """Modèle de fusion apprise (scripts/train_fusion.py) s'il existe ; rechargé si le fichier change."""
+        from core.fusion_learned import LearnedFusion
+        p = LearnedFusion.path()
+        if not p.exists():
+            return None
+        m = p.stat().st_mtime
+        if getattr(self, "_lf_mtime", None) != m:
+            self._lf = LearnedFusion.load(); self._lf_mtime = m
+        return self._lf
 
     def audfprint(self):
         """Base audfprint (empreinte robuste au micro, recommandation 8) si elle existe."""
@@ -300,13 +312,21 @@ class Toolbox:
                 if caps:
                     V = emb.embed_text(caps, task="query")
                     add(f"{name}:légendes→audio", va.search(np.mean(V, axis=0, keepdims=True), k=50)[0])
-        fused = rrf(lists, k=self.rrf_k, weights=weights, top=max(self.top_k * 2, 40)) if lists else []
         h = dict(hints or {})
         if rw:
             h.setdefault("decade", rw.decade)
             h.setdefault("language", rw.language)
-        if fused and (h.get("decade") or h.get("language")):
-            fused = soft_bonus(fused, self.meta_for_bonus([i for i, _ in fused]), h)
+        fused: list[tuple[str, float]] = []
+        if lists and self.fusion_mode == "learned":
+            lf = self.learned_fusion()
+            if lf is not None:
+                by_name = dict(zip(names, lists))
+                ids_all = {i for l in lists for i, _ in l}
+                fused = lf.rank(by_name, h, self.meta_for_bonus(list(ids_all)), input_type="text", top=max(self.top_k * 2, 40))
+        if not fused and lists:
+            fused = rrf(lists, k=self.rrf_k, weights=weights, top=max(self.top_k * 2, 40))
+            if fused and (h.get("decade") or h.get("language")):
+                fused = soft_bonus(fused, self.meta_for_bonus([i for i, _ in fused]), h)
         return {"fused": fused[: self.top_k], "lists": dict(zip(names, [len(l) for l in lists])), "hints": h,
                 "skipped": skipped, "llm_unresolved": llm_unresolved}
 
