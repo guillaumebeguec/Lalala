@@ -50,4 +50,21 @@ Pour un test depuis un téléphone : lancer le backend (`SOUNDTRACE_SUBSET=dev u
 Options d'URL : `?replay=memory|cover|noisy` (scène de secours), `?scale=1.25` (projection), `?accent=mint|violet`.
 Appui long (1 s) sur le logo : menu de rejeu.
 
+## Réglages du pipeline (variables d'environnement)
+
+| Variable | Défaut | Effet |
+|---|---|---|
+| `EMBEDDERS` | `clap,peav,gemma,gemini,coverhunter,hum2song` | embedders actifs (un index absent est simplement ignoré) |
+| `SOUNDTRACE_TEXT_TO_AUDIO` | `auto` | `auto` : texte→audio seulement si la réécriture détecte une description sonore ; `always` / `never` |
+| `SOUNDTRACE_LLM_RETRIEVER` | `1` | Llama comme moteur de recherche (titres proposés puis résolus dans le catalogue) |
+| `LLM_RETRIEVER_MODEL` | `LLM_MODEL` | modèle dédié à cette branche (un Llama plus gros par API y change tout) |
+| `SOUNDTRACE_LLM_MIN_CONF` | `0.6` | confiance minimale d'une proposition Llama pour voter |
+| `SOUNDTRACE_RERANK` | `1` | reranking Llama (cross-encodeur) ; `0` pour la latence en direct |
+| `RERANK_MODE` | `pointwise` | `listwise` : un seul appel classe tous les candidats (modèles plus gros) |
+| `HUM2SONG_DEMUCS` / `HUM2SONG_WINDOWS` | `0` / `0` | côté morceau de hum2song : voix séparée (Demucs), fenêtres glissantes |
+| `PREVIEW_STORAGE` | `memory` | aucun audio écrit sur disque (voir ci-dessus) |
+| `OMP_NUM_THREADS` / `KMP_DUPLICATE_LIB_OK` | `1` / `TRUE` | posés par `core/__init__.py` : double runtime OpenMP faiss + torch sur macOS |
+
+Architecture visée (après les recommandations du 28/10) : texte → réécriture → [Llama-retriever + fiches (BM25 + dense) + web] → fusion (RRF, ou apprise : `scripts/train_fusion.py`) → reranker. Audio → empreinte robuste (audfprint, repli Chromaprint) → sinon [embedder audio + CoverHunter (+ hum2song si voix seule)] → fusion à seuils → reranker si une note texte accompagne l'audio.
+
 *(Sections à compléter au fil des phases : données, évaluation, démo.)*
