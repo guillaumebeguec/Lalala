@@ -239,7 +239,7 @@ def main() -> int:
     report = header + [sections[n]["md"] for n in order if n in sections]
     rows_csv = [r for n in order if n in sections for r in sections[n]["csv"]]
     if examples:
-        meta = cat.set_index("track_id")
+        meta = cb.load("full").set_index("track_id")   # le pool indexé peut dépasser le sous-ensemble (cibles T6a)
         report += ["## Exemples qualitatifs (fusion RRF k=60)", ""]
         for name, c, r, top in examples[:10]:
             ans = meta.loc[c["reponse_id"]]
