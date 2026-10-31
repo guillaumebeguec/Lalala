@@ -42,6 +42,16 @@ Thème du hackathon visé : **Build for Your World** (problème vécu par tout l
 
 ---
 
+
+### Décisions prises sur les chiffres (29/10/2026, panel dev de 2 124 morceaux, `eval/retrieval.md`)
+
+- **Scène 2 (reprise)** : seuil de 50 % en top-5 **non atteint**. Reprises T4 (44 cas) : Gemma audio 25 % top-5, CoverHunter 18 % top-5 (11 % top-1), meilleure fusion 32 % top-10 ; fenêtres glissantes CoverHunter : gain marginal. Cause structurelle : la reprise et l'original ne sont connus que par deux extraits de 30 s à des positions différentes du morceau. Conséquence : **ne pas promettre les reprises en direct** ; si on veut garder une reprise en démo, choisir à l'avance une paire dont les deux extraits se recouvrent (vérifiée à l'écoute) et la rejouer.
+- **Scène 3 (bruit)** : solide sans SAM Audio sur le bruit synthétique MUSAN : empreinte (audfprint ou Chromaprint) 87 % top-1, fusion 97 % top-10 à 0/5/10 dB. Reste à valider sur les 20 vrais enregistrements de café (`data/manual/real_recordings/`) : c'est le vrai juge de « Shazam échoue, nous réussissons ».
+- **Fredonnement (scène bonus, PLAN_COMPLEMENTS C4)** : les embedders généralistes sont à ~0 sur 393 fredonnements humains (CHAD) ; décision en attente des chiffres hum2song (index en construction) et de vos 20 fredonnements.
+- **Scène 1 (souvenir, texte)** : sur 43 demandes réelles ToT dont la réponse est dans le panel, EmbeddingGemma 2 texte→fiches 14 % top-1 / 26 % top-10, fusion 30 % top-10 ; BM25 7 % top-10. Un Llama plus gros comme moteur de recherche (recommandation 1) est le levier attendu.
+
+---
+
 ## 3. Stratégie de données
 
 ### 3.1 Pourquoi pas FMA
