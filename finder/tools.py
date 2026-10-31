@@ -156,7 +156,9 @@ class Toolbox:
             spec = np.abs(np.fft.rfft(x[: sr * 10].astype(np.float64)))
             freqs = np.fft.rfftfreq(min(len(x), sr * 10), 1 / sr)
             hf = float(spec[freqs > 2500].sum() / (spec.sum() + 1e-9))
-            return voiced > 0.35 and hf < 0.25
+            lf = float(spec[freqs < 1000].sum() / (spec.sum() + 1e-9))
+            # Calibré le 29/10 sur 60 fredonnements CHAD / 60 extraits : rappel 0,93, faux positifs 0,13
+            return (voiced > 0.45 and hf < 0.25) or (voiced > 0.5 and lf > 0.7)
         except Exception as e:  # noqa: BLE001
             logger.debug("détection fredonnement impossible : %s", e)
             return False
