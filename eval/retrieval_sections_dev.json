@@ -170,5 +170,168 @@
     "n": 44
    }
   ]
+ },
+ "T1 ToT_Music": {
+  "md": "## T1 ToT_Music\n\n43 cas ; 6 s ; systèmes : bm25, bm25:reformulation-article, gemma:text→text, gemma:text→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| bm25 | 0.023 | 0.047 | 0.070 | 0.043 |\n| bm25:reformulation-article | 0.000 | 0.093 | 0.093 | 0.041 |\n| gemma:text→text | 0.140 | 0.209 | 0.256 | 0.176 |\n| gemma:text→audio | 0.047 | 0.070 | 0.116 | 0.073 |\n| rrf(k=10) | 0.116 | 0.302 | 0.302 | 0.192 |\n| rrf(k=30) | 0.116 | 0.302 | 0.302 | 0.191 |\n| rrf(k=60) | 0.093 | 0.279 | 0.302 | 0.176 |\n| rrf-embeddings(k=60) | 0.163 | 0.233 | 0.302 | 0.213 |\n\nDétail de `rrf(k=10)` par type de demande (`query_types`) :\n\n| Type | n | top-1 | top-5 | top-10 |\n|---|---|---|---|---|\n| descriptive | 43 | 0.116 | 0.302 | 0.302 |\n\nComparabilité (C6) : la ligne `bm25` reproduit la baseline de l'article (requête complète) sur le split test de ToT_Music, mais sur notre catalogue de 2124 morceaux au lieu du corpus WASABI complet : la tâche y est plus facile, les chiffres ne sont pas directement comparables.\n",
+  "csv": [
+   {
+    "set": "T1 ToT_Music",
+    "system": "bm25",
+    "top1": 0.0233,
+    "top5": 0.0465,
+    "top10": 0.0698,
+    "mrr": 0.0435,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "bm25:reformulation-article",
+    "top1": 0.0,
+    "top5": 0.093,
+    "top10": 0.093,
+    "mrr": 0.0407,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "gemma:text→text",
+    "top1": 0.1395,
+    "top5": 0.2093,
+    "top10": 0.2558,
+    "mrr": 0.1759,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "gemma:text→audio",
+    "top1": 0.0465,
+    "top5": 0.0698,
+    "top10": 0.1163,
+    "mrr": 0.0729,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "rrf(k=10)",
+    "top1": 0.1163,
+    "top5": 0.3023,
+    "top10": 0.3023,
+    "mrr": 0.1917,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "rrf(k=30)",
+    "top1": 0.1163,
+    "top5": 0.3023,
+    "top10": 0.3023,
+    "mrr": 0.1909,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "rrf(k=60)",
+    "top1": 0.093,
+    "top5": 0.2791,
+    "top10": 0.3023,
+    "mrr": 0.1764,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
+    "system": "rrf-embeddings(k=60)",
+    "top1": 0.1628,
+    "top5": 0.2326,
+    "top10": 0.3023,
+    "mrr": 0.2128,
+    "n": 43
+   }
+  ]
+ },
+ "T6a Fredonnements CHAD": {
+  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 2203 s ; systèmes : chromaprint, audfprint, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| gemma:audio→audio | 0.003 | 0.010 | 0.018 | 0.008 |\n| coverhunter:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.000 | 0.010 | 0.018 | 0.006 |\n| rrf(k=30) | 0.000 | 0.005 | 0.010 | 0.004 |\n| rrf(k=60) | 0.000 | 0.003 | 0.010 | 0.003 |\n| rrf-embeddings(k=60) | 0.003 | 0.005 | 0.013 | 0.007 |\n\nDétail de `hum2song:audio→audio` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.010 | 0.035 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.000 | 0.000 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.000 | 0.014 |\n",
+  "csv": [
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "chromaprint",
+    "top1": 0.0,
+    "top5": 0.0025,
+    "top10": 0.0025,
+    "mrr": 0.001,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "audfprint",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "gemma:audio→audio",
+    "top1": 0.0025,
+    "top5": 0.0102,
+    "top10": 0.0178,
+    "mrr": 0.0076,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "coverhunter:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "hum2song:audio→audio",
+    "top1": 0.0051,
+    "top5": 0.0229,
+    "top10": 0.0356,
+    "mrr": 0.0144,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "rrf(k=10)",
+    "top1": 0.0,
+    "top5": 0.0102,
+    "top10": 0.0178,
+    "mrr": 0.0056,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "rrf(k=30)",
+    "top1": 0.0,
+    "top5": 0.0051,
+    "top10": 0.0102,
+    "mrr": 0.004,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "rrf(k=60)",
+    "top1": 0.0,
+    "top5": 0.0025,
+    "top10": 0.0102,
+    "mrr": 0.0034,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "rrf-embeddings(k=60)",
+    "top1": 0.0025,
+    "top5": 0.0051,
+    "top10": 0.0127,
+    "mrr": 0.0068,
+    "n": 393
+   }
+  ]
  }
 }
