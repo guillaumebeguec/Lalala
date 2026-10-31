@@ -167,10 +167,10 @@ class Toolbox:
 
     def audfprint(self):
         """Base audfprint (empreinte robuste au micro, recommandation 8) si elle existe."""
-        if not hasattr(self, "_afp"):
-            from core.fingerprint_audfprint import AudfprintIndex
-            self._afp = AudfprintIndex.load() if AudfprintIndex.path().exists() else None
-        return self._afp
+        from core.fingerprint_audfprint import AudfprintIndex
+        if getattr(self, "_afp", None) is None and AudfprintIndex.path().exists():
+            self._afp = AudfprintIndex.load()   # base apparue après le démarrage : prise en compte à chaud
+        return getattr(self, "_afp", None)
 
     # ---- candidats ----
     def _candidate(self, track_id: str, score: float, source: str, reason: str = "") -> Candidate | None:
