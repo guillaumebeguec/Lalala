@@ -214,7 +214,9 @@ class Pipeline:
                 yield self.step(s_sim, "done", ("Weak signal: a single voice." if humming else f"{len(res['candidates'])} candidates by audio similarity."))
             if has_cover and not (exact and not self.text):
                 s_ver = self._find("version")
-                if tb.vec("coverhunter", "audio") is not None:
+                if humming:
+                    yield self.step(s_ver, "skipped", "Skipped: a single voice, melody matching instead")
+                elif tb.vec("coverhunter", "audio") is not None:
                     yield self.step(s_ver, "running", "Looking for the same song in another version…")
                     res_v = tb.audio_similarity(self.audio, exact, embedders=["coverhunter"])
                     absorb(res_v["candidates"], "version")
