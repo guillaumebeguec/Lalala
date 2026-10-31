@@ -221,7 +221,7 @@ def main() -> int:
                 g = c.get("snr_db", c.get("kind"))
                 if c.get("original_interval"):
                     a = c["original_interval"][0]
-                    g = f"fragment à {a:.0f}-{c['original_interval'][1]:.0f} s ({'début' if a < 60 else 'milieu' if a < 150 else 'fin'})"
+                    g = f"fragment en {'début (< 60 s)' if a < 60 else 'milieu (60–150 s)' if a < 150 else 'fin (> 150 s)'} du morceau"
                 by[str(g)].append(_rank(h, c))
             report += ["", f"Détail de `{best}` par sous-groupe (SNR dB ou type) :", "", "| Groupe | n | top-1 | top-5 |", "|---|---|---|---|"]
             for g, rk in sorted(by.items(), key=str):
