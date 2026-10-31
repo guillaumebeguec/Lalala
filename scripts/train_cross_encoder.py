@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from catalog import build as cb  # noqa: E402
 from core.config import PROJECT_ROOT, get_settings  # noqa: E402
+from core.device import get_device  # noqa: E402
 from core.fusion import rrf  # noqa: E402
 from core.metrics import bootstrap_ci, summarize  # noqa: E402
 from finder.tools import Toolbox  # noqa: E402
@@ -97,7 +98,7 @@ def main() -> int:
     log.info("%d groupes d'entraînement", len(groups))
 
     # ---- entraînement (perte listwise : CrossEntropy sur les logits du groupe)
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = str(get_device())  # SOUNDTRACE_DEVICE=cpu permet de laisser le GPU à un autre job
     model = CrossEncoder(args.base, num_labels=1, max_length=384, device=device)
     tok = model.tokenizer
     opt = torch.optim.AdamW(model.model.parameters(), lr=2e-5)
