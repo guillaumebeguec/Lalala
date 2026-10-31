@@ -1,0 +1,174 @@
+{
+ "T3 Bruit": {
+  "md": "## T3 Bruit\n\n30 cas ; 100 s ; systèmes : chromaprint, audfprint, clap:audio→audio, gemma:audio→audio, coverhunter:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.867 | 0.900 | 0.900 | 0.875 |\n| audfprint | 0.867 | 0.867 | 0.867 | 0.867 |\n| clap:audio→audio | 0.167 | 0.267 | 0.267 | 0.214 |\n| gemma:audio→audio | 0.333 | 0.433 | 0.467 | 0.366 |\n| coverhunter:audio→audio | 0.233 | 0.300 | 0.367 | 0.274 |\n| rrf(k=10) | 0.867 | 0.933 | 0.967 | 0.889 |\n| rrf(k=30) | 0.867 | 0.867 | 0.933 | 0.878 |\n| rrf(k=60) | 0.833 | 0.867 | 0.900 | 0.861 |\n| rrf-embeddings(k=60) | 0.533 | 0.633 | 0.633 | 0.574 |\n\nDétail de `rrf(k=10)` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| 0 | 10 | 0.800 | 0.900 |\n| 10 | 10 | 0.900 | 0.900 |\n| 5 | 10 | 0.900 | 1.000 |\n",
+  "csv": [
+   {
+    "set": "T3 Bruit",
+    "system": "chromaprint",
+    "top1": 0.8667,
+    "top5": 0.9,
+    "top10": 0.9,
+    "mrr": 0.875,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "audfprint",
+    "top1": 0.8667,
+    "top5": 0.8667,
+    "top10": 0.8667,
+    "mrr": 0.8667,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "clap:audio→audio",
+    "top1": 0.1667,
+    "top5": 0.2667,
+    "top10": 0.2667,
+    "mrr": 0.2135,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "gemma:audio→audio",
+    "top1": 0.3333,
+    "top5": 0.4333,
+    "top10": 0.4667,
+    "mrr": 0.3662,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "coverhunter:audio→audio",
+    "top1": 0.2333,
+    "top5": 0.3,
+    "top10": 0.3667,
+    "mrr": 0.274,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "rrf(k=10)",
+    "top1": 0.8667,
+    "top5": 0.9333,
+    "top10": 0.9667,
+    "mrr": 0.8887,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "rrf(k=30)",
+    "top1": 0.8667,
+    "top5": 0.8667,
+    "top10": 0.9333,
+    "mrr": 0.8782,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "rrf(k=60)",
+    "top1": 0.8333,
+    "top5": 0.8667,
+    "top10": 0.9,
+    "mrr": 0.8605,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
+    "system": "rrf-embeddings(k=60)",
+    "top1": 0.5333,
+    "top5": 0.6333,
+    "top10": 0.6333,
+    "mrr": 0.5741,
+    "n": 30
+   }
+  ]
+ },
+ "T4 Reprises": {
+  "md": "## T4 Reprises\n\n44 cas ; 130 s ; systèmes : chromaprint, audfprint, clap:audio→audio, gemma:audio→audio, coverhunter:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.068 | 0.091 | 0.091 | 0.077 |\n| audfprint | 0.000 | 0.023 | 0.023 | 0.011 |\n| clap:audio→audio | 0.000 | 0.023 | 0.023 | 0.008 |\n| gemma:audio→audio | 0.182 | 0.250 | 0.250 | 0.206 |\n| coverhunter:audio→audio | 0.114 | 0.182 | 0.205 | 0.143 |\n| rrf(k=10) | 0.182 | 0.227 | 0.318 | 0.220 |\n| rrf(k=30) | 0.136 | 0.205 | 0.273 | 0.186 |\n| rrf(k=60) | 0.136 | 0.205 | 0.250 | 0.180 |\n| rrf-embeddings(k=60) | 0.091 | 0.159 | 0.341 | 0.141 |\n\nDétail de `gemma:audio→audio` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| acoustic | 6 | 0.333 | 0.333 |\n| karaoke | 13 | 0.077 | 0.077 |\n| live | 15 | 0.200 | 0.400 |\n| piano | 10 | 0.200 | 0.200 |\n",
+  "csv": [
+   {
+    "set": "T4 Reprises",
+    "system": "chromaprint",
+    "top1": 0.0682,
+    "top5": 0.0909,
+    "top10": 0.0909,
+    "mrr": 0.077,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "audfprint",
+    "top1": 0.0,
+    "top5": 0.0227,
+    "top10": 0.0227,
+    "mrr": 0.0114,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "clap:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0227,
+    "top10": 0.0227,
+    "mrr": 0.0081,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "gemma:audio→audio",
+    "top1": 0.1818,
+    "top5": 0.25,
+    "top10": 0.25,
+    "mrr": 0.2064,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "coverhunter:audio→audio",
+    "top1": 0.1136,
+    "top5": 0.1818,
+    "top10": 0.2045,
+    "mrr": 0.1434,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "rrf(k=10)",
+    "top1": 0.1818,
+    "top5": 0.2273,
+    "top10": 0.3182,
+    "mrr": 0.2197,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "rrf(k=30)",
+    "top1": 0.1364,
+    "top5": 0.2045,
+    "top10": 0.2727,
+    "mrr": 0.1855,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "rrf(k=60)",
+    "top1": 0.1364,
+    "top5": 0.2045,
+    "top10": 0.25,
+    "mrr": 0.1804,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
+    "system": "rrf-embeddings(k=60)",
+    "top1": 0.0909,
+    "top5": 0.1591,
+    "top10": 0.3409,
+    "mrr": 0.1413,
+    "n": 44
+   }
+  ]
+ }
+}
