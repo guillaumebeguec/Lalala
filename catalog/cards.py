@@ -152,9 +152,10 @@ class Wikipedia:
 AUDIO_DESC_SCHEMA = {
     "title": "audio_description",
     "type": "object",
-    "required": ["description", "instruments", "tempo", "vocals", "mood"],
+    "required": ["description", "instruments", "tempo", "vocals", "mood", "theme"],
     "properties": {
         "description": {"type": "string", "description": "ONE sentence (max 30 words) in English on how the track sounds"},
+        "theme": {"type": "string", "description": "ONE sentence (max 25 words) on what the lyrics are about (story, situation, feeling) — no lyrics quoted; empty if instrumental or unknown"},
         "instruments": {"type": "array", "items": {"type": "string"}, "maxItems": 4},
         "tempo": {"type": "string", "enum": ["slow", "medium", "fast", "unknown"]},
         "vocals": {"type": "string", "enum": ["male", "female", "mixed", "instrumental", "unknown"]},
@@ -166,6 +167,8 @@ _DESC_SYSTEM = (
     "You are a music expert. From song metadata only (title, artist, year, genre, language, short context), "
     "write a plausible description of how the track sounds, as a caption for an audio search engine: "
     "instruments, tempo, vocals, mood, production style. English only, ONE short sentence, be terse. Never quote lyrics. "
+    "Also give `theme`: one sentence on what the lyrics are about (the story or situation: e.g. 'a woman pretends to enjoy a party "
+    "while missing her ex'), without quoting lyrics; empty string if instrumental or unknown. "
     "If you genuinely know the song, describe it; otherwise infer from the artist, genre and era. "
     "Do not mention that you are guessing."
 )
@@ -175,7 +178,7 @@ def audio_description(meta: dict[str, Any], model: str | None = None) -> dict | 
     """Description audio JSON générée une fois par Llama et mise en cache (hash des métadonnées)."""
     cache = DiskCache("llama_audio_desc")
     payload = {k: meta.get(k) for k in ("title", "artist", "year", "genre", "language", "wiki_summary")}
-    key = cache.key(str(sorted(payload.items())), model=model or get_settings().llm_model, v=2)
+    key = cache.key(str(sorted(payload.items())), model=model or get_settings().llm_model, v=3)
     hit = cache.get(key)
     if hit is not None:
         return hit["v"]
@@ -210,6 +213,8 @@ def card_text(meta: dict[str, Any], wiki: WikiSummary | None, desc: dict | None)
         parts.append("Tube : " + ", ".join(str(y) for y in ys) + (" (France)" if meta.get("country_hint") == "FR" else ""))
     if wiki:
         parts.append(f"Résumé ({wiki.lang}) : {wiki.extract}")
+    if desc and desc.get("theme"):
+        parts.append("[généré] Thème des paroles : " + str(desc["theme"]).strip())
     if desc:
         d = desc.get("description", "")
         extra = []
@@ -250,6 +255,7 @@ def build_cards(catalog: pd.DataFrame, with_wiki: bool = True, with_llm: bool = 
             "wiki_url": ws.url if ws else None,
             "wiki_lang": ws.lang if ws else None,
             "audio_description": desc.get("description") if desc else None,
+            "lyrics_theme": desc.get("theme") if desc else None,
             "desc_tempo": desc.get("tempo") if desc else None,
             "desc_vocals": desc.get("vocals") if desc else None,
         })

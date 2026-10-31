@@ -81,16 +81,63 @@ def _score_batch(description: str, batch: Sequence[tuple[str, str]], model: str 
     return out
 
 
+LISTWISE_SCHEMA = {
+    "title": "rerank_listwise",
+    "type": "object",
+    "required": ["ranking"],
+    "properties": {"ranking": {"type": "array", "items": {"type": "object", "required": ["id"],
+                                                          "properties": {"id": {"type": "string"}, "reason": {"type": "string"}}}}},
+}
+
+_LISTWISE_SYSTEM = (
+    "You are a music expert. Someone describes a song they half-remember. You get N candidate songs with short cards. "
+    "Return the candidates ORDERED from most to least likely (all of them), as JSON: "
+    "{\"ranking\": [{\"id\": \"...\", \"reason\": \"<10 words\"}, ...]}. Judge era, language, genre, sound, themes, usages, lyrics."
+)
+
+
+def _rank_listwise(description: str, items: Sequence[tuple[str, str]], model: str | None) -> dict[str, tuple[float, str]]:
+    """Mode listwise (recommandation 7, option 1) : un seul appel classe tous les candidats ;
+    réservé aux modèles plus gros (contexte et qualité). Score = position inversée dans [0, 10]."""
+    cache = DiskCache("rerank_listwise")
+    key = cache.key(description + "\n" + "\n".join(f"{i}\t{c}" for i, c in items), model=model or get_settings().llm_model, v=1)
+    hit = cache.get(key)
+    if hit is not None:
+        return {k: tuple(v) for k, v in hit.items()}
+    user = "Description:\n" + description.strip() + f"\n\n{len(items)} candidates:\n" + "\n\n".join(f"[id: {cid}]\n{card}" for cid, card in items)
+    out: dict[str, tuple[float, str]] = {}
+    try:
+        r = llm.chat([{"role": "system", "content": _LISTWISE_SYSTEM}, {"role": "user", "content": user}],
+                     json_schema=LISTWISE_SCHEMA, temperature=0.0, max_tokens=900, model=model)
+        valid = {cid for cid, _ in items}
+        order = [str(x.get("id", "")).strip() for x in (r.json or {}).get("ranking", []) if isinstance(x, dict)]
+        reasons = {str(x.get("id", "")).strip(): str(x.get("reason", ""))[:200] for x in (r.json or {}).get("ranking", []) if isinstance(x, dict)}
+        order = [i for i in order if i in valid]
+        n = len(valid)
+        for pos, cid in enumerate(order):
+            out[cid] = (10.0 * (n - pos) / n, reasons.get(cid, ""))
+    except llm.LLMError as e:
+        logger.warning("rerank listwise : %s", e)
+    cache.put(key, {k: list(v) for k, v in out.items()})
+    return out
+
+
 def rerank(description: str, fused: Sequence[tuple[str, float]], cards: Mapping[str, str], alpha: float = 0.5,
-           batch_size: int = 5, top: int = 20, model: str | None = None) -> list[Reranked]:
-    """`fused` : (track_id, score de fusion) triés ; `cards` : track_id → fiche courte."""
+           batch_size: int = 5, top: int = 20, model: str | None = None, mode: str | None = None) -> list[Reranked]:
+    """`fused` : (track_id, score de fusion) triés ; `cards` : track_id → fiche courte.
+    `mode` : `pointwise` (lots de 5 notés 0–10, défaut pour un 8B) ou `listwise` (RERANK_MODE)."""
+    import os
+    mode = mode or os.environ.get("RERANK_MODE", "pointwise")
     fused = list(fused)[:top]
     norm = dict(normalize_scores(fused))
     ids = [i for i, _ in fused if i in cards]
     llm_scores: dict[str, tuple[float, str]] = {}
-    for start in range(0, len(ids), batch_size):
-        batch = [(i, _short(cards[i])) for i in ids[start : start + batch_size]]
-        llm_scores.update(_score_batch(description, batch, model))
+    if mode == "listwise":
+        llm_scores = _rank_listwise(description, [(i, _short(cards[i], 400)) for i in ids], model)
+    else:
+        for start in range(0, len(ids), batch_size):
+            batch = [(i, _short(cards[i])) for i in ids[start : start + batch_size]]
+            llm_scores.update(_score_batch(description, batch, model))
     out = []
     for i, _ in fused:
         ls = llm_scores.get(i)

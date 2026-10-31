@@ -65,6 +65,7 @@ class Toolbox:
     # Llama comme moteur de recherche ; une branche ne vote que si son top-1 passe un seuil ou si
     # l'écart top-1/top-2 est net (valeurs par défaut prudentes, à régler sur la validation).
     use_llm_retriever: bool = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_LLM_RETRIEVER", "1") != "0")
+    llm_min_confidence: float = field(default_factory=lambda: float(__import__("os").environ.get("SOUNDTRACE_LLM_MIN_CONF", "0.6")))
     text_to_audio: str = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_TEXT_TO_AUDIO", "auto"))  # auto|always|never
     gate_min_top1: dict = field(default_factory=lambda: {"clap:légendes→audio": 0.15, "gemma:légendes→audio": 0.35})
     gate_min_margin: float = 0.0
@@ -226,6 +227,8 @@ class Toolbox:
         from core.llm_retriever import propose
         hits, unresolved = [], []
         for c in propose(text):
+            if c.confidence < self.llm_min_confidence:
+                continue
             cand = self.lookup_in_catalog(c.title, c.artist)
             if cand is not None and cand.in_catalog:
                 hits.append((cand.track_id, c.confidence))

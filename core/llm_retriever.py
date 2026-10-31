@@ -71,9 +71,16 @@ def propose(description: str, model: str | None = None, max_items: int = 8) -> l
             hit = {"candidates": []}
         cache.put(key, hit)
     out: list[LLMCandidate] = []
-    for c in (hit.get("candidates") or [])[:max_items]:
+    seen: set[tuple[str, str]] = set()
+    for c in (hit.get("candidates") or []):
+        if len(out) >= max_items:
+            break
         if not isinstance(c, dict) or not c.get("title") or not c.get("artist"):
             continue
+        k = (str(c["title"]).strip().lower(), str(c["artist"]).strip().lower())
+        if k in seen:   # le 8B répète souvent ses propositions
+            continue
+        seen.add(k)
         try:
             conf = float(c.get("confidence", 0.5))
         except (TypeError, ValueError):
