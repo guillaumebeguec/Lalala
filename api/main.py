@@ -37,6 +37,32 @@ app = FastAPI(title="SoundTrace", version="0.1")
 from api.demo import router as demo_router  # noqa: E402 — routes /api/* du front « Lalala » (FRONT_PLAN.md)
 app.include_router(demo_router)
 
+
+@app.on_event("startup")
+def _warmup() -> None:
+    """Préchauffe catalogue, index et embedders dans un thread (SOUNDTRACE_WARMUP=0 pour désactiver),
+    pour que la première requête de la démo ne paie pas 30 s de chargement."""
+    if os.environ.get("SOUNDTRACE_WARMUP", "1") == "0":
+        return
+    import threading
+
+    def run():
+        try:
+            from api.demo import toolbox as demo_toolbox
+            tb = demo_toolbox()
+            _ = tb.catalog, tb.cards, tb.previews, tb.bm25(), tb.fingerprints(), tb.audfprint()
+            for name in tb.active_embedders():
+                if tb.vec(name, "audio") is not None or tb.vec(name, "text") is not None:
+                    emb = tb.emb(name)
+                    load = getattr(emb, "_load", None)
+                    if load:
+                        load()
+            logger.info("préchauffage terminé")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("préchauffage : %s", e)
+
+    threading.Thread(target=run, name="warmup", daemon=True).start()
+
 SESSIONS: dict[str, dict[str, Any]] = {}
 _TOOLBOX = None
 

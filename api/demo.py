@@ -199,11 +199,20 @@ class Pipeline:
             yield self.step(s_exact, "running", "Comparing the fingerprint with the catalogue…")
             exact = tb.fingerprint_match(self.audio)
             yield self.step(s_exact, "done", "Same recording found." if exact else "No identical recording — not a Shazam case.")
-            yield self.step(s_sim, "running", "Comparing the sound of the music itself…")
-            res = tb.audio_similarity(self.audio, exact, embedders=general, humming=humming)
-            absorb(res["candidates"], "audio")
-            yield self.step(s_sim, "done", ("Weak signal: a single voice." if humming else f"{len(res['candidates'])} candidates by audio similarity."))
-            if has_cover:
+            if exact and not self.text:
+                # Empreinte forte = même enregistrement : réponse immédiate, les autres branches sont sautées (PLAN 6.1)
+                for sid in ("audio_sim", "version", "melody"):
+                    try:
+                        yield self.step(self._find(sid), "skipped", "Skipped: exact recording already found")
+                    except StopIteration:
+                        pass
+                candidates[exact.track_id] = exact
+            else:
+                yield self.step(s_sim, "running", "Comparing the sound of the music itself…")
+                res = tb.audio_similarity(self.audio, exact, embedders=general, humming=humming)
+                absorb(res["candidates"], "audio")
+                yield self.step(s_sim, "done", ("Weak signal: a single voice." if humming else f"{len(res['candidates'])} candidates by audio similarity."))
+            if has_cover and not (exact and not self.text):
                 s_ver = self._find("version")
                 if tb.vec("coverhunter", "audio") is not None:
                     yield self.step(s_ver, "running", "Looking for the same song in another version…")
@@ -213,7 +222,7 @@ class Pipeline:
                     yield self.step(s_ver, "done", f"{len(res_v['candidates'])} candidates by melody and harmony.")
                 else:
                     yield self.step(s_ver, "skipped", "Skipped")
-            if has_hum:
+            if has_hum and not (exact and not self.text):
                 s_mel = self._find("melody")
                 yield self.step(s_mel, "running", "Extracting the melodic contour…")
                 res_m = tb.audio_similarity(self.audio, exact, embedders=["hum2song"], humming=humming)
