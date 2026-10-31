@@ -1,0 +1,31 @@
+set,policy,user,id,rank,n_questions,tool_calls,seconds,via_web,entropy_drops,n_updates,answers
+t1,baseline,plain,jaiws7,,0,1,208.9,False,0,0,[]
+t1,baseline,plain,9llht4,1,0,1,172.2,False,0,0,[]
+t1,baseline,plain,cvvce5,2,0,1,175.0,False,0,0,[]
+t1,baseline,plain,gktkdm,,0,1,195.2,False,0,0,[]
+t1,baseline,plain,ftjllu,,0,1,138.6,False,0,0,[]
+t1,baseline,plain,ewjml8,,0,2,169.2,False,0,0,[]
+t1,baseline,plain,isqrrs,,0,1,175.8,False,0,0,[]
+t1,baseline,plain,76hd14,,0,1,199.6,False,0,0,[]
+t1,baseline,plain,832iu9,1,0,1,197.2,False,0,0,[]
+t1,baseline,plain,93judq,,0,1,207.2,False,0,0,[]
+t1,baseline,plain,dyvk7s,,0,1,157.9,False,0,0,[]
+t1,baseline,plain,838tlr,,0,1,148.1,False,0,0,[]
+t1,baseline,plain,fn6jmu,,0,1,140.4,False,0,0,[]
+t1,baseline,plain,a31bd0,,0,1,171.4,False,0,0,[]
+t1,baseline,plain,i8ym9d,,0,1,147.7,False,0,0,[]
+t1,ig,plain,jaiws7,,0,1,45.8,False,0,0,[]
+t1,ig,plain,9llht4,1,0,1,64.3,False,0,0,[]
+t1,ig,plain,cvvce5,2,1,1,59.7,False,1,1,"[""rock""]"
+t1,ig,plain,gktkdm,,0,1,64.9,False,0,0,[]
+t1,ig,plain,ftjllu,,0,1,30.6,False,0,0,[]
+t1,ig,plain,ewjml8,,1,2,105.5,False,1,1,"[""2000s""]"
+t1,ig,plain,isqrrs,,3,2,200.0,False,0,2,"[""je ne sais pas"", ""chanson / variété"", ""lent""]"
+t1,ig,plain,76hd14,,0,1,82.2,False,0,0,[]
+t1,ig,plain,832iu9,1,3,2,83.9,False,0,2,"[""je ne sais pas"", ""je ne sais pas"", ""je ne sais pas""]"
+t1,ig,plain,93judq,,3,1,45.6,False,0,2,"[""pop"", ""2000s"", ""je ne sais pas""]"
+t1,ig,plain,dyvk7s,,3,1,103.0,False,2,2,"[""1970s"", ""pop"", ""rapide""]"
+t1,ig,plain,838tlr,,1,1,94.8,False,1,1,"[""1990s""]"
+t1,ig,plain,fn6jmu,,1,1,50.4,False,1,1,"[""rapide""]"
+t1,ig,plain,a31bd0,,3,1,51.5,False,1,2,"[""1990s"", ""pop"", ""moyen""]"
+t1,ig,plain,i8ym9d,,3,2,107.7,False,0,2,"[""je ne sais pas"", ""rapide"", ""je ne sais pas""]"
