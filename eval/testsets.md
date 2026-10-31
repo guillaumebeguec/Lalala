@@ -1,19 +1,19 @@
 # Jeux de test — rapport de phase 2
 
-Catalogue : 24361 morceaux, 22473 avec extrait.
+Catalogue : 24361 morceaux, 23659 avec extrait.
 
 ## T1 — ToT_Music
 
-200 demandes d'évaluation, 1971 en réserve (réponse dans le catalogue avec extrait).
+200 demandes d'évaluation, 2006 en réserve (réponse dans le catalogue avec extrait).
 Split de l'article dans l'échantillon d'éval : {'test': 200} (C1 : tiré du split `test`). 0 demandes ont plusieurs enregistrements acceptables (ISRC multiples).
 
 | Décennie | Éval |
 |---|---|
 | 1960s | 5 |
 | 1970s | 9 |
-| 1980s | 19 |
+| 1980s | 20 |
 | 1990s | 46 |
-| 2000s | 78 |
+| 2000s | 77 |
 | 2010s | 43 |
 
 Types de demande (éval) : descriptive 200
@@ -52,7 +52,7 @@ Contrôle manuel de 20 paires : à faire (voir `scripts/review_pairs.py`).
 
 ## T6a — Fredonnements CHAD
 
-390 fredonnements → original du catalogue ; groupes CHAD 311, titre YouTube lu 294, titre/artiste parsés 268, dans le catalogue 131, avec extrait 130. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).
+393 fredonnements → original du catalogue ; groupes CHAD 311, titre YouTube lu 294, titre/artiste parsés 268, dans le catalogue 131, avec extrait 131. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).
 
 ## T5 — Vidéo
 

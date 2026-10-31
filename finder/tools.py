@@ -61,6 +61,13 @@ class Toolbox:
     rerank_top: int = 10            # candidats notés par Llama (2 lots de 5 : ≈ 30 s sur M2) ; 20 pour l'évaluation
     rrf_k: int = 60
     top_k: int = 20
+    # Routage et seuils (recommandations 1–3) : texte→audio seulement si description sonore ;
+    # Llama comme moteur de recherche ; une branche ne vote que si son top-1 passe un seuil ou si
+    # l'écart top-1/top-2 est net (valeurs par défaut prudentes, à régler sur la validation).
+    use_llm_retriever: bool = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_LLM_RETRIEVER", "1") != "0")
+    text_to_audio: str = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_TEXT_TO_AUDIO", "auto"))  # auto|always|never
+    gate_min_top1: dict = field(default_factory=lambda: {"clap:légendes→audio": 0.15, "gemma:légendes→audio": 0.35})
+    gate_min_margin: float = 0.0
     _catalog: pd.DataFrame | None = None
     _cards: dict[str, str] | None = None
     _bm25: BM25Index | None = None
@@ -213,16 +220,58 @@ class Toolbox:
             logger.warning("réécriture impossible : %s", e)
             return None
 
+    def llm_retrieve(self, text: str) -> tuple[list[tuple[str, float]], list[dict]]:
+        """Branche Llama : titres proposés par le modèle, résolus dans le catalogue.
+        Renvoie (liste (track_id, confiance) pour la fusion, propositions non résolues)."""
+        from core.llm_retriever import propose
+        hits, unresolved = [], []
+        for c in propose(text):
+            cand = self.lookup_in_catalog(c.title, c.artist)
+            if cand is not None and cand.in_catalog:
+                hits.append((cand.track_id, c.confidence))
+            else:
+                unresolved.append({"title": c.title, "artist": c.artist, "year": c.year, "confidence": c.confidence, "why": c.why})
+        hits.sort(key=lambda x: -x[1])
+        return hits, unresolved
+
+    def _gate(self, name: str, hits: list[tuple[str, float]]) -> bool:
+        """Seuil par branche : vote seulement si le top-1 dépasse le seuil de la branche (quand il
+        est défini) ou si l'écart top-1/top-2 est net."""
+        if not hits:
+            return False
+        thr = self.gate_min_top1.get(name)
+        if thr is None:
+            return True
+        top1 = hits[0][1]
+        margin = top1 - (hits[1][1] if len(hits) > 1 else 0.0)
+        return top1 >= thr or margin >= max(self.gate_min_margin, 1e-9)
+
     def retrieve(self, text: str, rw=None, hints: dict | None = None) -> dict[str, Any]:
-        """Étape 2 : BM25 (brut + réécrit) + texte→fiches + légendes→audio, RRF, filtres doux.
-        Renvoie {fused: [(id, score)], lists: {nom: n}, hints}."""
+        """Étape 2 : BM25 (brut + réécrit) + Llama-retriever + texte→fiches (+ légendes→audio si le
+        texte décrit le son), seuils par branche, RRF, filtres doux.
+        Renvoie {fused: [(id, score)], lists: {nom: n}, hints, llm_unresolved}."""
         lists: list[list[tuple[str, float]]] = []
         names: list[str] = []
+        weights: list[float] = []
+        skipped: list[str] = []
+
+        def add(name: str, hits: list[tuple[str, float]], w: float = 1.0):
+            if self._gate(name, hits):
+                lists.append(hits); names.append(name); weights.append(w)
+            else:
+                skipped.append(name)
+
         bm = self.bm25()
         if bm is not None:
-            lists.append(bm.search(text, k=50)); names.append("bm25:brut")
+            add("bm25:brut", bm.search(text, k=50))
             if rw and rw.query:
-                lists.append(bm.search(rw.query + (" " + rw.query_fr if rw.query_fr else ""), k=50)); names.append("bm25:réécrit")
+                add("bm25:réécrit", bm.search(rw.query + (" " + rw.query_fr if rw.query_fr else ""), k=50))
+        llm_unresolved: list[dict] = []
+        if self.use_llm_retriever:
+            llm_hits, llm_unresolved = self.llm_retrieve(text)
+            if llm_hits:
+                add("llama:connaissance", llm_hits, w=1.5)
+        want_audio = self.text_to_audio == "always" or (self.text_to_audio == "auto" and rw is not None and rw.describes_sound)
         for name in self.active_embedders():
             vt, va = self.vec(name, "text"), self.vec(name, "audio")
             if vt is None and va is None:
@@ -233,22 +282,23 @@ class Toolbox:
                 continue
             q_text = rw.query if (english_only and rw and rw.query) else text
             if vt is not None:
-                lists.append(vt.search(emb.embed_text([q_text], task="query"), k=50)[0]); names.append(f"{name}:texte→fiches")
-            if va is not None:
+                add(f"{name}:texte→fiches", vt.search(emb.embed_text([q_text], task="query"), k=50)[0])
+            if va is not None and want_audio:
                 caps = (rw.captions if rw and rw.captions else []) or ([rw.query] if rw and rw.query else [])
                 if not english_only:
                     caps = caps + [text]
                 if caps:
                     V = emb.embed_text(caps, task="query")
-                    lists.append(va.search(np.mean(V, axis=0, keepdims=True), k=50)[0]); names.append(f"{name}:légendes→audio")
-        fused = rrf(lists, k=self.rrf_k, top=max(self.top_k * 2, 40)) if lists else []
+                    add(f"{name}:légendes→audio", va.search(np.mean(V, axis=0, keepdims=True), k=50)[0])
+        fused = rrf(lists, k=self.rrf_k, weights=weights, top=max(self.top_k * 2, 40)) if lists else []
         h = dict(hints or {})
         if rw:
             h.setdefault("decade", rw.decade)
             h.setdefault("language", rw.language)
         if fused and (h.get("decade") or h.get("language")):
             fused = soft_bonus(fused, self.meta_for_bonus([i for i, _ in fused]), h)
-        return {"fused": fused[: self.top_k], "lists": dict(zip(names, [len(l) for l in lists])), "hints": h}
+        return {"fused": fused[: self.top_k], "lists": dict(zip(names, [len(l) for l in lists])), "hints": h,
+                "skipped": skipped, "llm_unresolved": llm_unresolved}
 
     def rerank_candidates(self, text: str, fused: list[tuple[str, float]], hints: dict | None = None) -> tuple[list[tuple[str, float]], dict[str, str]]:
         """Étape 3 : reranking Llama du top `rerank_top` ; les autres gardent l'ordre de fusion."""

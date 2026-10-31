@@ -41,6 +41,7 @@ SCHEMA = {
                 "genre": {"type": ["string", "null"]},
                 "vocals": {"type": ["string", "null"], "description": "male, female, mixed, instrumental or null"},
                 "lyrics_fragments": {"type": "array", "items": {"type": "string"}},
+                "sound_terms": {"type": "array", "items": {"type": "string"}, "description": "words the user uses about the SOUND itself (whistling, acoustic guitar, saxophone solo, slow tempo…); empty if the description is only about context, lyrics or era"},
                 "named_entities": {"type": "array", "items": {"type": "string"}, "description": "artists, titles, brands, shows explicitly mentioned by the user"},
             },
         },
@@ -57,7 +58,8 @@ _SYSTEM = (
     "- hints: decade (like '1980s') if the user gives any clue (era, 'when I was a kid in 1995'…) else null; "
     "language of the lyrics if stated or obvious else null; medium (ad, tv series, film, video game, radio…) if "
     "mentioned; genre; vocals; lyrics_fragments = words the user quotes as lyrics, verbatim; "
-    "named_entities = artists, titles, brands or shows the user explicitly names.\n"
+    "named_entities = artists, titles, brands or shows the user explicitly names; sound_terms = words about the sound itself "
+    "(instruments, voice type, tempo, whistling…), empty when the user only talks about context, story or lyrics.\n"
     "- query: a clean English keyword query (genre, era, instruments, themes, quoted lyrics, named entities). "
     "- query_fr: same in French if the description was in French, else null.\n"
     "NEVER invent a song title or an artist name. If you are tempted to guess the song, do not: describe it instead."
@@ -77,6 +79,15 @@ class Rewrite:
         d = self.hints.get("decade")
         m = re.search(r"(19|20)\d0", str(d or ""))
         return f"{m.group(0)}s" if m else None
+
+    @property
+    def sound_terms(self) -> list[str]:
+        return [str(x) for x in (self.hints.get("sound_terms") or []) if str(x).strip()]
+
+    @property
+    def describes_sound(self) -> bool:
+        """Vrai si l'utilisateur décrit le son lui-même : seule situation où texte→audio a un sens."""
+        return len(self.sound_terms) > 0
 
     @property
     def language(self) -> str | None:

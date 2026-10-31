@@ -97,6 +97,8 @@ def main() -> int:
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--extra-ids", default=None, help="fichiers jsonl (séparés par des virgules) dont les `reponse_id` sont ajoutés au pool indexé (ex. T6a)")
+    ap.add_argument("--shard", default=None, help="i/n : ne calcule (et ne met en cache) que les extraits d'indice ≡ i mod n, sans écrire d'index ; "
+                                                   "lancer n processus puis une passe finale sans --shard pour assembler depuis le cache")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     for name in ("httpx", "httpcore", "openai", "urllib3"):
@@ -116,6 +118,12 @@ def main() -> int:
     mods = {m.strip() for m in args.modality.split(",")}
     if "audio" in mods:
         prev = load_previews()
+        if args.shard:
+            i, n = (int(x) for x in args.shard.split("/"))
+            cat = cat.iloc[i::n]
+            log.info("shard %d/%d : %d extraits (cache seulement)", i, n, len(cat))
+            audio_vectors(embs, cat, prev, args.batch, args.limit)
+            return 0
         ids, V, stats = audio_vectors(embs, cat, prev, args.batch, args.limit)
         for n, vec in V.items():
             VectorIndex.build(n, "audio", ids, vec).save()
