@@ -167,8 +167,11 @@ def main() -> int:
     fp = FingerprintIndex.load() if (FingerprintIndex.path().exists() and not args.no_fingerprint) else None
     from core.fingerprint_audfprint import AudfprintIndex
     afp = AudfprintIndex.load() if (AudfprintIndex.path().exists() and not args.no_fingerprint) else None
-    report = [f"# Recherche sans agent — sous-ensemble {args.subset}", "",
-              f"Catalogue : {len(cat)} morceaux ; embedders : {', '.join(embedders)} ; BM25 : {'oui' if bm25 else 'non'} ; Chromaprint : {'oui' if fp else 'non'} ; audfprint : {'oui' if afp else 'non'}.", ""]
+    header = [f"# Recherche sans agent — sous-ensemble {args.subset}", "",
+              f"Catalogue : {len(cat)} morceaux ; embedders (dernier run) : {', '.join(embedders)} ; BM25 : {'oui' if bm25 else 'non'} ; Chromaprint : {'oui' if fp else 'non'} ; audfprint : {'oui' if afp else 'non'}.", ""]
+    sections_path = PROJECT_ROOT / "eval" / f"retrieval_sections_{args.subset}.json"
+    sections: dict = json.loads(sections_path.read_text()) if sections_path.exists() else {}
+    report: list[str] = []
     rows_csv = []
     examples = []
     # le pool évalué = sous-ensemble + cibles ajoutées aux index (--extra-ids de build_embeddings)
@@ -185,17 +188,19 @@ def main() -> int:
         if args.limit:
             cases = cases[: args.limit]
         if not cases:
-            report += [f"## {name}", "", "aucun cas dont la réponse est dans ce sous-ensemble.", ""]
+            sections[name] = {"md": "\n".join([f"## {name}", "", "aucun cas dont la réponse est dans ce sous-ensemble.", ""]), "csv": []}
             continue
         t0 = time.time()
+        report = []
         runs = eval_text_set(name, cases, embedders, args.subset, bm25) if kind == "text" else eval_audio_set(name, cases, embedders, prev, fp, afp)
         add_fusions(runs, len(cases))
-        report += [f"## {name}", "", f"{len(cases)} cas ; {time.time() - t0:.0f} s.", "", "| Système | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
+        report += [f"## {name}", "", f"{len(cases)} cas ; {time.time() - t0:.0f} s ; systèmes : {', '.join(runs)}.", "", "| Système | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
+        rows_set: list[dict] = []
         for sysname, lists in runs.items():
             ranks = [_rank(h, c) for h, c in zip(lists, cases)]
             m = summarize(ranks)
             report.append(f"| {sysname} | {m['top1']:.3f} | {m['top5']:.3f} | {m['top10']:.3f} | {m['mrr']:.3f} |")
-            rows_csv.append({"set": name, "system": sysname, **{k: round(v, 4) for k, v in m.items()}})
+            rows_set.append({"set": name, "system": sysname, **{k: round(v, 4) for k, v in m.items()}})
             if sysname.startswith("rrf(k=60)"):
                 for h, c, r in list(zip(lists, cases, ranks))[:5]:
                     examples.append((name, c, r, h[:3]))
@@ -228,6 +233,11 @@ def main() -> int:
                 m = summarize(rk)
                 report.append(f"| {g} | {m['n']} | {m['top1']:.3f} | {m['top5']:.3f} |")
         report.append("")
+        sections[name] = {"md": "\n".join(report), "csv": rows_set}
+    sections_path.write_text(json.dumps(sections, ensure_ascii=False, indent=1), encoding="utf-8")
+    order = ["T1 ToT_Music", "T2 Souvenirs FR", "T3 Bruit", "T4 Reprises", "T6a Fredonnements CHAD"]
+    report = header + [sections[n]["md"] for n in order if n in sections]
+    rows_csv = [r for n in order if n in sections for r in sections[n]["csv"]]
     if examples:
         meta = cat.set_index("track_id")
         report += ["## Exemples qualitatifs (fusion RRF k=60)", ""]
