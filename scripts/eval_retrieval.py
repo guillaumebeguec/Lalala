@@ -91,7 +91,7 @@ def _query_audio(case: dict, catalog_prev: pd.DataFrame | None) -> bytes | tuple
     return None
 
 
-def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.DataFrame, fp: FingerprintIndex | None) -> dict[str, list]:
+def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.DataFrame, fp: FingerprintIndex | None, afp=None) -> dict[str, list]:
     runs: dict[str, list] = defaultdict(list)
     audios = []
     kept = []
@@ -112,6 +112,13 @@ def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.
             except Exception as e:  # noqa: BLE001
                 log.warning("chromaprint : %s", e)
                 runs["chromaprint"].append([])
+    if afp is not None:
+        for a in audios:
+            try:
+                runs["audfprint"].append([(tid, sc) for tid, sc, _ in afp.search(a, k=10)])
+            except Exception as e:  # noqa: BLE001
+                log.warning("audfprint : %s", e)
+                runs["audfprint"].append([])
     for name_e in embedders:
         if not VectorIndex.exists(name_e, "audio"):
             continue
@@ -126,7 +133,7 @@ def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.
 
 
 def add_fusions(runs: dict[str, list], n: int) -> None:
-    systems = [s for s in runs if ":" in s or s in ("bm25", "chromaprint")]
+    systems = [s for s in runs if ":" in s or s in ("bm25", "chromaprint", "audfprint")]
     if len(systems) < 2:
         return
     for k in (10, 30, 60):
@@ -158,8 +165,10 @@ def main() -> int:
     bm25_path = s.index_dir / f"bm25_cards_{args.subset}.pkl"
     bm25 = BM25Index.load(bm25_path) if bm25_path.exists() else None
     fp = FingerprintIndex.load() if (FingerprintIndex.path().exists() and not args.no_fingerprint) else None
+    from core.fingerprint_audfprint import AudfprintIndex
+    afp = AudfprintIndex.load() if (AudfprintIndex.path().exists() and not args.no_fingerprint) else None
     report = [f"# Recherche sans agent — sous-ensemble {args.subset}", "",
-              f"Catalogue : {len(cat)} morceaux ; embedders : {', '.join(embedders)} ; BM25 : {'oui' if bm25 else 'non'} ; Chromaprint : {'oui' if fp else 'non'}.", ""]
+              f"Catalogue : {len(cat)} morceaux ; embedders : {', '.join(embedders)} ; BM25 : {'oui' if bm25 else 'non'} ; Chromaprint : {'oui' if fp else 'non'} ; audfprint : {'oui' if afp else 'non'}.", ""]
     rows_csv = []
     examples = []
     # le pool évalué = sous-ensemble + cibles ajoutées aux index (--extra-ids de build_embeddings)
@@ -179,7 +188,7 @@ def main() -> int:
             report += [f"## {name}", "", "aucun cas dont la réponse est dans ce sous-ensemble.", ""]
             continue
         t0 = time.time()
-        runs = eval_text_set(name, cases, embedders, args.subset, bm25) if kind == "text" else eval_audio_set(name, cases, embedders, prev, fp)
+        runs = eval_text_set(name, cases, embedders, args.subset, bm25) if kind == "text" else eval_audio_set(name, cases, embedders, prev, fp, afp)
         add_fusions(runs, len(cases))
         report += [f"## {name}", "", f"{len(cases)} cas ; {time.time() - t0:.0f} s.", "", "| Système | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
         for sysname, lists in runs.items():
