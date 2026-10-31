@@ -174,7 +174,8 @@ class Pipeline:
         emb_label = " · ".join(MODEL_LABELS.get(n, n) for n in general)
         audio_steps = [Step("isolate", "Isolating the music", "SAM Audio"), Step("exact", "Exact match check", "Chromaprint"),
                        Step("audio_sim", "Audio similarity search", emb_label)] + ([Step("version", "Version matching", "CoverHunter")] if has_cover else []) \
-                      + ([Step("melody", "Melody matching", "hum2song")] if has_hum else [])
+                      + ([Step("melody", "Melody matching", "hum2song")] if has_hum else []) \
+                      + [Step("lyrics", "Transcribing the lyrics", "Whisper · lyrics fingerprints")]
         text_steps = [Step("analyze", "Reading your description", "Llama 3.1"), Step("catalog", "Catalogue search", "BM25 · " + emb_label)]
         common = [Step("rank", "Ranking candidates", "Llama 3.1"), Step("verify", "Verification", "Web")]
         self.steps = (audio_steps if self.audio else []) + (text_steps if self.text else []) + common
@@ -231,6 +232,20 @@ class Pipeline:
                 absorb(res_m["candidates"], "melody")
                 lists["audio"] = lists.get("audio", []) + lists.get("melody", [])
                 yield self.step(s_mel, "done", f"Contour matched against the vocal lines ({len(res_m['candidates'])} candidates).")
+            s_lyr = self._find("lyrics")
+            if humming and not exact:
+                yield self.step(s_lyr, "running", "Listening for sung words…")
+                res_l = tb.sung_lyrics_search(self.audio)
+                tr = res_l["transcript"]
+                if tr.n_words >= 3:
+                    absorb(res_l["candidates"], "lyrics")
+                    lists["audio"] = lists.get("audio", []) + lists.get("lyrics", [])
+                    analysis["sung_lyrics"] = {"text": tr.text, "language": tr.language, "branches": res_l["lists"]}
+                    yield self.step(s_lyr, "done", f"Heard: “{tr.text[:70]}” → {len(res_l['candidates'])} candidates.")
+                else:
+                    yield self.step(s_lyr, "done", "No words recognised (humming only).")
+            else:
+                yield self.step(s_lyr, "skipped", "Skipped")
         text_hints: dict = {}
         if self.text:
             s_an, s_cat = self._find("analyze"), self._find("catalog")
@@ -283,6 +298,8 @@ class Pipeline:
             proofs.append({"source": "Version", "text": "Same song, different version (cover or live)."})
         if self.audio and not exact and best.source == "melody":
             proofs.append({"source": "Melody", "text": "Your hummed melody matches the vocal line."})
+        if self.audio and not exact and best.source == "lyrics":
+            proofs.append({"source": "Lyrics", "text": best.reason})
         if self.audio and not exact:
             proofs.append({"source": "Audio", "text": "The music itself sounds closest to this track across the audio encoders."})
         h = analysis.get("hints") or {}

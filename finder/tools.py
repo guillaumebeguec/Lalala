@@ -166,6 +166,53 @@ class Toolbox:
             self._fp = FingerprintIndex.load()
         return self._fp
 
+    def lyrics_index(self):
+        """Empreintes de paroles (hachés de n-grammes, scripts/build_lyrics_hashes.py), chargées à chaud."""
+        from core.lyrics_match import LyricsHashIndex, path as lyrics_path
+        if not lyrics_path().exists():
+            return None
+        m = lyrics_path().stat().st_mtime
+        if getattr(self, "_lyr_mtime", None) != m:
+            self._lyr = LyricsHashIndex(); self._lyr_mtime = m
+        return self._lyr
+
+    def sung_lyrics_search(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
+        """Voix chantée : transcription Whisper → empreintes de paroles + Llama-retriever + fiches (BM25).
+        Renvoie {transcript, fused, lists, candidates}."""
+        from core.asr import transcribe
+        t = transcribe(audio)
+        out: dict[str, Any] = {"transcript": t, "fused": [], "lists": {}, "candidates": []}
+        if t.n_words < 3:
+            return out
+        lists, names, weights = [], [], []
+        idx = self.lyrics_index()
+        if idx is not None:
+            hits = idx.search(t.text, k=30)
+            if hits:
+                lists.append(hits); names.append("lyrics:empreinte"); weights.append(2.0)
+        bm = self.bm25()
+        if bm is not None:
+            hits = bm.search(t.text, k=30)
+            if hits:
+                lists.append(hits); names.append("bm25:paroles"); weights.append(0.5)
+        if self.use_llm_retriever:
+            llm_hits, _ = self.llm_retrieve("Lyrics fragment (sung, transcribed, may contain errors): " + t.text)
+            if llm_hits:
+                lists.append(llm_hits); names.append("llama:paroles"); weights.append(1.0)
+        fused = rrf(lists, k=self.rrf_k, weights=weights, top=self.top_k) if lists else []
+        out["fused"], out["lists"] = fused, dict(zip(names, [len(l) for l in lists]))
+        top_lyr = {i for i, _ in (idx.search(t.text, k=5) if idx is not None else [])}
+        cands = []
+        for i, sc in fused:
+            c = self._candidate(i, sc, "catalog")
+            if c:
+                if i in top_lyr:
+                    c.source = "lyrics"
+                    c.reason = f"Your sung lyrics match: “{t.text[:60]}…”" if len(t.text) > 60 else f"Your sung lyrics match: “{t.text}”"
+                cands.append(c)
+        out["candidates"] = cands
+        return out
+
     def learned_fusion(self):
         """Modèle de fusion apprise (scripts/train_fusion.py) s'il existe ; rechargé si le fichier change."""
         from core.fusion_learned import LearnedFusion

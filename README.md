@@ -32,6 +32,7 @@ Les tests marqués `llm` et `gemini` sont ignorés automatiquement si Ollama n'e
 - Aucune parole complète n'est stockée (le champ `lyrics` de WASABI est ignoré à l'extraction).
 - **Compléments (PLAN_COMPLEMENTS.md)** : CHAD (Amatov et al., ISMIR 2023) — sous-ensemble fredonnements `amanteur/CHAD_hummings` (CC BY-NC 4.0) ; les originaux et reprises YouTube ne sont **pas** téléchargés, seuls les titres publics des vidéos (oEmbed) servent à l'appariement. CoverHunter — code `alanngnet/CoverHunterMPS` et checkpoint original (SHS100K, Google Drive) **sans licence déclarée** : usage expérimental local. hum2song (`luigir5/hum2song`, poids CC BY 4.0), prévu en phase 9. SAM Audio (`facebook/sam-audio-*`, SAM License) : checkpoints **gatés** sur Hugging Face, accès à demander ; documenté pour CUDA.
 - Les URL d'extrait Deezer sont signées et expirent en moins d'une heure : elles sont rafraîchies à la demande via `/track/{id}`.
+- **Paroles chantées** : quand l'entrée est une voix seule, Whisper (faster-whisper, local) transcrit les mots chantés ; le fragment est relié au catalogue par des **empreintes de paroles non réversibles** (hachés 64 bits de 4-grammes de mots calculés depuis le corpus WASABI, `scripts/build_lyrics_hashes.py`), par Llama et par les fiches. Aucun texte de paroles n'est conservé : les hachés ne permettent pas de reconstituer les paroles.
 
 ## Front « Lalala » (FRONT_PLAN.md)
 
