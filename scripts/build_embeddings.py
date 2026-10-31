@@ -122,7 +122,8 @@ def main() -> int:
             i, n = (int(x) for x in args.shard.split("/"))
             cat = cat.iloc[i::n]
             log.info("shard %d/%d : %d extraits (cache seulement)", i, n, len(cat))
-            audio_vectors(embs, cat, prev, args.batch, args.limit)
+            _, _, stats = audio_vectors(embs, cat, prev, args.batch, args.limit)
+            log.info("shard %d/%d terminé : %s", i, n, stats)
             return 0
         ids, V, stats = audio_vectors(embs, cat, prev, args.batch, args.limit)
         for n, vec in V.items():
