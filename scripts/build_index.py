@@ -25,9 +25,19 @@ def main() -> int:
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO)
     cards = pd.read_parquet(get_settings().data_dir / "catalog" / f"cards_{args.subset}.parquet")
-    idx = BM25Index(cards.track_id.tolist(), cards.card_text.tolist())
+    # index « contexte » : la fiche sans sa description audio générée (titre, artiste, résumé, thème des paroles)
+    texts = cards.context_text.tolist() if "context_text" in cards.columns else cards.card_text.tolist()
+    idx = BM25Index(cards.track_id.tolist(), texts)
     p = idx.save(get_settings().index_dir / f"bm25_cards_{args.subset}.pkl")
-    print(f"BM25 : {len(cards)} fiches → {p}")
+    print(f"BM25 contexte : {len(cards)} fiches → {p}")
+    # index « son » : description audio générée seule, pour les mots sonores (instruments, voix, tempo)
+    if "sound_text" in cards.columns:
+        snd = cards[cards.sound_text.notna() & (cards.sound_text.astype(str).str.len() > 0)]
+        if len(snd):
+            ps = BM25Index(snd.track_id.tolist(), snd.sound_text.tolist()).save(get_settings().index_dir / f"bm25_sound_{args.subset}.pkl")
+            print(f"BM25 son : {len(snd)} fiches avec description audio → {ps}")
+        else:
+            print("BM25 son : aucune description audio (lancer build_cards avec Llama)")
     return 0
 
 

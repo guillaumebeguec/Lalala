@@ -60,3 +60,29 @@ def test_ground_captions_filters_added_genre_tempo_vocals():
     caps = ground_captions(["Rock music with guitar", "Upbeat tempo", "Male vocals with guitar", "Song with a guitar"], "guitare?")
     assert caps == ["Song with a guitar"]
     assert ground_captions(["Rock music with guitar"], "guitare?") == ["guitare?"]
+
+
+def test_sound_only_routing_fields():
+    r = qr.Rewrite(captions=["Guitar sound"], hints={"sound_terms": ["guitar"]}, query="guitar",
+                   raw={"sound_query": "guitar", "context_query": ""})
+    assert r.sound_query == "guitar" and r.context_query == "" and r.sound_only
+
+
+def test_context_query_fallback_without_model_fields():
+    r = qr.Rewrite(captions=[], hints={"sound_terms": ["whistling"]}, query="whistling car commercial 2008", raw={})
+    assert r.sound_query == "whistling"
+    assert r.context_query == "car commercial 2008"
+    assert not r.sound_only
+
+
+def test_cards_sound_and_context_text():
+    from catalog.cards import card_text, context_text, sound_text
+    desc = {"description": "bright acoustic guitar riff", "instruments": ["acoustic guitar", "drums"], "tempo": "mid", "vocals": "male",
+            "mood": ["sunny"], "theme": "a road trip with friends"}
+    text = card_text({"title": "Guitar Town", "artist": "X"}, None, desc)
+    assert "Description audio" in text and "Thème des paroles" in text
+    ctx = context_text(text)
+    assert "Description audio" not in ctx and "Guitar Town" in ctx and "road trip" in ctx
+    snd = sound_text(desc)
+    assert "acoustic guitar" in snd and "Guitar Town" not in snd and "road trip" not in snd
+    assert sound_text(None) is None

@@ -41,7 +41,9 @@ _SYSTEM = (
     "You are a music expert judging whether a candidate song matches a vague description written by someone "
     "trying to remember a song. For EACH candidate, give a score from 0 (impossible) to 10 (almost certainly it) "
     "and a reason of at most 10 words. Judge on era, language, genre, sound, vocals, themes, usages (ads, films) "
-    "and any quoted lyrics. Unknown facts are neutral, contradictions are penalised. JSON only: "
+    "and any quoted lyrics. `sound_terms` in the clues describe the instrumentation or voice the user remembers, NOT "
+    "words to find in a title or in lyrics: a song titled 'Guitar' is no match for someone who remembers a guitar sound. "
+    "Unknown facts are neutral, contradictions are penalised. JSON only: "
     "{\"scores\": [{\"id\": \"...\", \"score\": 0-10, \"reason\": \"...\"}, ...]} with exactly one entry per candidate id."
 )
 
@@ -57,7 +59,7 @@ class Reranked:
 
 def _score_batch(description: str, batch: Sequence[tuple[str, str]], model: str | None) -> dict[str, tuple[float, str]]:
     cache = DiskCache("rerank")
-    key = cache.key(description + "\n" + "\n".join(f"{i}\t{c}" for i, c in batch), model=model or get_settings().llm_model, v=1)
+    key = cache.key(description + "\n" + "\n".join(f"{i}\t{c}" for i, c in batch), model=model or get_settings().llm_model, v=2)
     hit = cache.get(key)
     if hit is not None:
         return {k: tuple(v) for k, v in hit.items()}
@@ -100,7 +102,7 @@ def _rank_listwise(description: str, items: Sequence[tuple[str, str]], model: st
     """Mode listwise (recommandation 7, option 1) : un seul appel classe tous les candidats ;
     réservé aux modèles plus gros (contexte et qualité). Score = position inversée dans [0, 10]."""
     cache = DiskCache("rerank_listwise")
-    key = cache.key(description + "\n" + "\n".join(f"{i}\t{c}" for i, c in items), model=model or get_settings().llm_model, v=1)
+    key = cache.key(description + "\n" + "\n".join(f"{i}\t{c}" for i, c in items), model=model or get_settings().llm_model, v=2)
     hit = cache.get(key)
     if hit is not None:
         return {k: tuple(v) for k, v in hit.items()}

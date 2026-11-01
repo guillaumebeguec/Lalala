@@ -47,6 +47,8 @@ SCHEMA = {
         },
         "query": {"type": "string"},
         "query_fr": {"type": ["string", "null"]},
+        "sound_query": {"type": "string", "description": "English keywords about the SOUND only (instruments, voice type, tempo, production); empty if none"},
+        "context_query": {"type": "string", "description": "English keywords about everything else: story, quoted lyrics, usage (ad, film), era, names; empty if the user only describes the sound"},
     },
 }
 
@@ -62,6 +64,9 @@ _SYSTEM = (
     "(instruments, voice type, tempo, whistling…), empty when the user only talks about context, story or lyrics.\n"
     "- query: a clean English keyword query (genre, era, instruments, themes, quoted lyrics, named entities). "
     "- query_fr: same in French if the description was in French, else null.\n"
+    "- sound_query: the part of the query about the SOUND itself (instruments, voice, tempo), in English; empty string if none. "
+    "- context_query: the rest (story, quoted lyrics, usage like ad/film/series, era, names), in English; empty string if the user "
+    "only describes the sound. An instrument word is about the sound, never a word to look for in titles or lyrics.\n"
     "NEVER invent a song title or an artist name. If you are tempted to guess the song, do not: describe it instead.\n"
     "Hints and captions must stay within what the user wrote: do NOT infer a genre, a decade, a tempo or the singer's "
     "gender from an instrument or a mood. 'guitar' alone says nothing about rock, male vocals or tempo. A one-word "
@@ -161,6 +166,27 @@ class Rewrite:
         return [str(x) for x in (self.hints.get("sound_terms") or []) if str(x).strip()]
 
     @property
+    def sound_query(self) -> str:
+        """Mots-clés anglais sur le son seul ; repli : les sound_terms."""
+        v = str(self.raw.get("sound_query") or "").strip()
+        return v or " ".join(self.sound_terms)
+
+    @property
+    def context_query(self) -> str:
+        """Mots-clés anglais hors son (histoire, paroles citées, usage, époque, noms) ; vide si l'utilisateur
+        ne décrit que le son. Repli : la requête générale privée des mots sonores."""
+        if "context_query" in self.raw:
+            return str(self.raw.get("context_query") or "").strip()
+        snd = {w.lower() for t in self.sound_terms for w in re.findall(r"[\wà-ÿ'-]+", t)} | {w.lower() for w in re.findall(r"[\wà-ÿ'-]+", self.sound_query)}
+        rest = [w for w in re.findall(r"[\wà-ÿ'&-]+", self.query) if w.lower() not in snd]
+        return " ".join(rest)
+
+    @property
+    def sound_only(self) -> bool:
+        """Vrai si la description ne parle que du son : on ne cherche alors pas ces mots dans les titres ni les paroles."""
+        return bool(self.sound_query) and not self.context_query
+
+    @property
     def describes_sound(self) -> bool:
         """Vrai si l'utilisateur décrit le son lui-même : seule situation où texte→audio a un sens."""
         return len(self.sound_terms) > 0
@@ -209,7 +235,7 @@ def _is_named_in(entity: str, description: str) -> bool:
 
 def rewrite(description: str, model: str | None = None, use_cache: bool = True) -> Rewrite:
     cache = DiskCache("query_rewrite")
-    key = cache.key(description, model=model or get_settings().llm_model, v=2)
+    key = cache.key(description, model=model or get_settings().llm_model, v=3)
     hit = cache.get(key) if use_cache else None
     if hit is None:
         r = llm.chat([{"role": "system", "content": _SYSTEM}, {"role": "user", "content": description.strip()}],

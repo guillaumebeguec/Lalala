@@ -196,6 +196,27 @@ def audio_description(meta: dict[str, Any], model: str | None = None) -> dict | 
 
 # --------------------------------------------------------------------------- fiche
 
+def sound_text(desc: dict | None) -> str | None:
+    """Texte « son » d'une fiche (description audio générée, instruments, tempo, voix, ambiance) : seul
+    champ interrogé par les mots sonores de l'utilisateur, jamais le titre ni les paroles."""
+    if not desc:
+        return None
+    parts = [str(desc.get("description", "")).strip()]
+    for k in ("instruments", "mood"):
+        if desc.get(k):
+            parts.append(", ".join(map(str, desc[k])))
+    for k in ("tempo", "vocals"):
+        if desc.get(k) and desc[k] != "unknown":
+            parts.append(str(desc[k]))
+    return " ; ".join(x for x in parts if x) or None
+
+
+def context_text(text: str) -> str:
+    """Fiche sans la ligne « [généré] Description audio » : ce que les mots de contexte (histoire,
+    paroles, usage, époque) peuvent interroger."""
+    return "\n".join(l for l in text.split("\n") if not l.startswith("[généré] Description audio"))
+
+
 def card_text(meta: dict[str, Any], wiki: WikiSummary | None, desc: dict | None) -> str:
     parts = [f"Titre : {meta['title']}", f"Artiste : {meta['artist']}"]
     if meta.get("album_title"):
@@ -248,9 +269,12 @@ def build_cards(catalog: pd.DataFrame, with_wiki: bool = True, with_llm: bool = 
         if ws:
             meta["wiki_summary"] = ws.extract
         desc = audio_description(meta) if with_llm else None
+        text = card_text(meta, ws, desc)
         rows.append({
             "track_id": meta["track_id"],
-            "card_text": card_text(meta, ws, desc),
+            "card_text": text,
+            "context_text": context_text(text),
+            "sound_text": sound_text(desc),
             "wiki_summary": ws.extract if ws else None,
             "wiki_url": ws.url if ws else None,
             "wiki_lang": ws.lang if ws else None,

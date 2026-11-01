@@ -76,6 +76,7 @@ class Toolbox:
     _vec: dict[tuple[str, str], VectorIndex] = field(default_factory=dict)
     _emb: dict[str, Any] = field(default_factory=dict)
     _contours: Any = None           # (mtime, ContourStore)
+    _bm25_sound: Any = None         # (mtime, BM25Index)
     _fp: FingerprintIndex | None = None
     _previews: pd.DataFrame | None = None
     _web: Any = None
@@ -110,6 +111,16 @@ class Toolbox:
             p = get_settings().index_dir / f"bm25_cards_{self.subset}.pkl"
             self._bm25 = BM25Index.load(p) if p.exists() else None
         return self._bm25
+
+    def bm25_sound(self) -> BM25Index | None:
+        """BM25 sur les descriptions audio générées seules (mots sonores de l'utilisateur)."""
+        p = get_settings().index_dir / f"bm25_sound_{self.subset}.pkl"
+        if not p.exists():
+            return None
+        mtime = p.stat().st_mtime
+        if self._bm25_sound is None or self._bm25_sound[0] != mtime:
+            self._bm25_sound = (mtime, BM25Index.load(p))
+        return self._bm25_sound[1]
 
     def active_embedders(self) -> list[str]:
         return self.embedders if self.embedders is not None else get_settings().active_embedders
@@ -357,11 +368,20 @@ class Toolbox:
             else:
                 skipped.append(name)
 
+        # Routage son / contexte : les mots sur le son (instruments, voix, tempo) n'interrogent jamais les
+        # titres, résumés ou thèmes de paroles ; ils vont vers l'index « son » et les légendes→audio.
+        sound_only = bool(rw and rw.sound_only)
+        ctx_query = rw.context_query if rw else ""
         bm = self.bm25()
-        if bm is not None:
+        if bm is not None and not sound_only:
             add("bm25:brut", bm.search(text, k=50))
-            if rw and rw.query:
-                add("bm25:réécrit", bm.search(rw.query + (" " + rw.query_fr if rw.query_fr else ""), k=50))
+            if rw and (ctx_query or rw.query):
+                add("bm25:réécrit", bm.search((ctx_query or rw.query) + (" " + rw.query_fr if rw.query_fr else ""), k=50))
+        if sound_only:
+            skipped.append("bm25:fiches (description sonore seule)")
+        bms = self.bm25_sound()
+        if bms is not None and rw and rw.sound_query:
+            add("bm25:son", bms.search(rw.sound_query, k=50), w=1.5 if sound_only else 1.0)
         llm_unresolved: list[dict] = []
         if self.use_llm_retriever:
             llm_hits, llm_unresolved = self.llm_retrieve(text)
@@ -376,8 +396,8 @@ class Toolbox:
             english_only = getattr(emb, "languages", "") == "en"
             if getattr(emb, "languages", "") == "none":
                 continue
-            q_text = rw.query if (english_only and rw and rw.query) else text
-            if vt is not None:
+            q_text = (ctx_query or rw.query) if (english_only and rw and rw.query) else (ctx_query if (rw and ctx_query) else text)
+            if vt is not None and not sound_only:
                 add(f"{name}:texte→fiches", vt.search(emb.embed_text([q_text], task="query"), k=50)[0])
             if va is not None and want_audio:
                 caps = (rw.captions if rw and rw.captions else []) or ([rw.query] if rw and rw.query else [])
