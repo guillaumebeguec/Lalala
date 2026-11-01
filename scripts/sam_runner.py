@@ -60,15 +60,18 @@ def main() -> int:
         result = model.separate(batch, predict_spans=args.spans, reranking_candidates=args.candidates)
     t_sep = time.time() - t1
     sr = processor.audio_sampling_rate
-    target = result.target.cpu()
-    if target.dim() == 3:
-        target = target[0]
+    def first(t):
+        """`target`/`residual` : liste de tenseurs (un par entrée) ou tenseur (B, 1, n) selon la version."""
+        t = t[0] if isinstance(t, (list, tuple)) else t
+        t = t.detach().cpu().float()
+        while t.dim() > 2:
+            t = t[0]
+        return t if t.dim() == 2 else t.unsqueeze(0)
+
+    target = first(result.target)
     torchaudio.save(args.out, target, sr)
     if args.residual:
-        residual = result.residual.cpu()
-        if residual.dim() == 3:
-            residual = residual[0]
-        torchaudio.save(args.residual, residual, sr)
+        torchaudio.save(args.residual, first(result.residual), sr)
     print(json.dumps({"sr": sr, "seconds": round(t_sep, 1), "load_seconds": round(t_load, 1), "device": str(device),
                       "model": args.model, "shape": list(target.shape)}))
     return 0
