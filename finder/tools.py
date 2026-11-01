@@ -486,7 +486,7 @@ class Toolbox:
             if name == "coverhunter":
                 w = 0.25 if humming else (2.0 if exact is None else 1.0)
             elif name == "hum2song":
-                w = 1.0 if humming else 0.5
+                w = 0.5   # vote secondaire : 0,5 % de top-1 sur CHAD, l'alignement de contours (melody) fait 16 %
             else:
                 w = 0.5 if humming else 1.0
             weights.append(w)
