@@ -200,7 +200,10 @@ class Pipeline:
             s_iso, s_exact, s_sim = self._find("isolate"), self._find("exact"), self._find("audio_sim")
             yield self.step(s_exact, "running", "Comparing the fingerprint with the catalogue…")
             exact = tb.fingerprint_match(self.audio)
-            # SAM Audio (phase 9) : seulement si l'enregistrement est bruité, sans empreinte exacte, et si un moteur est installé
+            # SAM Audio (phase 9) : seconde chance pour l'empreinte seulement. Mesuré le 29/10 (eval/sam_audio.md, 20 cas
+            # T3 ≤ 5 dB) : la séparation générative n'est pas fidèle à l'échantillon — l'empreinte sur l'audio isolé
+            # passe de 80 % à 45 %, Gemma de 15 % à 5 % — mais elle rattrape des cas perdus (85 % en « brut ou isolé »).
+            # On ne remplace donc jamais l'audio brut pour la similarité.
             if exact or humming or not noisy or isolate.engine() is None:
                 why = ("Skipped: exact recording already found" if exact else "Skipped: a single voice" if humming
                        else "Skipped: clean recording" if not noisy else "Skipped: SAM Audio not installed")
@@ -209,9 +212,10 @@ class Pipeline:
                 yield self.step(s_iso, "running", "Separating the music from the background noise…")
                 iso = isolate.isolate_music(self.audio)
                 if iso:
-                    self.audio, info = iso[0], iso[1]
-                    yield self.step(s_iso, "done", f"Music isolated with SAM Audio ({info.get('engine')}, {info.get('seconds', '?')} s).")
-                    exact = tb.fingerprint_match(self.audio)   # seconde chance pour l'empreinte sur l'audio nettoyé
+                    info = iso[1]
+                    exact = tb.fingerprint_match(iso[0])   # seconde chance pour l'empreinte sur l'audio nettoyé
+                    yield self.step(s_iso, "done", f"Music isolated with SAM Audio ({info.get('engine')}, {info.get('seconds', '?')} s)"
+                                    + (" — fingerprint recovered." if exact else " — no fingerprint match either."))
                 else:
                     yield self.step(s_iso, "skipped", "SAM Audio failed — continuing with the raw recording.")
             yield self.step(s_exact, "done", "Same recording found." if exact else "No identical recording — not a Shazam case.")
