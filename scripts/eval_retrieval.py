@@ -93,7 +93,7 @@ def _query_audio(case: dict, catalog_prev: pd.DataFrame | None) -> bytes | tuple
     return None
 
 
-def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.DataFrame, fp: FingerprintIndex | None, afp=None) -> dict[str, list]:
+def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.DataFrame, fp: FingerprintIndex | None, afp=None, subset: str = "dev") -> dict[str, list]:
     runs: dict[str, list] = defaultdict(list)
     audios = []
     kept = []
@@ -121,6 +121,19 @@ def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.
             except Exception as e:  # noqa: BLE001
                 log.warning("audfprint : %s", e)
                 runs["audfprint"].append([])
+    from core.melody import ContourStore, contour_from_track, match
+    if ContourStore.exists(subset) and ("hum2song" in embedders or "melody" in embedders):
+        store = ContourStore.load(subset)
+        from core.embedders.hum2song import Hum2SongEmbedder
+        h = Hum2SongEmbedder(role="song")
+        t0 = time.time()
+        for a in audios:
+            try:
+                runs["melody"].append([(t, sc) for t, sc, _ in match(contour_from_track(h.pitch_track(a)), store, top=K)])
+            except Exception as e:  # noqa: BLE001
+                log.warning("mélodie : %s", e)
+                runs["melody"].append([])
+        log.info("melody : %d requêtes en %.0f s (%d contours)", len(audios), time.time() - t0, len(store))
     for name_e in embedders:
         if not VectorIndex.exists(name_e, "audio"):
             continue
@@ -148,7 +161,7 @@ def add_fusions(runs: dict[str, list], n: int) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
-    ap.add_argument("--sets", default="t1,t2,t3,t4,t6a")
+    ap.add_argument("--sets", default="t1,t2,t3,t4,t6a,t6b")
     ap.add_argument("--embedders", default=None, help="défaut : embedders actifs de la config")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--no-fingerprint", action="store_true")
@@ -182,8 +195,9 @@ def main() -> int:
             ids |= set(VectorIndex.load(name_e, "audio").ids)
     for name, fname, kind in (("T1 ToT_Music", "t1_tot_eval.jsonl", "text"), ("T2 Souvenirs FR", "t2_fr_memories.jsonl", "text"),
                               ("T3 Bruit", "t3_noisy.jsonl", "audio"), ("T4 Reprises", "t4_covers.jsonl", "audio"),
-                              ("T6a Fredonnements CHAD", "t6a_chad_hummings.jsonl", "audio")):
-        key = name.split()[0].lower()  # t1, t2, t3, t4, t6a
+                              ("T6a Fredonnements CHAD", "t6a_chad_hummings.jsonl", "audio"),
+                              ("T6b Fredonnements maison", "t6b_manual_hums.jsonl", "audio")):
+        key = name.split()[0].lower()  # t1, t2, t3, t4, t6a, t6b
         if key not in sets or not (d / fname).exists():
             continue
         cases = _restrict(read_jsonl(d / fname), ids)
@@ -194,7 +208,7 @@ def main() -> int:
             continue
         t0 = time.time()
         report = []
-        runs = eval_text_set(name, cases, embedders, args.subset, bm25) if kind == "text" else eval_audio_set(name, cases, embedders, prev, fp, afp)
+        runs = eval_text_set(name, cases, embedders, args.subset, bm25) if kind == "text" else eval_audio_set(name, cases, embedders, prev, fp, afp, subset=args.subset)
         add_fusions(runs, len(cases))
         report += [f"## {name}", "", f"{len(cases)} cas ; {time.time() - t0:.0f} s ; systèmes : {', '.join(runs)}.", "", "| Système | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
         rows_set: list[dict] = []

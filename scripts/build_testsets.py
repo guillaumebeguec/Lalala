@@ -1,6 +1,6 @@
 """Fige les jeux de test T1–T4 dans data/testsets/*.jsonl et écrit eval/testsets.md.
 
-    uv run python scripts/build_testsets.py [--sets t1,t2,t3,t4] [--t4-hits 300]
+    uv run python scripts/build_testsets.py [--sets t1,t2,t3,t4,t6a,t6b] [--t4-hits 300]
 
 Prérequis : catalogue construit et extraits résolus (scripts/resolve_previews.py).
 T5 (vidéo) est fourni à la main dans data/manual/video/<track_id>.mp4.
@@ -25,7 +25,7 @@ from testsets.common import read_jsonl, testsets_dir, write_jsonl  # noqa: E402
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--sets", default="t1,t2,t3,t4,t6a")
+    ap.add_argument("--sets", default="t1,t2,t3,t4,t6a,t6b")
     ap.add_argument("--t4-hits", type=int, default=300)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -80,6 +80,13 @@ def main() -> int:
         report += ["## T6a — Fredonnements CHAD", "", f"{stats['cases']} fredonnements → original du catalogue ; groupes CHAD {stats['groups']}, "
                    f"titre YouTube lu {stats['with_title']}, titre/artiste parsés {stats['parsed']}, dans le catalogue {stats['in_catalog']}, "
                    f"avec extrait {stats['with_preview']}. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).", ""]
+    if "t6b" in sets:
+        from testsets import hums
+        out = hums.write_t6b(cat)
+        rows = read_jsonl(out)
+        kinds = collections.Counter(r["kind"] for r in rows)
+        report += ["## T6b — Fredonnements maison", "", f"{len(rows)} fredonnements (`data/manual/hums/` réels, `data/manual/hums_synth/` synthétiques) : "
+                   + ", ".join(f"{k} {v}" for k, v in kinds.most_common()) + ".", ""]
     vids = sorted((get_settings().manual_dir / "video").glob("*.mp4"))
     report += ["## T5 — Vidéo", "", f"{len(vids)} extraits dans `data/manual/video/`.", ""]
     path = PROJECT_ROOT / "eval" / "testsets.md"

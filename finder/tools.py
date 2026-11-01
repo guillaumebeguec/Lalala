@@ -75,6 +75,7 @@ class Toolbox:
     _bm25: BM25Index | None = None
     _vec: dict[tuple[str, str], VectorIndex] = field(default_factory=dict)
     _emb: dict[str, Any] = field(default_factory=dict)
+    _contours: Any = None           # (mtime, ContourStore)
     _fp: FingerprintIndex | None = None
     _previews: pd.DataFrame | None = None
     _web: Any = None
@@ -140,6 +141,30 @@ class Toolbox:
             else:
                 self._emb[name] = get_embedder(name)
         return self._emb[name]
+
+    def contours(self):
+        """Magasin de contours mélodiques (`core.melody.ContourStore`), rechargé si le fichier change."""
+        from core.melody import ContourStore
+        p = ContourStore.path(self.subset)
+        if not p.exists():
+            self._contours = None
+            return None
+        mtime = p.stat().st_mtime
+        if self._contours is None or self._contours[0] != mtime:
+            self._contours = (mtime, ContourStore.load(self.subset))
+            logger.info("contours mélodiques chargés : %d morceaux", len(self._contours[1]))
+        return self._contours[1]
+
+    def melody_match(self, audio: bytes | tuple[np.ndarray, int], top: int = 20) -> list[tuple[str, float, float]]:
+        """Branche « mélodie » : contour RMVPE de la requête aligné sur les contours du catalogue
+        (transposition et tempo tolérés, voir core.melody). [(track_id, score, position s)]."""
+        store = self.contours()
+        if store is None:
+            return []
+        from core.melody import contour_from_track, match
+        h = self.emb("hum2song")
+        q = contour_from_track(h.pitch_track(audio))
+        return match(q, store, top=top)
 
     def is_humming(self, audio: bytes | tuple[np.ndarray, int]) -> bool:
         """Heuristique « voix seule monophonique » (C4.3) : part de trames voisées à forte saillance
@@ -432,7 +457,8 @@ class Toolbox:
         fusion RRF pondérée (CoverHunter ×2 sans empreinte exacte ; hum2song ×3 si fredonnement,
         généralistes ×0,5 dans ce cas). Renvoie {candidates, lists}."""
         lists, weights, names = [], [], []
-        for name in (embedders or self.active_embedders()):
+        wanted = list(embedders or self.active_embedders())
+        for name in wanted:
             va = self.vec(name, "audio")
             if va is None:
                 continue
@@ -440,20 +466,30 @@ class Toolbox:
             if name == "coverhunter":
                 w = 0.25 if humming else (2.0 if exact is None else 1.0)
             elif name == "hum2song":
-                w = 3.0 if humming else 0.5
+                w = 1.0 if humming else 0.5
             else:
                 w = 0.5 if humming else 1.0
             weights.append(w)
             names.append(name)
+        # alignement direct des contours (core.melody) : la branche mélodique principale pour un fredonnement
+        if "hum2song" in wanted and self.contours() is not None:
+            try:
+                mel = self.melody_match(audio, top=50)
+                lists.append([(t, sc) for t, sc, _ in mel])
+                weights.append(3.0 if humming else 0.5)
+                names.append("melody")
+            except Exception as e:  # noqa: BLE001
+                logger.warning("mélodie : %s", e)
         fused = rrf(lists, k=self.rrf_k, weights=weights, top=self.top_k) if lists else []
         cover_top = {i for i, _ in lists[names.index("coverhunter")][:5]} if "coverhunter" in names else set()
-        hum_top = {i for i, _ in lists[names.index("hum2song")][:5]} if "hum2song" in names else set()
+        mel_name = "melody" if "melody" in names else ("hum2song" if "hum2song" in names else None)
+        hum_top = {i for i, _ in lists[names.index(mel_name)][:5]} if mel_name else set()
         cands = []
         for i, sc in fused:
             c = self._candidate(i, sc, "catalog")
             if c:
                 if humming and i in hum_top:
-                    c.reason = "Your hummed melody matches the vocal line."
+                    c.reason = "Your hummed melody lines up with this song's melody."
                     c.source = "melody"
                 elif i in cover_top and exact is None:
                     c.reason = "Same song, different version (cover or live)."

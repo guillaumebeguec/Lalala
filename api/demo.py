@@ -174,7 +174,7 @@ class Pipeline:
         emb_label = " · ".join(MODEL_LABELS.get(n, n) for n in general)
         audio_steps = [Step("isolate", "Isolating the music", "SAM Audio"), Step("exact", "Exact match check", "Chromaprint"),
                        Step("audio_sim", "Audio similarity search", emb_label)] + ([Step("version", "Version matching", "CoverHunter")] if has_cover else []) \
-                      + ([Step("melody", "Melody matching", "hum2song")] if has_hum else []) \
+                      + ([Step("melody", "Melody matching", "contour alignment + hum2song")] if has_hum else []) \
                       + [Step("lyrics", "Transcribing the lyrics", "Whisper · lyrics fingerprints")]
         text_steps = [Step("analyze", "Reading your description", "Llama 3.1"), Step("catalog", "Catalogue search", "BM25 · " + emb_label)]
         common = [Step("rank", "Ranking candidates", "Llama 3.1"), Step("verify", "Verification", "Web")]
@@ -231,7 +231,7 @@ class Pipeline:
                 res_m = tb.audio_similarity(self.audio, exact, embedders=["hum2song"], humming=humming)
                 absorb(res_m["candidates"], "melody")
                 lists["audio"] = lists.get("audio", []) + lists.get("melody", [])
-                yield self.step(s_mel, "done", f"Contour matched against the vocal lines ({len(res_m['candidates'])} candidates).")
+                yield self.step(s_mel, "done", f"Contour aligned against the catalogue melodies ({len(res_m['candidates'])} candidates).")
             s_lyr = self._find("lyrics")
             if humming and not exact:
                 yield self.step(s_lyr, "running", "Listening for sung words…")
@@ -297,7 +297,7 @@ class Pipeline:
         if self.audio and not exact and best.source == "version":
             proofs.append({"source": "Version", "text": "Same song, different version (cover or live)."})
         if self.audio and not exact and best.source == "melody":
-            proofs.append({"source": "Melody", "text": "Your hummed melody matches the vocal line."})
+            proofs.append({"source": "Melody", "text": "Your hummed melody lines up with this song's melody."})
         if self.audio and not exact and best.source == "lyrics":
             proofs.append({"source": "Lyrics", "text": best.reason})
         if self.audio and not exact:

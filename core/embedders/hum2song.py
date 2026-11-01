@@ -110,6 +110,11 @@ class Hum2SongEmbedder(Embedder):
         v = src[self._demucs.sources.index("vocals")].mean(0).numpy()
         return resample(v.astype(np.float32), 44_100, SR)
 
+    def pitch_track(self, item: AudioItem) -> np.ndarray:
+        """Suivi de hauteur RMVPE du mixage : (2, trames de 10 ms) = [F0 Hz, saillance 0–1]."""
+        self._load()
+        return self._trackers.rmvpe_track(self._rmvpe, self._to_wave(item).astype(np.float32))
+
     def contour(self, item: AudioItem) -> np.ndarray:
         """Contour mélodique normalisé (trames de 20 ms) d'un audio, via RMVPE."""
         self._load()
