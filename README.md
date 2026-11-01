@@ -66,8 +66,34 @@ Appui long (1 s) sur le logo : menu de rejeu.
 | `SOUNDTRACE_ASR_MODEL` | `small` | modèle Whisper (faster-whisper, CPU int8) pour les paroles chantées ; `base` plus rapide, `medium` plus juste |
 | `SOUNDTRACE_FUSION` | `rrf` | `learned` : fusion apprise (`scripts/train_fusion.py`) si le modèle existe |
 | `PREVIEW_STORAGE` | `memory` | aucun audio écrit sur disque (voir ci-dessus) |
+| `SAM_AUDIO_ENGINE` | `auto` | isolation de la musique (SAM Audio) sur les enregistrements bruités : `mlx`, `torch`, `off` (voir § SAM Audio) |
 | `OMP_NUM_THREADS` / `KMP_DUPLICATE_LIB_OK` | `1` / `TRUE` | posés par `core/__init__.py` : double runtime OpenMP faiss + torch sur macOS |
 
 Architecture visée (après les recommandations du 28/10) : texte → réécriture → [Llama-retriever + fiches (BM25 + dense) + web] → fusion (RRF, ou apprise : `scripts/train_fusion.py`) → reranker. Audio → empreinte robuste (audfprint, repli Chromaprint) → sinon [embedder audio + CoverHunter (+ hum2song si voix seule)] → fusion à seuils → reranker si une note texte accompagne l'audio.
+
+## SAM Audio (isolation de la musique, phase 9)
+
+Le paquet officiel `sam-audio` dépend de `perception_models`, qui installe un paquet Python nommé `core`
+(conflit avec `core/` du projet) et de `decord` / `xformers` sans roue macOS. Il est donc installé dans
+un venv **séparé** et appelé en sous-processus (`core/isolate.py` → `scripts/sam_runner*.py`), jamais
+importé dans le processus de l'API. Deux moteurs :
+
+- **MLX** (recommandé sur Apple Silicon) : `uv venv data/raw/sam_audio/venv_mlx --python 3.11 && uv pip install --python data/raw/sam_audio/venv_mlx/bin/python -U mlx-audio` ; poids `mlx-community/sam-audio-base` (conversion des poids Meta).
+- **Officiel (PyTorch)** : `git clone https://github.com/facebookresearch/sam-audio data/raw/sam_audio/repo`, puis le script `scripts/sam_install.sh` (eva-decord à la place de decord, `--no-deps` pour perception-models, stub `xformers`, `transformers<5`, `huggingface_hub<1`, `setuptools`). Poids `facebook/sam-audio-base` à accès restreint : `HF_TOKEN` dans `.env`.
+
+Dans l'app, l'étape « Isolating the music » ne s'exécute que si l'enregistrement est détecté bruité, sans
+empreinte exacte et sans être une voix seule ; l'audio isolé remplace l'original pour l'empreinte (seconde
+chance) et la similarité. Résultats en cache (`data/cache/sam_audio/`).
+
+## Fredonnement : appariement mélodique direct
+
+hum2song (embeddings de contours) rate même des fredonnements synthétiques rendus depuis la mélodie de
+l'extrait ; la branche « Melody matching » repose donc sur `core/melody.py` : contour RMVPE de la requête
+aligné sur les contours des extraits (`scripts/build_contours.py` → `data/index/contours_<subset>.npz`),
+avec tolérance à la transposition, au tempo (0,8–1,25) et aux silences. hum2song reste un vote secondaire.
+
+Jeux de fredonnements : T6a = CHAD (réels) ; T6b = `data/manual/hums/` (réels, `scripts/record_queries.py --mode hum`)
+et `data/manual/hums_synth/` (synthétiques, `scripts/synth_hums.py`). Enregistrements réels bruités pour T3 :
+`scripts/record_queries.py --mode rerecord` (lecture dans les haut-parleurs + capture micro).
 
 *(Sections à compléter au fil des phases : données, évaluation, démo.)*
