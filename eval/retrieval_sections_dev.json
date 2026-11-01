@@ -249,7 +249,7 @@
   ]
  },
  "T6a Fredonnements CHAD": {
-  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 2203 s ; systèmes : chromaprint, audfprint, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| gemma:audio→audio | 0.003 | 0.010 | 0.018 | 0.008 |\n| coverhunter:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.000 | 0.010 | 0.018 | 0.006 |\n| rrf(k=30) | 0.000 | 0.005 | 0.010 | 0.004 |\n| rrf(k=60) | 0.000 | 0.003 | 0.010 | 0.003 |\n| rrf-embeddings(k=60) | 0.003 | 0.005 | 0.013 | 0.007 |\n\nDétail de `hum2song:audio→audio` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.010 | 0.035 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.000 | 0.000 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.000 | 0.014 |\n",
+  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 1684 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 0.160 | 0.211 | 0.249 | 0.187 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.003 | 0.018 | 0.025 | 0.009 |\n| rrf(k=30) | 0.003 | 0.013 | 0.025 | 0.008 |\n| rrf(k=60) | 0.003 | 0.013 | 0.025 | 0.008 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.114 | 0.139 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.196 | 0.333 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.213 | 0.270 |\n",
   "csv": [
    {
     "set": "T6a Fredonnements CHAD",
@@ -271,20 +271,11 @@
    },
    {
     "set": "T6a Fredonnements CHAD",
-    "system": "gemma:audio→audio",
-    "top1": 0.0025,
-    "top5": 0.0102,
-    "top10": 0.0178,
-    "mrr": 0.0076,
-    "n": 393
-   },
-   {
-    "set": "T6a Fredonnements CHAD",
-    "system": "coverhunter:audio→audio",
-    "top1": 0.0,
-    "top5": 0.0,
-    "top10": 0.0,
-    "mrr": 0.0,
+    "system": "melody",
+    "top1": 0.1603,
+    "top5": 0.2112,
+    "top10": 0.2494,
+    "mrr": 0.1871,
     "n": 393
    },
    {
@@ -299,38 +290,97 @@
    {
     "set": "T6a Fredonnements CHAD",
     "system": "rrf(k=10)",
-    "top1": 0.0,
-    "top5": 0.0102,
-    "top10": 0.0178,
-    "mrr": 0.0056,
+    "top1": 0.0025,
+    "top5": 0.0178,
+    "top10": 0.0254,
+    "mrr": 0.0091,
     "n": 393
    },
    {
     "set": "T6a Fredonnements CHAD",
     "system": "rrf(k=30)",
-    "top1": 0.0,
-    "top5": 0.0051,
-    "top10": 0.0102,
-    "mrr": 0.004,
+    "top1": 0.0025,
+    "top5": 0.0127,
+    "top10": 0.0254,
+    "mrr": 0.008,
     "n": 393
    },
    {
     "set": "T6a Fredonnements CHAD",
     "system": "rrf(k=60)",
-    "top1": 0.0,
-    "top5": 0.0025,
-    "top10": 0.0102,
-    "mrr": 0.0034,
+    "top1": 0.0025,
+    "top5": 0.0127,
+    "top10": 0.0254,
+    "mrr": 0.0078,
     "n": 393
+   }
+  ]
+ },
+ "T6b Fredonnements maison": {
+  "md": "## T6b Fredonnements maison\n\n6 cas ; 26 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.167 | 0.333 | 0.333 | 0.222 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 1.000 | 1.000 | 1.000 | 1.000 |\n| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| rrf(k=10) | 0.000 | 0.167 | 0.333 | 0.111 |\n| rrf(k=30) | 0.000 | 0.167 | 0.333 | 0.083 |\n| rrf(k=60) | 0.000 | 0.167 | 0.333 | 0.083 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| synth | 6 | 1.000 | 1.000 |\n",
+  "csv": [
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "chromaprint",
+    "top1": 0.1667,
+    "top5": 0.3333,
+    "top10": 0.3333,
+    "mrr": 0.2222,
+    "n": 6
    },
    {
-    "set": "T6a Fredonnements CHAD",
-    "system": "rrf-embeddings(k=60)",
-    "top1": 0.0025,
-    "top5": 0.0051,
-    "top10": 0.0127,
-    "mrr": 0.0068,
-    "n": 393
+    "set": "T6b Fredonnements maison",
+    "system": "audfprint",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "melody",
+    "top1": 1.0,
+    "top5": 1.0,
+    "top10": 1.0,
+    "mrr": 1.0,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "hum2song:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "rrf(k=10)",
+    "top1": 0.0,
+    "top5": 0.1667,
+    "top10": 0.3333,
+    "mrr": 0.1111,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "rrf(k=30)",
+    "top1": 0.0,
+    "top5": 0.1667,
+    "top10": 0.3333,
+    "mrr": 0.0833,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "rrf(k=60)",
+    "top1": 0.0,
+    "top5": 0.1667,
+    "top10": 0.3333,
+    "mrr": 0.0833,
+    "n": 6
    }
   ]
  }
