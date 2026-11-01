@@ -269,6 +269,8 @@ class Pipeline:
             if rw:
                 analysis = {"query": rw.query, "query_fr": rw.query_fr, "captions": rw.captions, "hints": {k: v for k, v in rw.hints.items() if v}}
                 clues = [f"{k}: {v}" for k, v in (analysis.get("hints") or {}).items() if k in ("decade", "language", "medium", "genre", "vocals")]
+                if rw.sound_terms:
+                    clues.append("sound: " + ", ".join(rw.sound_terms[:4]))
                 yield self.step(s_an, "done", ("Clues: " + ", ".join(clues)) if clues else "No strong clue found.")
             else:
                 yield self.step(s_an, "done", "Used the description as is.")

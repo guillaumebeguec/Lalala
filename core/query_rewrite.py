@@ -62,8 +62,84 @@ _SYSTEM = (
     "(instruments, voice type, tempo, whistling…), empty when the user only talks about context, story or lyrics.\n"
     "- query: a clean English keyword query (genre, era, instruments, themes, quoted lyrics, named entities). "
     "- query_fr: same in French if the description was in French, else null.\n"
-    "NEVER invent a song title or an artist name. If you are tempted to guess the song, do not: describe it instead."
+    "NEVER invent a song title or an artist name. If you are tempted to guess the song, do not: describe it instead.\n"
+    "Hints and captions must stay within what the user wrote: do NOT infer a genre, a decade, a tempo or the singer's "
+    "gender from an instrument or a mood. 'guitar' alone says nothing about rock, male vocals or tempo. A one-word "
+    "description gets captions that only paraphrase that word, and every hint null except sound_terms."
 )
+
+# ---- Ancrage des indices dans le texte de l'utilisateur (indépendant du modèle) -------------------------
+# Llama 8B « complète » volontiers : « guitare » → genre rock, voix masculine, tempo rapide. Un indice
+# n'est gardé que si le texte en porte la trace (mot du lexique ou valeur citée).
+_LEX = {
+    "genre": ("rock", "pop", "rap", "hip", "hop", "jazz", "metal", "électro", "electro", "electronic", "techno", "house", "disco",
+              "funk", "soul", "reggae", "blues", "country", "folk", "punk", "classique", "classical", "r&b", "rnb", "variété",
+              "chanson", "dance", "trance", "indie", "grunge", "ska", "latino", "salsa", "gospel", "opéra", "opera", "swing",
+              "k-pop", "kpop", "afro", "zouk", "raï", "reggaeton", "trap", "drill", "ambient", "lo-fi", "lofi", "synthwave",
+              "new wave", "hardcore", "emo", "boléro", "tango", "bossa", "samba", "musette", "yéyé", "yeye"),
+    "vocals": ("voix", "voice", "vocal", "chanteur", "chanteuse", "singer", "femme", "woman", "female", "homme", "man ",
+               "male", "garçon", "fille", "girl", "boy", "chœur", "choir", "chorus", "duo", "duet", "instrumental", "sans parole",
+               "no lyrics", "rappeur", "rapper", "crooner", "falsetto", "grave", "aiguë", "aigue", "enfant", "child", "kid"),
+    "decade": ("19", "20", "années", "annees", "year", "decade", "décennie", "'s", "enfant", "kid", "child", "jeune", "young",
+               "ado", "teen", "vieux", "old", "récent", "recent", "nouveau", "new", "époque", "era", "ancien", "lycée", "collège",
+               "école", "school", "université", "college", "mariage", "wedding"),
+    "language": ("français", "francais", "french", "anglais", "english", "espagnol", "spanish", "italien", "italian", "allemand",
+                 "german", "portugais", "portuguese", "brésil", "brazil", "arabe", "arabic", "japonais", "japanese", "coréen",
+                 "korean", "latin", "langue", "language", "paroles", "lyrics", "instrumental", "sans parole", "no words", "chante en",
+                 "sings in", "accent"),
+    "medium": ("pub", "publicité", "ad", "advert", "commercial", "spot", "série", "series", "show", "film", "movie", "cinéma", "cinema",
+               "jeu", "game", "radio", "tv", "télé", "tele", "générique", "theme", "club", "boîte", "disco", "soirée", "party",
+               "youtube", "tiktok", "instagram", "stade", "stadium", "match", "mariage", "wedding", "école", "school", "trailer",
+               "bande-annonce", "dessin animé", "cartoon", "anime", "jingle", "spectacle", "concert", "festival"),
+}
+
+
+def _grounded(kind: str, value, description: str) -> bool:
+    """Vrai si la valeur de l'indice est citée telle quelle, ou si un mot du lexique de ce type d'indice apparaît."""
+    if value is None or not str(value).strip():
+        return False
+    d = " " + description.lower() + " "
+    v = str(value).lower()
+    if any(w in d for w in re.findall(r"[a-zà-ÿ0-9&'-]{3,}", v)):
+        return True
+    return any(w in d for w in _LEX.get(kind, ()))
+
+
+def ground_hints(hints: dict[str, Any], description: str) -> dict[str, Any]:
+    """Annule décennie, langue, support, genre et voix qui n'ont aucune trace dans la description."""
+    out = dict(hints)
+    for k in ("decade", "language", "medium", "genre", "vocals"):
+        if out.get(k) and not _grounded(k, out[k], description):
+            logger.info("réécriture : indice %s=%r non cité par l'utilisateur, retiré", k, out[k])
+            out[k] = None
+    return out
+
+
+_CAPTION_TRAPS = {
+    "genre": _LEX["genre"],
+    "vocals": ("male", "female", "woman", "man's", "men's", "girl", "boy", "singer", "vocals", "vocal", "chœur", "choir"),
+    "tempo": ("upbeat", "fast", "slow", "mid-tempo", "midtempo", "tempo", "bpm", "energetic", "ballad", "driving", "groovy"),
+}
+
+
+def ground_captions(captions: list[str], description: str) -> list[str]:
+    """Écarte les légendes qui ajoutent un genre, un type de voix ou un tempo que le texte ne mentionne pas.
+    Si tout est écarté, on garde la description telle quelle (le modèle texte→audio la comprend)."""
+    d = " " + description.lower() + " "
+    kept = []
+    for c in captions:
+        cl = " " + c.lower() + " "
+        bad = False
+        for kind, words in _CAPTION_TRAPS.items():
+            lex = _LEX.get(kind, words)
+            if any((" " + w) in cl for w in words) and not any(w in d for w in lex):
+                bad = True
+                break
+        if bad:
+            logger.info("réécriture : légende non ancrée écartée : %r", c)
+        else:
+            kept.append(c)
+    return kept or [description.strip()]
 
 
 @dataclass
@@ -133,18 +209,18 @@ def _is_named_in(entity: str, description: str) -> bool:
 
 def rewrite(description: str, model: str | None = None, use_cache: bool = True) -> Rewrite:
     cache = DiskCache("query_rewrite")
-    key = cache.key(description, model=model or get_settings().llm_model, v=1)
+    key = cache.key(description, model=model or get_settings().llm_model, v=2)
     hit = cache.get(key) if use_cache else None
     if hit is None:
         r = llm.chat([{"role": "system", "content": _SYSTEM}, {"role": "user", "content": description.strip()}],
                      json_schema=SCHEMA, temperature=0.1, max_tokens=500, model=model)
         hit = r.json
         cache.put(key, hit)
-    hints = dict(hit.get("hints") or {})
+    hints = ground_hints(dict(hit.get("hints") or {}), description)
     allowed = [str(x) for x in (hints.get("named_entities") or []) if _is_named_in(str(x), description)]
     hints["named_entities"] = allowed
     query = _strip_unsupported_names(str(hit.get("query") or ""), description, allowed)
-    captions = [str(c) for c in (hit.get("captions") or []) if str(c).strip()][:5]
+    captions = ground_captions([str(c) for c in (hit.get("captions") or []) if str(c).strip()][:5], description)
     return Rewrite(captions=captions, hints=hints, query=query, query_fr=hit.get("query_fr") or None, raw=hit)
 
 
