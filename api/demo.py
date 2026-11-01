@@ -163,7 +163,8 @@ class Pipeline:
             has_hum = "hum2song" in tb.active_embedders() and tb.vec("hum2song", "audio") is not None
             humming = bool(has_hum and self.kind in ("audio", "mixed") and tb.is_humming(self.audio))
             kind = "humming" if humming else self.kind
-            yield self.emit("input", {"kind": kind, "duration_s": round(len(x) / sr, 1), "noise_detected": (not humming) and noise_detected(x, sr),
+            noisy = (not humming) and noise_detected(x, sr)
+            yield self.emit("input", {"kind": kind, "duration_s": round(len(x) / sr, 1), "noise_detected": noisy,
                                       "note": self.note, "waveform": waveform(x)})
         else:
             yield self.emit("input", {"kind": "text", "note": self.text, "waveform": []})
@@ -195,10 +196,24 @@ class Pipeline:
             lists[key] = [(c.track_id, c.score) for c in cands]
 
         if self.audio:
-            yield self.step(self._find("isolate"), "skipped", "Skipped")
-            s_exact, s_sim = self._find("exact"), self._find("audio_sim")
+            from core import isolate
+            s_iso, s_exact, s_sim = self._find("isolate"), self._find("exact"), self._find("audio_sim")
             yield self.step(s_exact, "running", "Comparing the fingerprint with the catalogue…")
             exact = tb.fingerprint_match(self.audio)
+            # SAM Audio (phase 9) : seulement si l'enregistrement est bruité, sans empreinte exacte, et si un moteur est installé
+            if exact or humming or not noisy or isolate.engine() is None:
+                why = ("Skipped: exact recording already found" if exact else "Skipped: a single voice" if humming
+                       else "Skipped: clean recording" if not noisy else "Skipped: SAM Audio not installed")
+                yield self.step(s_iso, "skipped", why)
+            else:
+                yield self.step(s_iso, "running", "Separating the music from the background noise…")
+                iso = isolate.isolate_music(self.audio)
+                if iso:
+                    self.audio, info = iso[0], iso[1]
+                    yield self.step(s_iso, "done", f"Music isolated with SAM Audio ({info.get('engine')}, {info.get('seconds', '?')} s).")
+                    exact = tb.fingerprint_match(self.audio)   # seconde chance pour l'empreinte sur l'audio nettoyé
+                else:
+                    yield self.step(s_iso, "skipped", "SAM Audio failed — continuing with the raw recording.")
             yield self.step(s_exact, "done", "Same recording found." if exact else "No identical recording — not a Shazam case.")
             if exact and not self.text:
                 # Empreinte forte = même enregistrement : réponse immédiate, les autres branches sont sautées (PLAN 6.1)
