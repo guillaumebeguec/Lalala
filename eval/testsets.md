@@ -54,6 +54,10 @@ Contrôle manuel de 20 paires : à faire (voir `scripts/review_pairs.py`).
 
 393 fredonnements → original du catalogue ; groupes CHAD 311, titre YouTube lu 294, titre/artiste parsés 268, dans le catalogue 131, avec extrait 131. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).
 
+## T6b — Fredonnements maison
+
+6 fredonnements (`data/manual/hums/` réels, `data/manual/hums_synth/` synthétiques) : synth 6.
+
 ## T5 — Vidéo
 
 0 extraits dans `data/manual/video/`.

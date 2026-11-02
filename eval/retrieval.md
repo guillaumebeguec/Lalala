@@ -76,13 +76,13 @@ Détail de `gemma:audio→audio` par sous-groupe (SNR dB ou type) :
 
 ## T6a Fredonnements CHAD
 
-393 cas ; 1684 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).
+393 cas ; 4081 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).
 
 | Système | top-1 | top-5 | top-10 | MRR |
 |---|---|---|---|---|
 | chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |
 | audfprint | 0.000 | 0.000 | 0.000 | 0.000 |
-| melody | 0.160 | 0.211 | 0.249 | 0.187 |
+| melody | 0.196 | 0.265 | 0.298 | 0.229 |
 | hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |
 | rrf(k=10) | 0.003 | 0.018 | 0.025 | 0.009 |
 | rrf(k=30) | 0.003 | 0.013 | 0.025 | 0.008 |
@@ -92,9 +92,29 @@ Détail de `melody` par sous-groupe (SNR dB ou type) :
 
 | Groupe | n | top-1 | top-5 |
 |---|---|---|---|
-| fragment en début (< 60 s) du morceau | 201 | 0.114 | 0.139 |
-| fragment en fin (> 150 s) du morceau | 51 | 0.196 | 0.333 |
-| fragment en milieu (60–150 s) du morceau | 141 | 0.213 | 0.270 |
+| fragment en début (< 60 s) du morceau | 201 | 0.169 | 0.214 |
+| fragment en fin (> 150 s) du morceau | 51 | 0.235 | 0.373 |
+| fragment en milieu (60–150 s) du morceau | 141 | 0.220 | 0.298 |
+
+## T6b Fredonnements maison
+
+6 cas ; 56 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).
+
+| Système | top-1 | top-5 | top-10 | MRR |
+|---|---|---|---|---|
+| chromaprint | 0.167 | 0.333 | 0.333 | 0.222 |
+| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |
+| melody | 1.000 | 1.000 | 1.000 | 1.000 |
+| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |
+| rrf(k=10) | 0.000 | 0.167 | 0.333 | 0.111 |
+| rrf(k=30) | 0.000 | 0.167 | 0.333 | 0.083 |
+| rrf(k=60) | 0.000 | 0.167 | 0.333 | 0.083 |
+
+Détail de `melody` par sous-groupe (SNR dB ou type) :
+
+| Groupe | n | top-1 | top-5 |
+|---|---|---|---|
+| synth | 6 | 1.000 | 1.000 |
 
 ## Exemples qualitatifs (fusion RRF k=60)
 

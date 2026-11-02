@@ -27,8 +27,15 @@ T4 Reprises,rrf(k=60),0.1364,0.2045,0.25,0.1804,44
 T4 Reprises,rrf-embeddings(k=60),0.0909,0.1591,0.3409,0.1413,44
 T6a Fredonnements CHAD,chromaprint,0.0,0.0025,0.0025,0.001,393
 T6a Fredonnements CHAD,audfprint,0.0,0.0,0.0,0.0,393
-T6a Fredonnements CHAD,melody,0.1603,0.2112,0.2494,0.1871,393
+T6a Fredonnements CHAD,melody,0.1959,0.2646,0.2977,0.2292,393
 T6a Fredonnements CHAD,hum2song:audio→audio,0.0051,0.0229,0.0356,0.0144,393
 T6a Fredonnements CHAD,rrf(k=10),0.0025,0.0178,0.0254,0.0091,393
 T6a Fredonnements CHAD,rrf(k=30),0.0025,0.0127,0.0254,0.008,393
 T6a Fredonnements CHAD,rrf(k=60),0.0025,0.0127,0.0254,0.0078,393
+T6b Fredonnements maison,chromaprint,0.1667,0.3333,0.3333,0.2222,6
+T6b Fredonnements maison,audfprint,0.0,0.0,0.0,0.0,6
+T6b Fredonnements maison,melody,1.0,1.0,1.0,1.0,6
+T6b Fredonnements maison,hum2song:audio→audio,0.0,0.0,0.0,0.0,6
+T6b Fredonnements maison,rrf(k=10),0.0,0.1667,0.3333,0.1111,6
+T6b Fredonnements maison,rrf(k=30),0.0,0.1667,0.3333,0.0833,6
+T6b Fredonnements maison,rrf(k=60),0.0,0.1667,0.3333,0.0833,6

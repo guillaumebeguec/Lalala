@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import collections
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -21,6 +22,27 @@ from catalog.previews import load_previews  # noqa: E402
 from core.config import PROJECT_ROOT, get_settings  # noqa: E402
 from testsets import covers, fr_memories, noisy, tot_music  # noqa: E402
 from testsets.common import read_jsonl, testsets_dir, write_jsonl  # noqa: E402
+
+
+def merge_report(path: Path, new: str) -> str:
+    """Fusionne le rapport : les sections régénérées (`--sets`) remplacent les anciennes, les autres sont conservées
+    (un lancement partiel n'efface plus le rapport des autres jeux)."""
+    order = ["T1", "T2", "T3", "T4", "T6a", "T6b", "T5"]
+
+    def split(text: str) -> tuple[str, dict[str, str]]:
+        parts = re.split(r"(?m)^(?=## )", text)
+        head, secs = parts[0], {}
+        for p in parts[1:]:
+            secs[p.split(" ")[1]] = p.rstrip() + "\n"
+        return head, secs
+
+    head, secs = split(new)
+    if path.exists():
+        _, old = split(path.read_text(encoding="utf-8"))
+        for k, v in old.items():
+            secs.setdefault(k, v)   # sections non régénérées : on garde l'ancienne
+    keys = [k for k in order if k in secs] + sorted(k for k in secs if k not in order)
+    return head + "\n".join(secs[k] for k in keys)
 
 
 def main() -> int:
@@ -90,7 +112,7 @@ def main() -> int:
     vids = sorted((get_settings().manual_dir / "video").glob("*.mp4"))
     report += ["## T5 — Vidéo", "", f"{len(vids)} extraits dans `data/manual/video/`.", ""]
     path = PROJECT_ROOT / "eval" / "testsets.md"
-    path.write_text("\n".join(report), encoding="utf-8")
+    path.write_text(merge_report(path, "\n".join(report)), encoding="utf-8")
     print(f"\nRapport : {path}")
     return 0
 

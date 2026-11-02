@@ -249,7 +249,7 @@
   ]
  },
  "T6a Fredonnements CHAD": {
-  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 1684 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 0.160 | 0.211 | 0.249 | 0.187 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.003 | 0.018 | 0.025 | 0.009 |\n| rrf(k=30) | 0.003 | 0.013 | 0.025 | 0.008 |\n| rrf(k=60) | 0.003 | 0.013 | 0.025 | 0.008 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.114 | 0.139 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.196 | 0.333 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.213 | 0.270 |\n",
+  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 4081 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 0.196 | 0.265 | 0.298 | 0.229 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.003 | 0.018 | 0.025 | 0.009 |\n| rrf(k=30) | 0.003 | 0.013 | 0.025 | 0.008 |\n| rrf(k=60) | 0.003 | 0.013 | 0.025 | 0.008 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.169 | 0.214 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.235 | 0.373 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.220 | 0.298 |\n",
   "csv": [
    {
     "set": "T6a Fredonnements CHAD",
@@ -272,10 +272,10 @@
    {
     "set": "T6a Fredonnements CHAD",
     "system": "melody",
-    "top1": 0.1603,
-    "top5": 0.2112,
-    "top10": 0.2494,
-    "mrr": 0.1871,
+    "top1": 0.1959,
+    "top5": 0.2646,
+    "top10": 0.2977,
+    "mrr": 0.2292,
     "n": 393
    },
    {
@@ -317,7 +317,7 @@
   ]
  },
  "T6b Fredonnements maison": {
-  "md": "## T6b Fredonnements maison\n\n6 cas ; 26 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.167 | 0.333 | 0.333 | 0.222 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 1.000 | 1.000 | 1.000 | 1.000 |\n| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| rrf(k=10) | 0.000 | 0.167 | 0.333 | 0.111 |\n| rrf(k=30) | 0.000 | 0.167 | 0.333 | 0.083 |\n| rrf(k=60) | 0.000 | 0.167 | 0.333 | 0.083 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| synth | 6 | 1.000 | 1.000 |\n",
+  "md": "## T6b Fredonnements maison\n\n6 cas ; 56 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.167 | 0.333 | 0.333 | 0.222 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 1.000 | 1.000 | 1.000 | 1.000 |\n| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| rrf(k=10) | 0.000 | 0.167 | 0.333 | 0.111 |\n| rrf(k=30) | 0.000 | 0.167 | 0.333 | 0.083 |\n| rrf(k=60) | 0.000 | 0.167 | 0.333 | 0.083 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| synth | 6 | 1.000 | 1.000 |\n",
   "csv": [
    {
     "set": "T6b Fredonnements maison",

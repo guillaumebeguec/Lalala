@@ -251,7 +251,7 @@ def main() -> int:
         report.append("")
         sections[name] = {"md": "\n".join(report), "csv": rows_set}
     sections_path.write_text(json.dumps(sections, ensure_ascii=False, indent=1), encoding="utf-8")
-    order = ["T1 ToT_Music", "T2 Souvenirs FR", "T3 Bruit", "T4 Reprises", "T6a Fredonnements CHAD"]
+    order = ["T1 ToT_Music", "T2 Souvenirs FR", "T3 Bruit", "T4 Reprises", "T6a Fredonnements CHAD", "T6b Fredonnements maison"]
     report = header + [sections[n]["md"] for n in order if n in sections]
     rows_csv = [r for n in order if n in sections for r in sections[n]["csv"]]
     if examples:
