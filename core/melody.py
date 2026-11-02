@@ -68,17 +68,43 @@ class ContourStore:
     data: np.ndarray          # (n, T) float32, NaN = non voisé ou au-delà de la longueur
 
     @staticmethod
-    def path(subset: str) -> Path:
-        return get_settings().index_dir / f"contours_{subset}.npz"
+    def path(subset: str, provider: str | None = None) -> Path:
+        suffix = f"_{provider}" if provider else ""
+        return get_settings().index_dir / f"contours_{subset}{suffix}.npz"
+
+    @classmethod
+    def paths(cls, subset: str) -> list[Path]:
+        """Magasin principal (extraits Deezer) + fenêtres supplémentaires (`contours_<subset>_itunes.npz`…)."""
+        base = cls.path(subset)
+        extra = sorted(base.parent.glob(f"contours_{subset}_*.npz"))
+        return [p for p in [base] + extra if p.exists()]
 
     @classmethod
     def exists(cls, subset: str) -> bool:
         return cls.path(subset).exists()
 
     @classmethod
-    def load(cls, subset: str) -> "ContourStore":
-        z = np.load(cls.path(subset), allow_pickle=False)
-        return cls(ids=[str(i) for i in z["ids"]], data=z["data"].astype(np.float32))
+    def mtime(cls, subset: str) -> float:
+        return max((p.stat().st_mtime for p in cls.paths(subset)), default=0.0)
+
+    @classmethod
+    def load(cls, subset: str, merge: bool = True) -> "ContourStore":
+        """Charge le magasin ; avec `merge`, concatène les fenêtres supplémentaires (un même id peut
+        apparaître plusieurs fois : `match` garde le meilleur alignement par morceau)."""
+        paths = cls.paths(subset) if merge else [cls.path(subset)]
+        ids: list[str] = []
+        blocks: list[np.ndarray] = []
+        for p in paths:
+            z = np.load(p, allow_pickle=False)
+            ids += [str(i) for i in z["ids"]]
+            blocks.append(z["data"].astype(np.float32))
+        T = max(b.shape[1] for b in blocks)
+        data = np.full((len(ids), T), np.nan, dtype=np.float32)
+        r = 0
+        for b in blocks:
+            data[r : r + len(b), : b.shape[1]] = b
+            r += len(b)
+        return cls(ids=ids, data=data)
 
     @classmethod
     def build(cls, contours: dict[str, np.ndarray]) -> "ContourStore":
@@ -150,5 +176,14 @@ def match(query: np.ndarray, store: ContourStore, top: int = 20, tempos: tuple[f
             better = sc > best[s : s + batch]
             best[s : s + batch] = np.where(better, sc, best[s : s + batch])
             pos[s : s + batch] = np.where(better, p, pos[s : s + batch])
-    order = np.argsort(-best)[:top]
-    return [(store.ids[i], float(best[i]), float(pos[i] * FRAME_S * decim)) for i in order if best[i] > 0]
+    # un morceau présent sous plusieurs fenêtres (Deezer, iTunes) : on garde son meilleur alignement
+    seen: dict[str, int] = {}
+    for i in np.argsort(-best):
+        if best[i] <= 0:
+            break
+        tid = store.ids[i]
+        if tid not in seen:
+            seen[tid] = i
+            if len(seen) >= top:
+                break
+    return [(tid, float(best[i]), float(pos[i] * FRAME_S * decim)) for tid, i in seen.items()]

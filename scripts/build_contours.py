@@ -61,6 +61,8 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=3)
     ap.add_argument("--extra-ids", default=None)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--provider", choices=["catalog", "itunes"], default="catalog",
+                    help="itunes : seconde fenêtre de 30 s par morceau via l'extrait iTunes (recherche titre/artiste, ~20 req/min) → contours_<subset>_itunes.npz")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     for noisy in ("httpx", "httpcore"):
@@ -78,7 +80,28 @@ def main() -> int:
     ids = [t for t in ids if t in prev.index]
     if args.limit:
         ids = ids[: args.limit]
-    jobs = [(t, prev.at[t, "preview_url"], prev.at[t, "deezer_id"]) for t in ids]
+    if args.provider == "itunes":
+        # seconde fenêtre : extrait iTunes (souvent un autre passage du morceau que l'extrait Deezer)
+        from catalog.previews import ITunesClient
+        it = ITunesClient()
+        meta = cb.load("full").set_index("track_id")
+        jobs = []
+        t0 = time.time()
+        for i, t in enumerate(ids, 1):
+            if prev.at[t, "provider"] == "itunes" or t not in meta.index:
+                continue      # déjà la fenêtre iTunes dans le magasin principal
+            try:
+                m = it.best_match(str(meta.at[t, "artist"]), str(meta.at[t, "title"]))
+            except Exception as e:  # noqa: BLE001
+                log.warning("itunes %s : %s", t, e)
+                m = None
+            if m and m.get("previewUrl"):
+                jobs.append((t, m["previewUrl"], None))
+            if i % 200 == 0:
+                log.info("recherche iTunes : %d / %d (%d extraits trouvés, %.0f s)", i, len(ids), len(jobs), time.time() - t0)
+        log.info("iTunes : %d extraits sur %d morceaux", len(jobs), len(ids))
+    else:
+        jobs = [(t, prev.at[t, "preview_url"], prev.at[t, "deezer_id"]) for t in ids]
     log.info("%d extraits, %d processus", len(jobs), args.workers)
 
     contours: dict[str, np.ndarray] = {}
@@ -91,7 +114,9 @@ def main() -> int:
             if i % 100 == 0 or i == len(jobs):
                 log.info("contours : %d / %d (%.1f s/extrait, %d ok)", i, len(jobs), (time.time() - t0) / i, len(contours))
     store = ContourStore.build(contours)
-    p = store.save(args.subset)
+    p = store.path(args.subset, provider=None if args.provider == "catalog" else args.provider)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(p, ids=np.asarray(store.ids), data=store.data)
     voiced = float(np.mean(~np.isnan(store.data))) if len(store) else 0.0
     log.info("contours : {'n': %d, 'trames': %d, 'voisé': %.2f, 'fichier': '%s'}", len(store), store.data.shape[1] if len(store) else 0, voiced, p)
     return 0

@@ -79,3 +79,21 @@ def test_store_roundtrip(tmp_path, monkeypatch):
     st2 = melody.ContourStore.load("x")
     assert st2.ids == st.ids and st2.data.shape == st.data.shape
     assert np.array_equal(np.isnan(st2.data), np.isnan(st.data))
+
+
+def test_merged_store_keeps_best_window_per_track(tmp_path, monkeypatch):
+    from core import melody
+    monkeypatch.setattr(melody.ContourStore, "path", staticmethod(lambda subset, provider=None: tmp_path / f"contours_{subset}{'_' + provider if provider else ''}.npz"))
+    rng = np.random.default_rng(3)
+    st = _store(rng, n=10, length=600)
+    st.save("y")
+    # fenêtre iTunes : le morceau t3 avec un autre passage, qui contient la requête
+    extra = {"t3": st.data[7].copy()}
+    np.savez_compressed(melody.ContourStore.path("y", "itunes"), ids=np.asarray(list(extra)), data=np.stack(list(extra.values())))
+    merged = melody.ContourStore.load("y")
+    assert len(merged) == 11 and merged.ids.count("t3") == 2
+    q = st.data[7][100:400].copy() + 2.0
+    res = match(q, merged, top=5)
+    ids = [r[0] for r in res]
+    assert len(ids) == len(set(ids))            # un seul résultat par morceau
+    assert set(ids[:2]) == {"t3", "t7"}         # les deux fenêtres identiques arrivent en tête

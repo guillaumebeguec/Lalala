@@ -156,11 +156,10 @@ class Toolbox:
     def contours(self):
         """Magasin de contours mélodiques (`core.melody.ContourStore`), rechargé si le fichier change."""
         from core.melody import ContourStore
-        p = ContourStore.path(self.subset)
-        if not p.exists():
+        if not ContourStore.exists(self.subset):
             self._contours = None
             return None
-        mtime = p.stat().st_mtime
+        mtime = ContourStore.mtime(self.subset)
         if self._contours is None or self._contours[0] != mtime:
             self._contours = (mtime, ContourStore.load(self.subset))
             logger.info("contours mélodiques chargés : %d morceaux", len(self._contours[1]))
