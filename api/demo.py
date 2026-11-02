@@ -336,7 +336,7 @@ class Pipeline:
             yield self.emit("result", {"query_id": self.query_id, "confidence": "low", "best": None, "alternatives": [], "proofs": [],
                                        "scores": [], "timings": self.timings, "analysis": analysis})
             return
-        best, others = ranked[0], ranked[1:4]
+        best, others = ranked[0], ranked[1:10]   # top 10 : en confiance basse le front les montre en suggestions
         proofs = []
         if exact:
             proofs.append({"source": "Fingerprint", "text": "The audio fingerprint matches this exact recording."})

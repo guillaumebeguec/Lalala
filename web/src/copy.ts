@@ -46,6 +46,8 @@ export const copy = {
     others: "Other candidates",
     noMatchH1: "We couldn’t pin it down.",
     noMatchSub: "Here are the closest songs we found.",
+    suggestH1: "Not sure yet — here are our best guesses.",
+    suggestSub: "Listen and tap the one you recognise, or add a detail to narrow it down.",
     addDetail: "Add a detail",
     drawerTitle: "Score details",
     drawerScores: "Scores by source",

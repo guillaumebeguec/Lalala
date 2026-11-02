@@ -19,6 +19,8 @@ export function Result() {
   const nav = useNavigate();
   const [drawer, setDrawer] = useState(false);
   const [yoursUrl, setYoursUrl] = useState<string | null>(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => { setPinned(false); }, [state.result?.query_id]);
   useEffect(() => { if (!state.result) nav("/", { replace: true }); }, [state.result, nav]);
   useEffect(() => {
     const blob = state.input.audio ?? state.input.video;
@@ -29,7 +31,9 @@ export function Result() {
   const candidates = useMemo(() => orderedCandidates(state.result, state.rejected), [state.result, state.rejected]);
   if (!state.result) return null;
   const best = state.phase === "result" ? candidates[0] : null;
-  const others = best ? candidates.slice(1, 4) : candidates.slice(0, 4);
+  // confiance basse : pas de « meilleur » mis en avant, le top 10 est proposé en suggestions jusqu'à ce que l'on en choisisse une
+  const suggesting = !!best && state.result.confidence === "low" && !pinned;
+  const others = best && !suggesting ? candidates.slice(1, 10) : candidates.slice(0, 10);
   const isAudio = state.inputInfo ? state.inputInfo.kind !== "text" : !!(state.input.audio || state.input.video);
   const newSearch = () => { cancel(); dispatch({ type: "reset" }); nav("/"); };
   const verdict = (v: "match" | "reject") => {
@@ -44,7 +48,21 @@ export function Result() {
       <main className="grid gap-10 py-8 md:grid-cols-[1.4fr_1fr]">
         <section className="flex flex-col gap-8">
           <AnimatePresence mode="wait">
-            {best ? (
+            {suggesting ? (
+              <motion.div key="suggest" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-6">
+                <div>
+                  <h1 className="font-display text-[34px] font-extrabold leading-[1.05] tracking-[-0.04em] md:text-[46px]">{copy.result.suggestH1}</h1>
+                  <p className="mt-2 text-[17px] text-muted">{copy.result.suggestSub}</p>
+                </div>
+                <ul className="flex flex-col gap-3">
+                  {others.map((t) => <CandidateRow key={t.id} track={t} onPromote={(id) => { dispatch({ type: "promote", trackId: id }); setPinned(true); }} />)}
+                </ul>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={() => { dispatch({ type: "backToCapture" }); nav("/"); }} className="min-h-[48px] rounded-pill bg-yellow px-6 text-[16px] font-bold text-on-accent">{copy.result.addDetail}</button>
+                  <button type="button" onClick={() => setDrawer(true)} className="min-h-[44px] px-2 text-[15px] text-source underline">{copy.result.scoreDetails}</button>
+                </div>
+              </motion.div>
+            ) : best ? (
               <motion.div key={best.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col gap-8">
                 <TrackHero track={best} confidence={state.result.confidence} autoPlay />
                 <ProofList proofs={state.result.proofs} />
@@ -64,12 +82,14 @@ export function Result() {
             )}
           </AnimatePresence>
         </section>
-        <aside>
-          <SectionLabel>{copy.result.others}</SectionLabel>
-          <ul className="flex flex-col gap-3">
-            {others.map((t) => <CandidateRow key={t.id} track={t} onPromote={(id) => dispatch({ type: "promote", trackId: id })} />)}
-          </ul>
-        </aside>
+        {!suggesting && (
+          <aside>
+            <SectionLabel>{copy.result.others}</SectionLabel>
+            <ul className="flex flex-col gap-3">
+              {others.map((t) => <CandidateRow key={t.id} track={t} onPromote={(id) => dispatch({ type: "promote", trackId: id })} />)}
+            </ul>
+          </aside>
+        )}
       </main>
       <ScoreDrawer open={drawer} onClose={() => setDrawer(false)} result={state.result} tracks={[...candidates]} />
     </div>

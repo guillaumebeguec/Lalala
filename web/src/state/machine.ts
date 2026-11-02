@@ -50,7 +50,7 @@ export function reducer(s: State, a: Action): State {
       }
       if (e.type === "result") {
         const hasBest = !!e.data.best;
-        return { ...s, result: e.data, phase: hasBest && e.data.confidence !== "low" ? "result" : "noMatch" };
+        return { ...s, result: e.data, phase: hasBest ? "result" : "noMatch" };   // confiance basse → suggestions (top 10), pas d'impasse
       }
       if (e.type === "error") return { ...s, phase: "error", error: e.data.message };
       return s;
