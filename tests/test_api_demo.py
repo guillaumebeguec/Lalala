@@ -113,5 +113,6 @@ def test_melody_confidence_from_margin():
     from api.demo import melody_confidence
     assert melody_confidence([]) == "low"
     assert melody_confidence([("a", 0.9, 1.0), ("b", 0.8, 2.0)]) == "high"
-    assert melody_confidence([("a", 0.75, 1.0), ("b", 0.70, 2.0)]) == "medium"
-    assert melody_confidence([("a", 0.75, 1.0), ("b", 0.74, 2.0)]) == "low"
+    assert melody_confidence([("a", 0.75, 1.0), ("b", 0.69, 2.0)]) == "high"
+    assert melody_confidence([("a", 0.75, 1.0), ("b", 0.71, 2.0)]) == "medium"
+    assert melody_confidence([("a", 0.75, 1.0), ("b", 0.73, 2.0)]) == "low"

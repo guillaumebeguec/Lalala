@@ -94,7 +94,7 @@ avec tolérance à la transposition, au tempo (0,8–1,25) et aux silences. hum2
 Chaque morceau peut avoir **deux fenêtres de 30 s** : l'extrait Deezer et l'extrait iTunes (souvent un autre passage) ;
 `scripts/build_contours.py --provider itunes` écrit `contours_<subset>_itunes.npz`, chargé et fusionné automatiquement
 (meilleur alignement par morceau). Sur les 393 fredonnements CHAD : 19,6 % top-1 / 29,8 % top-10 (voir `eval/retrieval.md`).
-La confiance affichée vient de la marge top-1/top-2 (calibrée sur CHAD, `data/melody_calib_chad.csv`).
+La confiance affichée vient de la marge top-1/top-2 (calibrée sur CHAD, `data/melody_calib_chad.csv` : ≥ 0,05 → 77 % de précision, ≥ 0,03 → 50 %).
 
 Jeux de fredonnements : T6a = CHAD (réels) ; T6b = `data/manual/hums/` (réels, `scripts/record_queries.py --mode hum`)
 et `data/manual/hums_synth/` (synthétiques, `scripts/synth_hums.py`). Enregistrements réels bruités pour T3 :

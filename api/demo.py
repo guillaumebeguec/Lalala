@@ -79,15 +79,16 @@ def noise_detected(x: np.ndarray, sr: int) -> bool:
 
 
 def melody_confidence(melody: list[tuple[str, float, float]]) -> str:
-    """Confiance d'un fredonnement par la **marge** top-1/top-2 de l'alignement mélodique. Calibré sur 387 fredonnements
-    CHAD (29/10) : le score seul ne discrimine pas (bon 0,73 vs faux 0,72), la marge si : ≥ 0,08 → 89 % de précision,
-    ≥ 0,05 → 69 %, ≥ 0,03 → 44 %."""
+    """Confiance d'un fredonnement par la **marge** top-1/top-2 de l'alignement mélodique. Le score seul ne discrimine pas
+    (bon 0,73 vs faux 0,72), la marge si. Recalibré le 29/10 au soir sur 393 fredonnements CHAD avec le magasin fusionné
+    Deezer + iTunes (`data/melody_calib_chad.csv`) : ≥ 0,05 → 77 % de précision (12 % des requêtes), ≥ 0,03 → 50 % (28 %),
+    ≥ 0,08 n'apporte plus rien (79 %)."""
     if not melody:
         return "low"
     margin = melody[0][1] - (melody[1][1] if len(melody) > 1 else 0.0)
-    if margin >= 0.08:
+    if margin >= 0.05:
         return "high"
-    if margin >= 0.04:
+    if margin >= 0.03:
         return "medium"
     return "low"
 
