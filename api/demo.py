@@ -78,6 +78,20 @@ def noise_detected(x: np.ndarray, sr: int) -> bool:
     return bool(hf > 0.35 or dyn < 0.25)
 
 
+def melody_confidence(melody: list[tuple[str, float, float]]) -> str:
+    """Confiance d'un fredonnement par la **marge** top-1/top-2 de l'alignement mélodique. Calibré sur 387 fredonnements
+    CHAD (29/10) : le score seul ne discrimine pas (bon 0,73 vs faux 0,72), la marge si : ≥ 0,08 → 89 % de précision,
+    ≥ 0,05 → 69 %, ≥ 0,03 → 44 %."""
+    if not melody:
+        return "low"
+    margin = melody[0][1] - (melody[1][1] if len(melody) > 1 else 0.0)
+    if margin >= 0.08:
+        return "high"
+    if margin >= 0.04:
+        return "medium"
+    return "low"
+
+
 def confidence_label(best: float, second: float | None, exact: bool) -> str:
     if exact:
         return "high"
@@ -250,17 +264,30 @@ class Pipeline:
                 res_m = tb.audio_similarity(self.audio, exact, embedders=["hum2song"], humming=humming)
                 absorb(res_m["candidates"], "melody")
                 lists["audio"] = lists.get("audio", []) + lists.get("melody", [])
-                yield self.step(s_mel, "done", f"Contour aligned against the catalogue melodies ({len(res_m['candidates'])} candidates).")
+                melody_raw = res_m.get("melody") or []
+                if melody_raw:
+                    m = melody_raw[0]
+                    analysis["melody"] = {"top": [{"track_id": t, "score": round(sc, 3), "at_s": round(pos, 1)} for t, sc, pos in melody_raw[:5]],
+                                          "confidence": melody_confidence(melody_raw)}
+                    yield self.step(s_mel, "done", f"Contour aligned against {len(tb.contours() or [])} melodies — best alignment at {m[2]:.0f} s (score {m[1]:.2f}).")
+                else:
+                    yield self.step(s_mel, "done", f"Contour aligned against the catalogue melodies ({len(res_m['candidates'])} candidates).")
             s_lyr = self._find("lyrics")
             if humming and not exact:
+                # Fredonnement : deux cas à séparer — des paroles chantées (Whisper → empreintes de paroles) ou une
+                # mélodie sans mots (« mmm », « la la ») où Whisper invente des phrases : alors mélodie seule.
                 yield self.step(s_lyr, "running", "Listening for sung words…")
                 res_l = tb.sung_lyrics_search(self.audio)
                 tr = res_l["transcript"]
-                if tr.n_words >= 3:
+                if tr.has_words:
                     absorb(res_l["candidates"], "lyrics")
                     lists["audio"] = lists.get("audio", []) + lists.get("lyrics", [])
                     analysis["sung_lyrics"] = {"text": tr.text, "language": tr.language, "branches": res_l["lists"]}
+                    analysis["humming_mode"] = "words"
                     yield self.step(s_lyr, "done", f"Heard: “{tr.text[:70]}” → {len(res_l['candidates'])} candidates.")
+                elif tr.n_words >= 3:
+                    analysis["humming_mode"] = "melody"
+                    yield self.step(s_lyr, "done", "No real words heard (just the tune) — relying on the melody.")
                 else:
                     yield self.step(s_lyr, "done", "No words recognised (humming only).")
             else:
@@ -329,16 +356,44 @@ class Pipeline:
             proofs.append({"source": "Clues", "text": "Matches the clues from your description: " + ", ".join(bits) + "."})
         scores = [{"track_id": c.track_id, "emb": {}, "final": round(float(c.score), 4), "source": c.source} for c in ranked[:10]]
         conf = confidence_label(float(best.score), float(others[0].score) if others else None, bool(exact))
+        if humming and not exact and analysis.get("melody"):
+            # fredonnement : la confiance vient de la marge mélodique (les scores RRF fusionnés sont toujours « low »)
+            mel_top = analysis["melody"]["top"][0]["track_id"]
+            conf = analysis["melody"]["confidence"] if best.track_id == mel_top else ("medium" if analysis.get("humming_mode") == "words" else "low")
         result = {"query_id": self.query_id, "confidence": conf, "best": _track(tb, best), "alternatives": [_track(tb, c) for c in others],
                   "proofs": proofs, "scores": scores, "timings": self.timings, "analysis": analysis}
         RESULTS[self.query_id] = {"result": result, "events": self.events, "t": time.time()}
+        logger.info("requête %s : kind=%s humming=%s mode=%s exact=%s conf=%s top-3=%s", self.query_id, self.kind, humming,
+                    analysis.get("humming_mode"), bool(exact), conf, [(c.title, c.artist, round(float(c.score), 3)) for c in ranked[:3]])
         yield self.emit("result", result)
 
 
-def _sse(gen: Iterator[dict[str, Any]]) -> StreamingResponse:
+def queries_dir() -> Path:
+    d = get_settings().data_dir / "queries"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def persist_query(pipe: "Pipeline") -> None:
+    """Garde l'audio envoyé et les événements de chaque requête (`data/queries/<id>/`, jamais commité) :
+    diagnostic des échecs et constitution d'un jeu de fredonnements réels."""
+    try:
+        d = queries_dir() / pipe.query_id
+        d.mkdir(exist_ok=True)
+        if pipe.audio:
+            (d / "input.wav").write_bytes(pipe.audio)
+        (d / "events.json").write_text(json.dumps({"t": time.time(), "kind": pipe.kind, "text": pipe.text, "events": pipe.events},
+                                                   ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError as e:  # noqa: BLE001
+        logger.warning("persistance de la requête : %s", e)
+
+
+def _sse(gen: Iterator[dict[str, Any]], pipe: "Pipeline | None" = None) -> StreamingResponse:
     def stream():
         for d in gen:
             yield f"event: {d['event']}\ndata: {json.dumps(d['data'], ensure_ascii=False)}\n\n"
+        if pipe is not None:
+            persist_query(pipe)
     return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
@@ -371,7 +426,8 @@ async def _read_inputs(text: str | None, audio: UploadFile | None, video: Upload
 async def search_stream(text: str | None = Form(None), audio: UploadFile | None = File(None), video: UploadFile | None = File(None),
                         options: str | None = Form(None)):
     t, data, kind = await _read_inputs(text, audio, video)
-    return _sse(Pipeline(toolbox(), t, data, kind, note=t if data is not None else None).run())
+    pipe = Pipeline(toolbox(), t, data, kind, note=t if data is not None else None)
+    return _sse(pipe.run(), pipe)
 
 
 @router.post("/search")
@@ -379,12 +435,35 @@ async def search(text: str | None = Form(None), audio: UploadFile | None = File(
                  options: str | None = Form(None)):
     t, data, kind = await _read_inputs(text, audio, video)
     result = None
-    for d in Pipeline(toolbox(), t, data, kind, note=t if data is not None else None).run():
+    pipe = Pipeline(toolbox(), t, data, kind, note=t if data is not None else None)
+    for d in pipe.run():
         if d["event"] == "result":
             result = d["data"]
         elif d["event"] == "error":
             raise HTTPException(500, d["data"]["message"])
+    persist_query(pipe)
     return result
+
+
+@router.get("/queries")
+def list_queries(limit: int = 20):
+    """Dernières requêtes persistées (diagnostic) : id, heure, type, meilleur candidat, confiance."""
+    out = []
+    for d in sorted(queries_dir().iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]:
+        f = d / "events.json"
+        if not f.exists():
+            continue
+        try:
+            ev = json.loads(f.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        res = next((e["data"] for e in ev.get("events", []) if e.get("event") == "result"), {})
+        inp = next((e["data"] for e in ev.get("events", []) if e.get("event") == "input"), {})
+        best = res.get("best") or {}
+        out.append({"query_id": d.name, "t": ev.get("t"), "kind": inp.get("kind"), "text": ev.get("text"), "confidence": res.get("confidence"),
+                    "best": (best.get("title"), best.get("artist")) if best else None, "humming_mode": (res.get("analysis") or {}).get("humming_mode"),
+                    "has_audio": (d / "input.wav").exists()})
+    return out
 
 
 @router.get("/preview/{track_id}")

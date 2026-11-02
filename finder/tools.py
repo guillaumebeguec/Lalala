@@ -220,7 +220,8 @@ class Toolbox:
         from core.asr import transcribe
         t = transcribe(audio)
         out: dict[str, Any] = {"transcript": t, "fused": [], "lists": {}, "candidates": []}
-        if t.n_words < 3:
+        if not t.has_words:
+            logger.info("paroles chantées : rien d'exploitable (%r, langue %.2f, logprob %.2f)", t.text[:60], t.language_probability, t.avg_logprob)
             return out
         lists, names, weights = [], [], []
         idx = self.lyrics_index()
@@ -477,6 +478,7 @@ class Toolbox:
         fusion RRF pondérée (CoverHunter ×2 sans empreinte exacte ; hum2song ×3 si fredonnement,
         généralistes ×0,5 dans ce cas). Renvoie {candidates, lists}."""
         lists, weights, names = [], [], []
+        melody_raw: list[tuple[str, float, float]] = []
         wanted = list(embedders or self.active_embedders())
         for name in wanted:
             va = self.vec(name, "audio")
@@ -495,6 +497,7 @@ class Toolbox:
         if "hum2song" in wanted and self.contours() is not None:
             try:
                 mel = self.melody_match(audio, top=50)
+                melody_raw = mel
                 lists.append([(t, sc) for t, sc, _ in mel])
                 weights.append(3.0 if humming else 0.5)
                 names.append("melody")
@@ -515,7 +518,7 @@ class Toolbox:
                     c.reason = "Same song, different version (cover or live)."
                     c.source = "version"
                 cands.append(c)
-        return {"candidates": cands, "lists": dict(zip(names, [len(l) for l in lists]))}
+        return {"candidates": cands, "lists": dict(zip(names, [len(l) for l in lists])), "melody": melody_raw}
 
     def audio_match(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
         """Empreinte puis similarité (agent conversationnel et évaluation)."""
