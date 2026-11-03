@@ -1,6 +1,6 @@
 # Recherche sans agent — sous-ensemble dev
 
-Catalogue : 2000 morceaux ; embedders (dernier run) : gemma, peav, coverhunter, hum2song ; BM25 : oui ; Chromaprint : oui ; audfprint : oui.
+Catalogue : 2000 morceaux ; embedders (dernier run) : gemma, peav, coverhunter ; BM25 : oui ; Chromaprint : oui ; audfprint : oui.
 
 ## T1 ToT_Music
 
@@ -28,54 +28,52 @@ Comparabilité (C6) : la ligne `bm25` reproduit la baseline de l'article (requê
 
 ## T3 Bruit
 
-30 cas ; 226 s ; systèmes : chromaprint, audfprint, melody, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).
+30 cas ; 111 s ; systèmes : chromaprint, audfprint, gemma:audio→audio, peav:audio→audio, coverhunter:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).
 
 | Système | top-1 | top-5 | top-10 | MRR |
 |---|---|---|---|---|
 | chromaprint | 0.867 | 0.900 | 0.900 | 0.875 |
 | audfprint | 0.867 | 0.867 | 0.867 | 0.867 |
-| melody | 0.333 | 0.500 | 0.533 | 0.400 |
 | gemma:audio→audio | 0.333 | 0.433 | 0.467 | 0.366 |
+| peav:audio→audio | 0.300 | 0.467 | 0.500 | 0.371 |
 | coverhunter:audio→audio | 0.233 | 0.300 | 0.367 | 0.274 |
-| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.002 |
-| rrf(k=10) | 0.867 | 0.967 | 0.967 | 0.888 |
-| rrf(k=30) | 0.833 | 0.867 | 0.933 | 0.862 |
-| rrf(k=60) | 0.800 | 0.867 | 0.933 | 0.843 |
-| rrf-embeddings(k=60) | 0.200 | 0.333 | 0.500 | 0.286 |
+| rrf(k=10) | 0.933 | 1.000 | 1.000 | 0.958 |
+| rrf(k=30) | 0.933 | 0.967 | 0.967 | 0.947 |
+| rrf(k=60) | 0.867 | 0.967 | 0.967 | 0.911 |
+| rrf-embeddings(k=60) | 0.333 | 0.633 | 0.667 | 0.477 |
 
 Détail de `rrf(k=10)` par sous-groupe (SNR dB ou type) :
 
 | Groupe | n | top-1 | top-5 |
 |---|---|---|---|
-| 0 | 10 | 0.800 | 0.900 |
-| 10 | 10 | 0.900 | 1.000 |
-| 5 | 10 | 0.900 | 1.000 |
+| 0 | 10 | 0.800 | 1.000 |
+| 10 | 10 | 1.000 | 1.000 |
+| 5 | 10 | 1.000 | 1.000 |
 
 ## T4 Reprises
 
-44 cas ; 370 s ; systèmes : chromaprint, audfprint, melody, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).
+44 cas ; 462 s ; systèmes : chromaprint, audfprint, gemma:audio→audio, peav:audio→audio, coverhunter:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).
 
 | Système | top-1 | top-5 | top-10 | MRR |
 |---|---|---|---|---|
 | chromaprint | 0.068 | 0.091 | 0.091 | 0.077 |
 | audfprint | 0.000 | 0.023 | 0.023 | 0.011 |
-| melody | 0.068 | 0.091 | 0.091 | 0.076 |
 | gemma:audio→audio | 0.182 | 0.250 | 0.250 | 0.206 |
+| peav:audio→audio | 0.136 | 0.205 | 0.227 | 0.165 |
 | coverhunter:audio→audio | 0.114 | 0.182 | 0.205 | 0.143 |
-| hum2song:audio→audio | 0.023 | 0.068 | 0.068 | 0.038 |
-| rrf(k=10) | 0.182 | 0.250 | 0.341 | 0.224 |
-| rrf(k=30) | 0.159 | 0.227 | 0.250 | 0.197 |
-| rrf(k=60) | 0.136 | 0.227 | 0.227 | 0.181 |
-| rrf-embeddings(k=60) | 0.091 | 0.136 | 0.273 | 0.134 |
+| rrf(k=10) | 0.182 | 0.295 | 0.318 | 0.221 |
+| rrf(k=30) | 0.159 | 0.227 | 0.273 | 0.196 |
+| rrf(k=60) | 0.159 | 0.205 | 0.250 | 0.189 |
+| rrf-embeddings(k=60) | 0.114 | 0.205 | 0.250 | 0.164 |
 
-Détail de `gemma:audio→audio` par sous-groupe (SNR dB ou type) :
+Détail de `rrf(k=10)` par sous-groupe (SNR dB ou type) :
 
 | Groupe | n | top-1 | top-5 |
 |---|---|---|---|
-| acoustic | 6 | 0.333 | 0.333 |
-| karaoke | 13 | 0.077 | 0.077 |
-| live | 15 | 0.200 | 0.400 |
-| piano | 10 | 0.200 | 0.200 |
+| acoustic | 6 | 0.000 | 0.167 |
+| karaoke | 13 | 0.385 | 0.385 |
+| live | 15 | 0.133 | 0.333 |
+| piano | 10 | 0.100 | 0.200 |
 
 ## T6a Fredonnements CHAD
 
@@ -127,13 +125,13 @@ Détail de `melody` par sous-groupe (SNR dB ou type) :
 
 ## Exemples qualitatifs (fusion RRF k=60)
 
-- **T1 ToT_Music** « Alt/Electro song with few vocals – starts with a deep male voice singing "Go!"  After the "Go!" there's an instrumental part, after which the male voice joins a » → attendu *'64 Aka Go — Lemon Jelly* (rang 7) ; top-3 : From East To West — Enigma; The Voice Of Enigma — Enigma; I Shot The Sheriff — Warren G
-- **T1 ToT_Music** « Sad country song  Sad country song about a 2 kids in school where one of them is being abused. I think story had to do with one of the kids giving away his lunc » → attendu *Alyssa Lies — Jason Michael Carroll* (rang 1) ; top-3 : Alyssa Lies — Jason Michael Carroll; Why Me — Kris Kristofferson; Tears Don't Care Who Cries Them — K.d. Lang
-- **T1 ToT_Music** « 00s(?) Turkish Rock Song  I remember hearing this song in a Turkish music channel while vacationing in Istanbul back in 2006. The channel played Turkish and int » → attendu *Seninle Bir Dakika — Gece Yolcuları* (rang 7) ; top-3 : Something Good Can Work — Two Door Cinema Club; Beni Al — Pinhani; Do You Remember The First Time? — Pulp
-- **T1 ToT_Music** « looking for a song I’ve been hearing on this 2000s tv show  it goes something like:. I know it wasn’t you, yeah, yeah , yeah . And it probably something somethi » → attendu *Mercy — Duffy* (rang None) ; top-3 : What I Am — Emma Bunton; Pull Up The Cork — Ini Kamoze; Think Of Me — Lloyd
-- **T1 ToT_Music** « Sounds like Me & Mr. Jones by Amy Winehouse  Particularly when she says “you made me miss the slick rick gig”. This is bothering me and I don’t even wanna sleep » → attendu *Chasing Pavements — Adele* (rang None) ; top-3 : She Wants To Dance With Me — Rick Astley; Monkey Man — Amy Winehouse; Miss Independent — Ne-Yo
-- **T3 Bruit** « t3_dz818256_0 » → attendu *Lucky — Jason Mraz* (rang 1) ; top-3 : Lucky — Jason Mraz; Aucune Fille Au Monde — G-Squad; Rock That Body — Black Eyed Peas
-- **T3 Bruit** « t3_dz818256_5 » → attendu *Lucky — Jason Mraz* (rang 1) ; top-3 : Lucky — Jason Mraz; We Can Work It Out — The Beatles; Cola Song — Inna
-- **T3 Bruit** « t3_dz818256_10 » → attendu *Lucky — Jason Mraz* (rang 1) ; top-3 : Lucky — Jason Mraz; We Can Work It Out — The Beatles; Cola Song — Inna
-- **T3 Bruit** « t3_dz1015065_0 » → attendu *7 Seconds (feat. Neneh Cherry) — Youssou N'Dour* (rang 16) ; top-3 : Collapse — Eminem; While My Guitar Gently Weeps — Peter Frampton; DVNO — Justice
-- **T3 Bruit** « t3_dz1015065_5 » → attendu *7 Seconds (feat. Neneh Cherry) — Youssou N'Dour* (rang 1) ; top-3 : 7 Seconds (feat. Neneh Cherry) — Youssou N'Dour; Rule The World — Walk Off The Earth; Say My Name — Odesza
+- **T3 Bruit** « t3_dz818256_0 » → attendu *Lucky — Jason Mraz* (rang 1) ; top-3 : Lucky — Jason Mraz; Tom's Diner — Suzanne Vega; Let You Love Me — Rita Ora
+- **T3 Bruit** « t3_dz818256_5 » → attendu *Lucky — Jason Mraz* (rang 1) ; top-3 : Lucky — Jason Mraz; Tom's Diner — Suzanne Vega; Whenever — Cherish
+- **T3 Bruit** « t3_dz818256_10 » → attendu *Lucky — Jason Mraz* (rang 1) ; top-3 : Lucky — Jason Mraz; We Can Work It Out — The Beatles; Delta — C2C
+- **T3 Bruit** « t3_dz1015065_0 » → attendu *7 Seconds (feat. Neneh Cherry) — Youssou N'Dour* (rang 12) ; top-3 : While My Guitar Gently Weeps — Peter Frampton; DVNO — Justice; Kid OK — The Go Find
+- **T3 Bruit** « t3_dz1015065_5 » → attendu *7 Seconds (feat. Neneh Cherry) — Youssou N'Dour* (rang 1) ; top-3 : 7 Seconds (feat. Neneh Cherry) — Youssou N'Dour; Rule The World — Walk Off The Earth; Looking For Something — Era
+- **T4 Reprises** « Me Gustas Tu » → attendu *Me Gustas Tu — Manu Chao* (rang 21) ; top-3 : Eyesdown — Bonobo; Pray — Lasgo; How R U Doin? — Aqua
+- **T4 Reprises** « Blinding Lights (Live) » → attendu *Blinding Lights — The Weeknd* (rang 15) ; top-3 : Coming To Terms — Carolina Liar; Mr Writer — Stereophonics; Thinkin Bout You — Frank Ocean
+- **T4 Reprises** « Sail (Originally Performed By Awol Nation) (Karaoke Version) » → attendu *Sail — Awolnation* (rang 1) ; top-3 : Sail — Awolnation; Pursuit — Gesaffelstein; Psycho — Post Malone
+- **T4 Reprises** « Stitches (Instrumental Version) » → attendu *Stitches — Shawn Mendes* (rang None) ; top-3 : Feels So Good — Chuck Mangione; Burial On The Presidio Banks — This Will Destroy You; One — Apocalyptica
+- **T4 Reprises** « when the party's over (Recorded at Spotify Studios NYC) » → attendu *when the party's over — Billie Eilish* (rang 21) ; top-3 : Latch — Disclosure; You & I — One Direction; Sheets — Damien Jurado
