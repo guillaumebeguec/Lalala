@@ -88,13 +88,31 @@ class PEAVEmbedder(Embedder):
         import contextlib
         return contextlib.nullcontext()
 
+    def _release(self) -> None:
+        """Rend la mémoire MPS entre deux lots : sans cela, l'allocation grossit jusqu'à l'OOM (26 Go après ~900 extraits)."""
+        if self.device.type == "mps" and hasattr(torch, "mps"):
+            torch.mps.empty_cache()
+
     def _embed_audio(self, items: Sequence[AudioItem]) -> np.ndarray:
         self._load()
-        inp = self._inputs(audio=[self._to_wave(it) for it in items], sampling_rate=self.sr)
-        with torch.inference_mode(), self._ctx():
-            emb = self._model.get_audio_embeds(inp["input_values"], padding_mask=inp.get("padding_mask"))
-        self.dim = emb.shape[-1]
-        return self._np(emb)
+        waves = [self._to_wave(it) for it in items]
+        try:
+            inp = self._inputs(audio=waves, sampling_rate=self.sr)
+            with torch.inference_mode(), self._ctx():
+                emb = self._model.get_audio_embeds(inp["input_values"], padding_mask=inp.get("padding_mask"))
+            out = self._np(emb)
+        except RuntimeError as e:
+            if "out of memory" not in str(e).lower() or len(items) == 1:
+                raise
+            logger.warning("PE-AV : mémoire saturée sur un lot de %d, nouvel essai en deux moitiés", len(items))
+            del waves
+            self._release()
+            h = len(items) // 2
+            out = np.concatenate([self._embed_audio(items[:h]), self._embed_audio(items[h:])])
+        finally:
+            self._release()
+        self.dim = out.shape[-1]
+        return out
 
     def _embed_text(self, texts: Sequence[str], task: str) -> np.ndarray:
         self._load()
@@ -109,7 +127,9 @@ class PEAVEmbedder(Embedder):
             out = sub.text_model(input_ids=inp["input_ids"], attention_mask=inp.get("attention_mask"), return_dict=True)
             emb = sub.text_audio_head(out.last_hidden_state[:, 0])
         self.dim = emb.shape[-1]
-        return self._np(emb)
+        res = self._np(emb)
+        self._release()
+        return res
 
     def _embed_video(self, paths: Sequence[str]) -> np.ndarray:
         self._load()
