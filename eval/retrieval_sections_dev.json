@@ -1,6 +1,6 @@
 {
  "T3 Bruit": {
-  "md": "## T3 Bruit\n\n30 cas ; 100 s ; systèmes : chromaprint, audfprint, clap:audio→audio, gemma:audio→audio, coverhunter:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.867 | 0.900 | 0.900 | 0.875 |\n| audfprint | 0.867 | 0.867 | 0.867 | 0.867 |\n| clap:audio→audio | 0.167 | 0.267 | 0.267 | 0.214 |\n| gemma:audio→audio | 0.333 | 0.433 | 0.467 | 0.366 |\n| coverhunter:audio→audio | 0.233 | 0.300 | 0.367 | 0.274 |\n| rrf(k=10) | 0.867 | 0.933 | 0.967 | 0.889 |\n| rrf(k=30) | 0.867 | 0.867 | 0.933 | 0.878 |\n| rrf(k=60) | 0.833 | 0.867 | 0.900 | 0.861 |\n| rrf-embeddings(k=60) | 0.533 | 0.633 | 0.633 | 0.574 |\n\nDétail de `rrf(k=10)` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| 0 | 10 | 0.800 | 0.900 |\n| 10 | 10 | 0.900 | 0.900 |\n| 5 | 10 | 0.900 | 1.000 |\n",
+  "md": "## T3 Bruit\n\n30 cas ; 226 s ; systèmes : chromaprint, audfprint, melody, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.867 | 0.900 | 0.900 | 0.875 |\n| audfprint | 0.867 | 0.867 | 0.867 | 0.867 |\n| melody | 0.333 | 0.500 | 0.533 | 0.400 |\n| gemma:audio→audio | 0.333 | 0.433 | 0.467 | 0.366 |\n| coverhunter:audio→audio | 0.233 | 0.300 | 0.367 | 0.274 |\n| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.002 |\n| rrf(k=10) | 0.867 | 0.967 | 0.967 | 0.888 |\n| rrf(k=30) | 0.833 | 0.867 | 0.933 | 0.862 |\n| rrf(k=60) | 0.800 | 0.867 | 0.933 | 0.843 |\n| rrf-embeddings(k=60) | 0.200 | 0.333 | 0.500 | 0.286 |\n\nDétail de `rrf(k=10)` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| 0 | 10 | 0.800 | 0.900 |\n| 10 | 10 | 0.900 | 1.000 |\n| 5 | 10 | 0.900 | 1.000 |\n",
   "csv": [
    {
     "set": "T3 Bruit",
@@ -22,11 +22,11 @@
    },
    {
     "set": "T3 Bruit",
-    "system": "clap:audio→audio",
-    "top1": 0.1667,
-    "top5": 0.2667,
-    "top10": 0.2667,
-    "mrr": 0.2135,
+    "system": "melody",
+    "top1": 0.3333,
+    "top5": 0.5,
+    "top10": 0.5333,
+    "mrr": 0.3999,
     "n": 30
    },
    {
@@ -49,44 +49,53 @@
    },
    {
     "set": "T3 Bruit",
+    "system": "hum2song:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0024,
+    "n": 30
+   },
+   {
+    "set": "T3 Bruit",
     "system": "rrf(k=10)",
     "top1": 0.8667,
-    "top5": 0.9333,
+    "top5": 0.9667,
     "top10": 0.9667,
-    "mrr": 0.8887,
+    "mrr": 0.8879,
     "n": 30
    },
    {
     "set": "T3 Bruit",
     "system": "rrf(k=30)",
-    "top1": 0.8667,
+    "top1": 0.8333,
     "top5": 0.8667,
     "top10": 0.9333,
-    "mrr": 0.8782,
+    "mrr": 0.8619,
     "n": 30
    },
    {
     "set": "T3 Bruit",
     "system": "rrf(k=60)",
-    "top1": 0.8333,
+    "top1": 0.8,
     "top5": 0.8667,
-    "top10": 0.9,
-    "mrr": 0.8605,
+    "top10": 0.9333,
+    "mrr": 0.8435,
     "n": 30
    },
    {
     "set": "T3 Bruit",
     "system": "rrf-embeddings(k=60)",
-    "top1": 0.5333,
-    "top5": 0.6333,
-    "top10": 0.6333,
-    "mrr": 0.5741,
+    "top1": 0.2,
+    "top5": 0.3333,
+    "top10": 0.5,
+    "mrr": 0.2865,
     "n": 30
    }
   ]
  },
  "T4 Reprises": {
-  "md": "## T4 Reprises\n\n44 cas ; 130 s ; systèmes : chromaprint, audfprint, clap:audio→audio, gemma:audio→audio, coverhunter:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.068 | 0.091 | 0.091 | 0.077 |\n| audfprint | 0.000 | 0.023 | 0.023 | 0.011 |\n| clap:audio→audio | 0.000 | 0.023 | 0.023 | 0.008 |\n| gemma:audio→audio | 0.182 | 0.250 | 0.250 | 0.206 |\n| coverhunter:audio→audio | 0.114 | 0.182 | 0.205 | 0.143 |\n| rrf(k=10) | 0.182 | 0.227 | 0.318 | 0.220 |\n| rrf(k=30) | 0.136 | 0.205 | 0.273 | 0.186 |\n| rrf(k=60) | 0.136 | 0.205 | 0.250 | 0.180 |\n| rrf-embeddings(k=60) | 0.091 | 0.159 | 0.341 | 0.141 |\n\nDétail de `gemma:audio→audio` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| acoustic | 6 | 0.333 | 0.333 |\n| karaoke | 13 | 0.077 | 0.077 |\n| live | 15 | 0.200 | 0.400 |\n| piano | 10 | 0.200 | 0.200 |\n",
+  "md": "## T4 Reprises\n\n44 cas ; 370 s ; systèmes : chromaprint, audfprint, melody, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.068 | 0.091 | 0.091 | 0.077 |\n| audfprint | 0.000 | 0.023 | 0.023 | 0.011 |\n| melody | 0.068 | 0.091 | 0.091 | 0.076 |\n| gemma:audio→audio | 0.182 | 0.250 | 0.250 | 0.206 |\n| coverhunter:audio→audio | 0.114 | 0.182 | 0.205 | 0.143 |\n| hum2song:audio→audio | 0.023 | 0.068 | 0.068 | 0.038 |\n| rrf(k=10) | 0.182 | 0.250 | 0.341 | 0.224 |\n| rrf(k=30) | 0.159 | 0.227 | 0.250 | 0.197 |\n| rrf(k=60) | 0.136 | 0.227 | 0.227 | 0.181 |\n| rrf-embeddings(k=60) | 0.091 | 0.136 | 0.273 | 0.134 |\n\nDétail de `gemma:audio→audio` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| acoustic | 6 | 0.333 | 0.333 |\n| karaoke | 13 | 0.077 | 0.077 |\n| live | 15 | 0.200 | 0.400 |\n| piano | 10 | 0.200 | 0.200 |\n",
   "csv": [
    {
     "set": "T4 Reprises",
@@ -108,11 +117,11 @@
    },
    {
     "set": "T4 Reprises",
-    "system": "clap:audio→audio",
-    "top1": 0.0,
-    "top5": 0.0227,
-    "top10": 0.0227,
-    "mrr": 0.0081,
+    "system": "melody",
+    "top1": 0.0682,
+    "top5": 0.0909,
+    "top10": 0.0909,
+    "mrr": 0.0759,
     "n": 44
    },
    {
@@ -135,70 +144,79 @@
    },
    {
     "set": "T4 Reprises",
+    "system": "hum2song:audio→audio",
+    "top1": 0.0227,
+    "top5": 0.0682,
+    "top10": 0.0682,
+    "mrr": 0.0383,
+    "n": 44
+   },
+   {
+    "set": "T4 Reprises",
     "system": "rrf(k=10)",
     "top1": 0.1818,
-    "top5": 0.2273,
-    "top10": 0.3182,
-    "mrr": 0.2197,
+    "top5": 0.25,
+    "top10": 0.3409,
+    "mrr": 0.2244,
     "n": 44
    },
    {
     "set": "T4 Reprises",
     "system": "rrf(k=30)",
-    "top1": 0.1364,
-    "top5": 0.2045,
-    "top10": 0.2727,
-    "mrr": 0.1855,
+    "top1": 0.1591,
+    "top5": 0.2273,
+    "top10": 0.25,
+    "mrr": 0.1975,
     "n": 44
    },
    {
     "set": "T4 Reprises",
     "system": "rrf(k=60)",
     "top1": 0.1364,
-    "top5": 0.2045,
-    "top10": 0.25,
-    "mrr": 0.1804,
+    "top5": 0.2273,
+    "top10": 0.2273,
+    "mrr": 0.1811,
     "n": 44
    },
    {
     "set": "T4 Reprises",
     "system": "rrf-embeddings(k=60)",
     "top1": 0.0909,
-    "top5": 0.1591,
-    "top10": 0.3409,
-    "mrr": 0.1413,
+    "top5": 0.1364,
+    "top10": 0.2727,
+    "mrr": 0.1343,
     "n": 44
    }
   ]
  },
  "T1 ToT_Music": {
-  "md": "## T1 ToT_Music\n\n43 cas ; 6 s ; systèmes : bm25, bm25:reformulation-article, gemma:text→text, gemma:text→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| bm25 | 0.023 | 0.047 | 0.070 | 0.043 |\n| bm25:reformulation-article | 0.000 | 0.093 | 0.093 | 0.041 |\n| gemma:text→text | 0.140 | 0.209 | 0.256 | 0.176 |\n| gemma:text→audio | 0.047 | 0.070 | 0.116 | 0.073 |\n| rrf(k=10) | 0.116 | 0.302 | 0.302 | 0.192 |\n| rrf(k=30) | 0.116 | 0.302 | 0.302 | 0.191 |\n| rrf(k=60) | 0.093 | 0.279 | 0.302 | 0.176 |\n| rrf-embeddings(k=60) | 0.163 | 0.233 | 0.302 | 0.213 |\n\nDétail de `rrf(k=10)` par type de demande (`query_types`) :\n\n| Type | n | top-1 | top-5 | top-10 |\n|---|---|---|---|---|\n| descriptive | 43 | 0.116 | 0.302 | 0.302 |\n\nComparabilité (C6) : la ligne `bm25` reproduit la baseline de l'article (requête complète) sur le split test de ToT_Music, mais sur notre catalogue de 2124 morceaux au lieu du corpus WASABI complet : la tâche y est plus facile, les chiffres ne sont pas directement comparables.\n",
+  "md": "## T1 ToT_Music\n\n43 cas ; 23 s ; systèmes : bm25, bm25:reformulation-article, gemma:text→text, gemma:text→audio, peav:text→text, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| bm25 | 0.070 | 0.093 | 0.093 | 0.080 |\n| bm25:reformulation-article | 0.047 | 0.093 | 0.116 | 0.077 |\n| gemma:text→text | 0.116 | 0.186 | 0.256 | 0.159 |\n| gemma:text→audio | 0.047 | 0.070 | 0.116 | 0.073 |\n| peav:text→text | 0.023 | 0.047 | 0.140 | 0.054 |\n| rrf(k=10) | 0.116 | 0.302 | 0.349 | 0.191 |\n| rrf(k=30) | 0.140 | 0.302 | 0.349 | 0.196 |\n| rrf(k=60) | 0.140 | 0.256 | 0.326 | 0.192 |\n| rrf-embeddings(k=60) | 0.140 | 0.256 | 0.326 | 0.193 |\n\nDétail de `rrf(k=10)` par type de demande (`query_types`) :\n\n| Type | n | top-1 | top-5 | top-10 |\n|---|---|---|---|---|\n| descriptive | 43 | 0.116 | 0.302 | 0.349 |\n\nComparabilité (C6) : la ligne `bm25` reproduit la baseline de l'article (requête complète) sur le split test de ToT_Music, mais sur notre catalogue de 2124 morceaux au lieu du corpus WASABI complet : la tâche y est plus facile, les chiffres ne sont pas directement comparables.\n",
   "csv": [
    {
     "set": "T1 ToT_Music",
     "system": "bm25",
-    "top1": 0.0233,
-    "top5": 0.0465,
-    "top10": 0.0698,
-    "mrr": 0.0435,
+    "top1": 0.0698,
+    "top5": 0.093,
+    "top10": 0.093,
+    "mrr": 0.0795,
     "n": 43
    },
    {
     "set": "T1 ToT_Music",
     "system": "bm25:reformulation-article",
-    "top1": 0.0,
+    "top1": 0.0465,
     "top5": 0.093,
-    "top10": 0.093,
-    "mrr": 0.0407,
+    "top10": 0.1163,
+    "mrr": 0.0769,
     "n": 43
    },
    {
     "set": "T1 ToT_Music",
     "system": "gemma:text→text",
-    "top1": 0.1395,
-    "top5": 0.2093,
+    "top1": 0.1163,
+    "top5": 0.186,
     "top10": 0.2558,
-    "mrr": 0.1759,
+    "mrr": 0.1593,
     "n": 43
    },
    {
@@ -212,44 +230,53 @@
    },
    {
     "set": "T1 ToT_Music",
-    "system": "rrf(k=10)",
-    "top1": 0.1163,
-    "top5": 0.3023,
-    "top10": 0.3023,
-    "mrr": 0.1917,
+    "system": "peav:text→text",
+    "top1": 0.0233,
+    "top5": 0.0465,
+    "top10": 0.1395,
+    "mrr": 0.0537,
     "n": 43
    },
    {
     "set": "T1 ToT_Music",
-    "system": "rrf(k=30)",
+    "system": "rrf(k=10)",
     "top1": 0.1163,
     "top5": 0.3023,
-    "top10": 0.3023,
+    "top10": 0.3488,
     "mrr": 0.1909,
     "n": 43
    },
    {
     "set": "T1 ToT_Music",
+    "system": "rrf(k=30)",
+    "top1": 0.1395,
+    "top5": 0.3023,
+    "top10": 0.3488,
+    "mrr": 0.1959,
+    "n": 43
+   },
+   {
+    "set": "T1 ToT_Music",
     "system": "rrf(k=60)",
-    "top1": 0.093,
-    "top5": 0.2791,
-    "top10": 0.3023,
-    "mrr": 0.1764,
+    "top1": 0.1395,
+    "top5": 0.2558,
+    "top10": 0.3256,
+    "mrr": 0.1923,
     "n": 43
    },
    {
     "set": "T1 ToT_Music",
     "system": "rrf-embeddings(k=60)",
-    "top1": 0.1628,
-    "top5": 0.2326,
-    "top10": 0.3023,
-    "mrr": 0.2128,
+    "top1": 0.1395,
+    "top5": 0.2558,
+    "top10": 0.3256,
+    "mrr": 0.1932,
     "n": 43
    }
   ]
  },
  "T6a Fredonnements CHAD": {
-  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 4081 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 0.196 | 0.265 | 0.298 | 0.229 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.003 | 0.018 | 0.025 | 0.009 |\n| rrf(k=30) | 0.003 | 0.013 | 0.025 | 0.008 |\n| rrf(k=60) | 0.003 | 0.013 | 0.025 | 0.008 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.169 | 0.214 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.235 | 0.373 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.220 | 0.298 |\n",
+  "md": "## T6a Fredonnements CHAD\n\n393 cas ; 2592 s ; systèmes : chromaprint, audfprint, melody, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.000 | 0.003 | 0.003 | 0.001 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 0.196 | 0.265 | 0.298 | 0.229 |\n| gemma:audio→audio | 0.003 | 0.010 | 0.018 | 0.008 |\n| coverhunter:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| hum2song:audio→audio | 0.005 | 0.023 | 0.036 | 0.014 |\n| rrf(k=10) | 0.000 | 0.010 | 0.018 | 0.006 |\n| rrf(k=30) | 0.000 | 0.005 | 0.010 | 0.004 |\n| rrf(k=60) | 0.000 | 0.003 | 0.010 | 0.003 |\n| rrf-embeddings(k=60) | 0.003 | 0.005 | 0.013 | 0.007 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| fragment en début (< 60 s) du morceau | 201 | 0.169 | 0.214 |\n| fragment en fin (> 150 s) du morceau | 51 | 0.235 | 0.373 |\n| fragment en milieu (60–150 s) du morceau | 141 | 0.220 | 0.298 |\n",
   "csv": [
    {
     "set": "T6a Fredonnements CHAD",
@@ -280,6 +307,24 @@
    },
    {
     "set": "T6a Fredonnements CHAD",
+    "system": "gemma:audio→audio",
+    "top1": 0.0025,
+    "top5": 0.0102,
+    "top10": 0.0178,
+    "mrr": 0.0076,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "coverhunter:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
     "system": "hum2song:audio→audio",
     "top1": 0.0051,
     "top5": 0.0229,
@@ -290,34 +335,43 @@
    {
     "set": "T6a Fredonnements CHAD",
     "system": "rrf(k=10)",
-    "top1": 0.0025,
-    "top5": 0.0178,
-    "top10": 0.0254,
-    "mrr": 0.0091,
+    "top1": 0.0,
+    "top5": 0.0102,
+    "top10": 0.0178,
+    "mrr": 0.0056,
     "n": 393
    },
    {
     "set": "T6a Fredonnements CHAD",
     "system": "rrf(k=30)",
-    "top1": 0.0025,
-    "top5": 0.0127,
-    "top10": 0.0254,
-    "mrr": 0.008,
+    "top1": 0.0,
+    "top5": 0.0051,
+    "top10": 0.0102,
+    "mrr": 0.004,
     "n": 393
    },
    {
     "set": "T6a Fredonnements CHAD",
     "system": "rrf(k=60)",
+    "top1": 0.0,
+    "top5": 0.0025,
+    "top10": 0.0102,
+    "mrr": 0.0034,
+    "n": 393
+   },
+   {
+    "set": "T6a Fredonnements CHAD",
+    "system": "rrf-embeddings(k=60)",
     "top1": 0.0025,
-    "top5": 0.0127,
-    "top10": 0.0254,
-    "mrr": 0.0078,
+    "top5": 0.0051,
+    "top10": 0.0127,
+    "mrr": 0.0068,
     "n": 393
    }
   ]
  },
  "T6b Fredonnements maison": {
-  "md": "## T6b Fredonnements maison\n\n6 cas ; 56 s ; systèmes : chromaprint, audfprint, melody, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.167 | 0.333 | 0.333 | 0.222 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 1.000 | 1.000 | 1.000 | 1.000 |\n| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| rrf(k=10) | 0.000 | 0.167 | 0.333 | 0.111 |\n| rrf(k=30) | 0.000 | 0.167 | 0.333 | 0.083 |\n| rrf(k=60) | 0.000 | 0.167 | 0.333 | 0.083 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| synth | 6 | 1.000 | 1.000 |\n",
+  "md": "## T6b Fredonnements maison\n\n6 cas ; 48 s ; systèmes : chromaprint, audfprint, melody, gemma:audio→audio, coverhunter:audio→audio, hum2song:audio→audio, rrf(k=10), rrf(k=30), rrf(k=60), rrf-embeddings(k=60).\n\n| Système | top-1 | top-5 | top-10 | MRR |\n|---|---|---|---|---|\n| chromaprint | 0.167 | 0.333 | 0.333 | 0.222 |\n| audfprint | 0.000 | 0.000 | 0.000 | 0.000 |\n| melody | 1.000 | 1.000 | 1.000 | 1.000 |\n| gemma:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| coverhunter:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| hum2song:audio→audio | 0.000 | 0.000 | 0.000 | 0.000 |\n| rrf(k=10) | 0.000 | 0.000 | 0.167 | 0.027 |\n| rrf(k=30) | 0.000 | 0.000 | 0.000 | 0.015 |\n| rrf(k=60) | 0.000 | 0.000 | 0.000 | 0.014 |\n| rrf-embeddings(k=60) | 0.000 | 0.000 | 0.000 | 0.000 |\n\nDétail de `melody` par sous-groupe (SNR dB ou type) :\n\n| Groupe | n | top-1 | top-5 |\n|---|---|---|---|\n| synth | 6 | 1.000 | 1.000 |\n",
   "csv": [
    {
     "set": "T6b Fredonnements maison",
@@ -348,6 +402,24 @@
    },
    {
     "set": "T6b Fredonnements maison",
+    "system": "gemma:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "coverhunter:audio→audio",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
     "system": "hum2song:audio→audio",
     "top1": 0.0,
     "top5": 0.0,
@@ -359,27 +431,36 @@
     "set": "T6b Fredonnements maison",
     "system": "rrf(k=10)",
     "top1": 0.0,
-    "top5": 0.1667,
-    "top10": 0.3333,
-    "mrr": 0.1111,
+    "top5": 0.0,
+    "top10": 0.1667,
+    "mrr": 0.0271,
     "n": 6
    },
    {
     "set": "T6b Fredonnements maison",
     "system": "rrf(k=30)",
     "top1": 0.0,
-    "top5": 0.1667,
-    "top10": 0.3333,
-    "mrr": 0.0833,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0153,
     "n": 6
    },
    {
     "set": "T6b Fredonnements maison",
     "system": "rrf(k=60)",
     "top1": 0.0,
-    "top5": 0.1667,
-    "top10": 0.3333,
-    "mrr": 0.0833,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0136,
+    "n": 6
+   },
+   {
+    "set": "T6b Fredonnements maison",
+    "system": "rrf-embeddings(k=60)",
+    "top1": 0.0,
+    "top5": 0.0,
+    "top10": 0.0,
+    "mrr": 0.0,
     "n": 6
    }
   ]

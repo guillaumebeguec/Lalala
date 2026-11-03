@@ -1,41 +1,50 @@
 set,system,top1,top5,top10,mrr,n
-T1 ToT_Music,bm25,0.0233,0.0465,0.0698,0.0435,43
-T1 ToT_Music,bm25:reformulation-article,0.0,0.093,0.093,0.0407,43
-T1 ToT_Music,gemma:text→text,0.1395,0.2093,0.2558,0.1759,43
+T1 ToT_Music,bm25,0.0698,0.093,0.093,0.0795,43
+T1 ToT_Music,bm25:reformulation-article,0.0465,0.093,0.1163,0.0769,43
+T1 ToT_Music,gemma:text→text,0.1163,0.186,0.2558,0.1593,43
 T1 ToT_Music,gemma:text→audio,0.0465,0.0698,0.1163,0.0729,43
-T1 ToT_Music,rrf(k=10),0.1163,0.3023,0.3023,0.1917,43
-T1 ToT_Music,rrf(k=30),0.1163,0.3023,0.3023,0.1909,43
-T1 ToT_Music,rrf(k=60),0.093,0.2791,0.3023,0.1764,43
-T1 ToT_Music,rrf-embeddings(k=60),0.1628,0.2326,0.3023,0.2128,43
+T1 ToT_Music,peav:text→text,0.0233,0.0465,0.1395,0.0537,43
+T1 ToT_Music,rrf(k=10),0.1163,0.3023,0.3488,0.1909,43
+T1 ToT_Music,rrf(k=30),0.1395,0.3023,0.3488,0.1959,43
+T1 ToT_Music,rrf(k=60),0.1395,0.2558,0.3256,0.1923,43
+T1 ToT_Music,rrf-embeddings(k=60),0.1395,0.2558,0.3256,0.1932,43
 T3 Bruit,chromaprint,0.8667,0.9,0.9,0.875,30
 T3 Bruit,audfprint,0.8667,0.8667,0.8667,0.8667,30
-T3 Bruit,clap:audio→audio,0.1667,0.2667,0.2667,0.2135,30
+T3 Bruit,melody,0.3333,0.5,0.5333,0.3999,30
 T3 Bruit,gemma:audio→audio,0.3333,0.4333,0.4667,0.3662,30
 T3 Bruit,coverhunter:audio→audio,0.2333,0.3,0.3667,0.274,30
-T3 Bruit,rrf(k=10),0.8667,0.9333,0.9667,0.8887,30
-T3 Bruit,rrf(k=30),0.8667,0.8667,0.9333,0.8782,30
-T3 Bruit,rrf(k=60),0.8333,0.8667,0.9,0.8605,30
-T3 Bruit,rrf-embeddings(k=60),0.5333,0.6333,0.6333,0.5741,30
+T3 Bruit,hum2song:audio→audio,0.0,0.0,0.0,0.0024,30
+T3 Bruit,rrf(k=10),0.8667,0.9667,0.9667,0.8879,30
+T3 Bruit,rrf(k=30),0.8333,0.8667,0.9333,0.8619,30
+T3 Bruit,rrf(k=60),0.8,0.8667,0.9333,0.8435,30
+T3 Bruit,rrf-embeddings(k=60),0.2,0.3333,0.5,0.2865,30
 T4 Reprises,chromaprint,0.0682,0.0909,0.0909,0.077,44
 T4 Reprises,audfprint,0.0,0.0227,0.0227,0.0114,44
-T4 Reprises,clap:audio→audio,0.0,0.0227,0.0227,0.0081,44
+T4 Reprises,melody,0.0682,0.0909,0.0909,0.0759,44
 T4 Reprises,gemma:audio→audio,0.1818,0.25,0.25,0.2064,44
 T4 Reprises,coverhunter:audio→audio,0.1136,0.1818,0.2045,0.1434,44
-T4 Reprises,rrf(k=10),0.1818,0.2273,0.3182,0.2197,44
-T4 Reprises,rrf(k=30),0.1364,0.2045,0.2727,0.1855,44
-T4 Reprises,rrf(k=60),0.1364,0.2045,0.25,0.1804,44
-T4 Reprises,rrf-embeddings(k=60),0.0909,0.1591,0.3409,0.1413,44
+T4 Reprises,hum2song:audio→audio,0.0227,0.0682,0.0682,0.0383,44
+T4 Reprises,rrf(k=10),0.1818,0.25,0.3409,0.2244,44
+T4 Reprises,rrf(k=30),0.1591,0.2273,0.25,0.1975,44
+T4 Reprises,rrf(k=60),0.1364,0.2273,0.2273,0.1811,44
+T4 Reprises,rrf-embeddings(k=60),0.0909,0.1364,0.2727,0.1343,44
 T6a Fredonnements CHAD,chromaprint,0.0,0.0025,0.0025,0.001,393
 T6a Fredonnements CHAD,audfprint,0.0,0.0,0.0,0.0,393
 T6a Fredonnements CHAD,melody,0.1959,0.2646,0.2977,0.2292,393
+T6a Fredonnements CHAD,gemma:audio→audio,0.0025,0.0102,0.0178,0.0076,393
+T6a Fredonnements CHAD,coverhunter:audio→audio,0.0,0.0,0.0,0.0,393
 T6a Fredonnements CHAD,hum2song:audio→audio,0.0051,0.0229,0.0356,0.0144,393
-T6a Fredonnements CHAD,rrf(k=10),0.0025,0.0178,0.0254,0.0091,393
-T6a Fredonnements CHAD,rrf(k=30),0.0025,0.0127,0.0254,0.008,393
-T6a Fredonnements CHAD,rrf(k=60),0.0025,0.0127,0.0254,0.0078,393
+T6a Fredonnements CHAD,rrf(k=10),0.0,0.0102,0.0178,0.0056,393
+T6a Fredonnements CHAD,rrf(k=30),0.0,0.0051,0.0102,0.004,393
+T6a Fredonnements CHAD,rrf(k=60),0.0,0.0025,0.0102,0.0034,393
+T6a Fredonnements CHAD,rrf-embeddings(k=60),0.0025,0.0051,0.0127,0.0068,393
 T6b Fredonnements maison,chromaprint,0.1667,0.3333,0.3333,0.2222,6
 T6b Fredonnements maison,audfprint,0.0,0.0,0.0,0.0,6
 T6b Fredonnements maison,melody,1.0,1.0,1.0,1.0,6
+T6b Fredonnements maison,gemma:audio→audio,0.0,0.0,0.0,0.0,6
+T6b Fredonnements maison,coverhunter:audio→audio,0.0,0.0,0.0,0.0,6
 T6b Fredonnements maison,hum2song:audio→audio,0.0,0.0,0.0,0.0,6
-T6b Fredonnements maison,rrf(k=10),0.0,0.1667,0.3333,0.1111,6
-T6b Fredonnements maison,rrf(k=30),0.0,0.1667,0.3333,0.0833,6
-T6b Fredonnements maison,rrf(k=60),0.0,0.1667,0.3333,0.0833,6
+T6b Fredonnements maison,rrf(k=10),0.0,0.0,0.1667,0.0271,6
+T6b Fredonnements maison,rrf(k=30),0.0,0.0,0.0,0.0153,6
+T6b Fredonnements maison,rrf(k=60),0.0,0.0,0.0,0.0136,6
+T6b Fredonnements maison,rrf-embeddings(k=60),0.0,0.0,0.0,0.0,6
