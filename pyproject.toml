@@ -1,7 +1,7 @@
 [project]
-name = "soundtrace"
+name = "lalala"
 version = "0.1.0"
-description = "SoundTrace : un Shazam amélioré qui retrouve une chanson à partir d'un souvenir, d'une reprise ou d'un son bruité"
+description = "Lalala (SoundTrace) : un Shazam amélioré qui retrouve une chanson à partir d'un souvenir, d'une reprise ou d'un son bruité"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
