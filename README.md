@@ -179,4 +179,4 @@ ours) plus `decord` / `xformers` without macOS wheels. It lives in its own venv 
 
 [`RAPPORT.md`](RAPPORT.md) day-by-day journal · [`DEMO.md`](DEMO.md) demo script and decisions · [`PLAN.md`](PLAN.md),
 [`PLAN_COMPLEMENTS.md`](PLAN_COMPLEMENTS.md) execution plan · [`FRONT_PLAN.md`](FRONT_PLAN.md) front plan ·
-[`eval/`](eval/) measured reports · [`CLAUDE.md`](CLAUDE.md) project rules.
+[`eval/`](eval/) measured reports.

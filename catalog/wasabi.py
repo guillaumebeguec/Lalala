@@ -9,7 +9,7 @@ indenté, 2,1 M chansons), `album.json`, `artist-without-members.json`,
 Ce module **streame** ces fichiers (ijson, backend C) et n'en garde que les
 métadonnées utiles dans des Parquet sous `data/catalog/wasabi/`. Les paroles
 (`lyrics`) et le champ `summary` (lignes extraites des paroles) ne sont jamais
-conservés, conformément à CLAUDE.md.
+conservés, conformément aux règles du projet (pas de paroles stockées).
 
 Constat (vérifié sur le dump) : les identifiants Deezer sont présents
 (`id_song_deezer`, `urlDeezer`, `preview`) sur la grande majorité des chansons,

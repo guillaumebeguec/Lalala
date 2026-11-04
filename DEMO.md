@@ -99,7 +99,7 @@ FMA est libre mais ne contient **aucun morceau connu**. Or tout l'intérêt de l
 
 ---
 
-## 4. Ce qu'il faut préparer soi-même (hors Claude Code)
+## 4. Ce qu'il faut préparer soi-même (hors code)
 
 - J1 : clé Gemini, clé de recherche web (Tavily ou Brave), demandes d'accès aux poids PE-AV et SAM Audio.
 - J1 : lire les conditions d'utilisation Deezer / iTunes pour l'usage des extraits ; vérifier les règles du hackathon sur l'usage de modèles non-Meta.

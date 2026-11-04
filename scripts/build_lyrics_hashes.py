@@ -5,7 +5,7 @@
 Lit en streaming `data/raw/wasabi/json/song.json` (champ `lyrics`), ne garde pour chaque morceau
 du catalogue (par `wasabi_id`) que l'ensemble des hachés 64 bits de ses n-grammes de mots
 normalisés. **Aucun texte de paroles n'est écrit** : les hachés sont à sens unique et ne
-permettent pas de reconstituer les paroles (CLAUDE.md : pas de paroles stockées). Sert à relier un
+permettent pas de reconstituer les paroles (règle du projet : pas de paroles stockées). Sert à relier un
 fragment chanté transcrit par Whisper à un morceau. Sortie : data/index/lyrics_ngrams.parquet.
 """
 

@@ -2,7 +2,7 @@
 
 Ce fichier **complète** `PLAN.md`, `DEMO.md` et `FRONT_PLAN.md` sans les remplacer. Il s'appuie sur des projets existants repérés après la rédaction du plan : le jeu ToT_Music de Spotify Research, la piste TREC Tip-of-the-Tongue, le modèle de reprises CoverHunter, le jeu CHAD et le modèle de fredonnement hum2song.
 
-**Règles de lecture pour Claude Code**
+**Règles de lecture**
 - Lire ce fichier **après** `PLAN.md`, avant chaque phase citée ci-dessous.
 - Chaque complément indique la phase à laquelle il se rattache (« s'ajoute à » ou « remplace »).
 - En cas de contradiction, **ce fichier l'emporte**, uniquement sur le point concerné.

@@ -26,3 +26,6 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Instructions locales de l'assistant de code (hors dépôt)
+CLAUDE.md

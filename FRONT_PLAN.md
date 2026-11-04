@@ -1,6 +1,6 @@
 # FRONT_PLAN.md — Lalala, application de démo
 
-Plan d'exécution du **front** pour Claude Code. Le backend est décrit dans `PLAN.md`, le scénario de démo dans `DEMO.md`.
+Plan d'exécution du **front**. Le backend est décrit dans `PLAN.md`, le scénario de démo dans `DEMO.md`.
 
 Référence visuelle : la maquette « Lalala — demo mockup » (3 écrans : Capture, Searching, Result). **Ce fichier en est la description fidèle : en cas de doute, il fait foi.**
 

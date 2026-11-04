@@ -1,6 +1,6 @@
 # PLAN.md — SoundTrace
 
-Plan d'exécution pour Claude Code. Le **pourquoi** (scénario de démo, choix des données, jeux de test) est dans `DEMO.md` : le lire avant les phases 1, 2 et 10.
+Plan d'exécution. Le **pourquoi** (scénario de démo, choix des données, jeux de test) est dans `DEMO.md` : le lire avant les phases 1, 2 et 10.
 
 Chaque phase a un objectif, des tâches et des **critères de validation**. Ne pas passer à la suivante tant qu'ils ne sont pas remplis. En cas de blocage (API différente de la doc, accès refusé, conditions d'utilisation incompatibles), s'arrêter et proposer une alternative plutôt que contourner en silence.
 
@@ -34,7 +34,6 @@ Chaque brique garde une baseline simple, implémentée d'abord, qui sert de comp
 
 ```
 .
-├── CLAUDE.md
 ├── PLAN.md
 ├── DEMO.md
 ├── pyproject.toml
