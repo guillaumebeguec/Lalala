@@ -1,24 +1,18 @@
-# Lalala — find the song Shazam can't
+# Lalala
 
-![Lalala — our entry for the Meta Global AI Developer Hackathon, hosted by Meta and Cerebral Valley](docs/img/banner.png)
+<img src="docs/img/banner.png" alt="Lalala — our entry for the Meta Global AI Developer Hackathon, hosted by Meta and Cerebral Valley" width="100%">
+
+**Find the song Shazam can't.** Hum it, sing a line, describe a vague memory, play a cover, or hold your phone up in a
+noisy bar: Lalala runs an investigation instead of a lookup, on a laptop, with Meta's open-weights models.
 
 <p align="center">
-  <a href="docs/lalala_demo.mp4"><img src="docs/img/video-thumb.png" alt="Watch the 2:42 demo video" width="800"></a><br>
-  <sub>▶ <a href="docs/lalala_demo.mp4">Watch the demo (2:42)</a> — three live searches, the architecture, the measured results.</sub>
+  <a href="docs/lalala_demo.mp4"><img src="docs/img/video-thumb.png" alt="Watch the demo video (2:42)" width="640"></a>
 </p>
-
-**Meta Global AI Developer Hackathon** · hosted by **Meta × Cerebral Valley** · Oct 26 – Nov 4, 2026 · Indie developer track · theme *Build for Your World*
 
 > **Hackathon context.** A global, remote hackathon run by Meta with Cerebral Valley: ten days to apply Meta's models to a problem you know
 > firsthand (*Build for Your World*) or to push a technical frontier (*Push the Frontier*). Two tracks: Indie developers (judged on creativity,
 > technical ambition and whether it works) and Startups. Lalala is an Indie entry built by one person on one laptop, on Meta's open-weights
 > models, with every claim measured on frozen test sets. Submissions closed November 4, 2026.
-
-Shazam needs the exact recording. Lalala finds a song from what people actually have: **a hummed tune**, **a few sung
-words**, **a vague memory** ("the one with the whistling in a car ad, around 2008"), **a cover or a live version**, or
-**a phone recording in a noisy bar**. It runs an investigation instead of a lookup: several search branches vote, a
-calibrated confidence decides between one answer and a top-10 to listen to, and an agent asks the question that
-reduces uncertainty the most when it hesitates.
 
 Everything runs **locally on a laptop** (Apple Silicon M2, 24 GB) on **Meta open-weights models**: Llama 3.1, PE-AV,
 SAM Audio and FAISS. Day-by-day journal: [`RAPPORT.md`](RAPPORT.md).
