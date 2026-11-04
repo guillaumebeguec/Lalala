@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Installation SAM Audio dans un venv séparé (perception-models exige decord, sans roue macOS arm64 → eva-decord + --no-deps)
-R=/Users/guillaumebeguec/repos/Research/hackathon-meta
+R="$(cd "$(dirname "$0")/.." && pwd)"
 PY=$R/data/raw/sam_audio/venv/bin/python
 set -x
 uv pip install --python $PY "setuptools<81" || exit 1
