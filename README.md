@@ -1,6 +1,11 @@
-# Lalala
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/header-dark.png">
+    <img src="docs/img/header-light.png" alt="Lalala — our entry for the Meta Global AI Developer Hackathon, hosted by Meta and Cerebral Valley" width="800">
+  </picture>
+</p>
 
-<img src="docs/img/banner.png" alt="Lalala — our entry for the Meta Global AI Developer Hackathon, hosted by Meta and Cerebral Valley" width="100%">
+# Lalala
 
 **Find the song Shazam can't.** Hum it, sing a line, describe a vague memory, play a cover, or hold your phone up in a
 noisy bar: Lalala runs an investigation instead of a lookup, on a laptop, with Meta's open-weights models.
