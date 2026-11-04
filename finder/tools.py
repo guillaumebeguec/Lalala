@@ -274,10 +274,15 @@ class Toolbox:
         if track_id not in self.catalog.index:
             return None
         r = self.catalog.loc[track_id]
-        prev = self.previews.at[track_id, "preview_url"] if len(self.previews) and track_id in self.previews.index else None
+        prev = None
+        if len(self.previews) and track_id in self.previews.index:
+            row = self.previews.loc[track_id]
+            u = row.get("preview_url")
+            # Deezer URLs are not stored (signed, short-lived): a resolved track still has a preview, served by /api/preview/{id}
+            prev = u if isinstance(u, str) and u else (f"deezer:{int(row['deezer_id'])}" if row.get("status") == "ok" and pd.notna(row.get("deezer_id")) else None)
         return Candidate(track_id=track_id, title=str(r.title), artist=str(r.artist),
                          year=int(r.year) if pd.notna(r.year) else None, score=float(score), source=source,
-                         reason=reason, preview_url=prev if isinstance(prev, str) else None)
+                         reason=reason, preview_url=prev)
 
     def meta_for_belief(self, track_id: str) -> dict:
         """Metadata read by the observation model (phase 7): year, language, genre, bpm,

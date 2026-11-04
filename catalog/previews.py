@@ -230,6 +230,11 @@ def fetch_audio(track_id: str, preview_url: str, deezer_id: int | None = None) -
         return path.read_bytes()
     hit = _fresh.get(track_id)
     url = hit[1] if hit and time.time() - hit[0] < _FRESH_TTL and hit[1] else preview_url
+    if not isinstance(url, str) or not url:   # Deezer URLs are signed and short-lived: not stored, re-read from the id
+        url = fresh_preview_url(track_id, deezer_id=deezer_id)
+        if not url:
+            logger.warning("no preview URL for %s", track_id)
+            return None
     r = _audio_http.get(url)
     if r.status_code in (403, 404, 410) and (deezer_id is not None or track_id.startswith("dz")):
         url2 = fresh_preview_url(track_id, deezer_id=deezer_id)
