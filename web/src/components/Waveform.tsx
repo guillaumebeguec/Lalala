@@ -1,4 +1,4 @@
-/** Forme d'onde réduite (~64 valeurs 0–1) ; la partie « analysée » en accent. */
+/** Downsampled waveform (~64 values 0–1); the "analysed" part in accent colour. */
 export function Waveform({ values, analysed = 1, height = 56 }: { values: number[]; analysed?: number; height?: number }) {
   const n = values.length || 1;
   return (

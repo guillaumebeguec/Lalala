@@ -1,13 +1,13 @@
-"""Interface commune des embedders (PLAN.md phase 3.1).
+"""Common interface for embedders (PLAN.md phase 3.1).
 
-- `embed_audio(items)` : liste d'octets (mp3/wav) **ou** de tuples (signal float32, sr) ;
-- `embed_text(texts, task="query"|"document")` ;
-- `embed_video(paths)` : optionnel, `NotImplementedError` sinon.
+- `embed_audio(items)`: list of bytes (mp3/wav) **or** of tuples (float32 signal, sr);
+- `embed_text(texts, task="query"|"document")`;
+- `embed_video(paths)`: optional, `NotImplementedError` otherwise.
 
-Toutes les sorties sont des `np.ndarray` float32 de forme (n, dim), normalisées L2,
-pour un produit scalaire direct dans FAISS `IndexFlatIP`. Les implémentations
-locales (CLAP, PE-AV) tournent sur `core.device.get_device()` ; Gemini passe par
-l'API. Toutes mettent en cache par hash du contenu (`core.cache`).
+All outputs are float32 `np.ndarray` of shape (n, dim), L2-normalised,
+for a direct inner product in FAISS `IndexFlatIP`. Local implementations
+(CLAP, PE-AV) run on `core.device.get_device()`; Gemini goes through the
+API. All of them cache by content hash (`core.cache`).
 """
 
 from __future__ import annotations
@@ -37,12 +37,12 @@ class Embedder(ABC):
     name: str = "base"
     dim: int = 0
     supports_video: bool = False
-    languages: str = "multilingual"  # ou "en"
+    languages: str = "multilingual"  # or "en"
 
     def __init__(self):
         self._cache = DiskCache(f"emb_{self.name}")
 
-    # ---- à implémenter ----
+    # ---- to implement ----
     @abstractmethod
     def _embed_audio(self, items: Sequence[AudioItem]) -> np.ndarray: ...
 
@@ -50,9 +50,9 @@ class Embedder(ABC):
     def _embed_text(self, texts: Sequence[str], task: str) -> np.ndarray: ...
 
     def _embed_video(self, paths: Sequence[str]) -> np.ndarray:
-        raise NotImplementedError(f"{self.name} n'encode pas la vidéo")
+        raise NotImplementedError(f"{self.name} does not encode video")
 
-    # ---- clés de cache ----
+    # ---- cache keys ----
     def _audio_key(self, item: AudioItem) -> str:
         if isinstance(item, (bytes, bytearray)):
             return content_hash(bytes(item), embedder=self.name, kind="audio", v=self.version())
@@ -63,10 +63,10 @@ class Embedder(ABC):
         return content_hash(text, embedder=self.name, kind="text", task=task, v=self.version())
 
     def version(self) -> str:
-        """Change quand le modèle ou le prétraitement change (invalide le cache)."""
+        """Changes when the model or the preprocessing changes (invalidates the cache)."""
         return "1"
 
-    # ---- API publique avec cache et batching ----
+    # ---- public API with cache and batching ----
     def _with_cache(self, keys: list[str], compute, batch_size: int) -> np.ndarray:
         out: list[np.ndarray | None] = [self._cache.get_array(k) for k in keys]
         missing = [i for i, v in enumerate(out) if v is None]
@@ -97,7 +97,7 @@ class Embedder(ABC):
 
 
 def get_embedder(name: str) -> Embedder:
-    """Fabrique par nom (`clap`, `peav`, `gemma`, `gemini`, `coverhunter`), import différé pour ne charger que le nécessaire."""
+    """Factory by name (`clap`, `peav`, `gemma`, `gemini`, `coverhunter`), deferred imports to load only what is needed."""
     if name == "clap":
         from core.embedders.clap import ClapEmbedder
         return ClapEmbedder()
@@ -116,4 +116,4 @@ def get_embedder(name: str) -> Embedder:
     if name == "hum2song":
         from core.embedders.hum2song import Hum2SongEmbedder
         return Hum2SongEmbedder()
-    raise ValueError(f"embedder inconnu : {name}")
+    raise ValueError(f"unknown embedder: {name}")

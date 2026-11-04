@@ -1,16 +1,16 @@
-"""🔇 SAM Audio (Meta) — isolation d'une source par consigne texte, exécuté dans son propre venv.
+"""🔇 SAM Audio (Meta) — isolation of a source from a text prompt, run in its own venv.
 
-Ce script est volontairement **indépendant de SoundTrace** : le paquet `sam-audio` dépend de
-`perception_models`, qui installe un paquet Python nommé `core` — en conflit avec `core/` du projet.
-Il tourne donc dans `data/raw/sam_audio/venv` (voir README § SAM Audio), lancé par `core/isolate.py`
-en sous-processus :
+This script is deliberately **independent of Lalala**: the `sam-audio` package depends on
+`perception_models`, which installs a Python package named `core` — clashing with the project's `core/`.
+It therefore runs in `data/raw/sam_audio/venv` (see README § SAM Audio), launched by `core/isolate.py`
+as a subprocess:
 
     data/raw/sam_audio/venv/bin/python scripts/sam_runner.py --in mixed.wav --out target.wav [--prompt music]
         [--model facebook/sam-audio-base] [--device auto|mps|cpu] [--residual residual.wav] [--candidates 1]
 
-Entrée : fichier audio (wav/mp3…) ; sortie : wav mono de la source isolée (fréquence du modèle).
-Les poids sont à accès restreint (HF_TOKEN dans l'environnement). Écrit une ligne JSON de
-synthèse sur stdout : {"sr": ..., "seconds": ..., "device": ..., "model": ...}.
+Input: audio file (wav/mp3…); output: mono wav of the isolated source (model sample rate).
+The weights are gated (HF_TOKEN in the environment). Writes a one-line JSON
+summary to stdout: {"sr": ..., "seconds": ..., "device": ..., "model": ...}.
 """
 
 from __future__ import annotations
@@ -39,8 +39,8 @@ def main() -> int:
     ap.add_argument("--prompt", default="music")
     ap.add_argument("--model", default="facebook/sam-audio-base")
     ap.add_argument("--device", default="auto")
-    ap.add_argument("--candidates", type=int, default=1, help="candidats rerankés (1 = pas de reranking, plus rapide)")
-    ap.add_argument("--spans", action="store_true", help="prédire les segments temporels (plus lent)")
+    ap.add_argument("--candidates", type=int, default=1, help="reranked candidates (1 = no reranking, faster)")
+    ap.add_argument("--spans", action="store_true", help="predict the time spans (slower)")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
 
@@ -61,7 +61,7 @@ def main() -> int:
     t_sep = time.time() - t1
     sr = processor.audio_sampling_rate
     def first(t):
-        """`target`/`residual` : liste de tenseurs (un par entrée) ou tenseur (B, 1, n) selon la version."""
+        """`target`/`residual`: list of tensors (one per input) or a (B, 1, n) tensor depending on the version."""
         t = t[0] if isinstance(t, (list, tuple)) else t
         t = t.detach().cpu().float()
         while t.dim() > 2:

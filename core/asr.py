@@ -1,8 +1,8 @@
-"""Transcription de la voix chantée (paroles) avec faster-whisper (CTranslate2, CPU int8).
+"""Transcription of the sung voice (lyrics) with faster-whisper (CTranslate2, CPU int8).
 
-Utilisée quand l'entrée audio est une voix seule (fredonnement / chant) : le fragment de paroles
-devient une requête texte (empreinte de paroles, Llama-retriever, fiches, web). Modèle réglable
-par SOUNDTRACE_ASR_MODEL (défaut `small` : ≈ 0,5× temps réel sur M2 CPU). Cache par hash de l'audio.
+Used when the audio input is a lone voice (humming / singing): the lyrics fragment
+becomes a text query (lyrics fingerprint, Llama retriever, cards, web). Model configurable
+via LALALA_ASR_MODEL (default `small`: ≈ 0.5x real time on M2 CPU). Cached by audio hash.
 """
 
 from __future__ import annotations
@@ -26,14 +26,14 @@ class Transcript:
     language: str | None
     language_probability: float
     n_words: int
-    avg_logprob: float = 0.0        # moyenne des log-probas des segments (Whisper) ; très bas = texte deviné
-    no_speech_prob: float = 0.0     # proba « pas de parole » max sur les segments
+    avg_logprob: float = 0.0        # mean of the segments' log-probs (Whisper); very low = guessed text
+    no_speech_prob: float = 0.0     # max "no speech" probability over the segments
 
     @property
     def has_words(self) -> bool:
-        """Vrai si l'on a vraiment entendu des paroles (chantées), pas un « mmm » que Whisper habille d'une
-        phrase inventée. Seuils posés à la main le 29/10 : un fredonnement sans mots donne une langue à ~0,35 de
-        probabilité et des phrases de remplissage connues (« Thank you for watching! »)."""
+        """True if we really heard (sung) lyrics, not an "mmm" that Whisper dresses up as an
+        invented sentence. Thresholds set by hand on 29/10: a wordless hum yields a language at ~0.35
+        probability and well-known filler sentences ("Thank you for watching!")."""
         if self.n_words < 3 or is_hallucination(self.text):
             return False
         if self.language_probability < 0.5:
@@ -48,7 +48,7 @@ _HALLUCINATIONS = (
 
 
 def is_hallucination(text: str) -> bool:
-    """Phrases de remplissage typiques de Whisper sur de l'audio sans parole."""
+    """Typical Whisper filler sentences on audio without speech."""
     t = " ".join(text.lower().replace("!", " ").replace(".", " ").replace(",", " ").split())
     if not t:
         return True
@@ -59,20 +59,20 @@ def _get_model():
     global _model
     if _model is None:
         from faster_whisper import WhisperModel
-        name = os.environ.get("SOUNDTRACE_ASR_MODEL", "small")
-        logger.info("Chargement Whisper %s (CPU int8)", name)
+        name = os.environ.get("LALALA_ASR_MODEL", "small")
+        logger.info("Loading Whisper %s (CPU int8)", name)
         _model = WhisperModel(name, device="cpu", compute_type="int8")
     return _model
 
 
 def transcribe(audio: bytes | tuple[np.ndarray, int], language: str | None = None) -> Transcript:
     if isinstance(audio, (bytes, bytearray)):
-        key = content_hash(bytes(audio), kind="asr", model=os.environ.get("SOUNDTRACE_ASR_MODEL", "small"), v=2)
+        key = content_hash(bytes(audio), kind="asr", model=os.environ.get("LALALA_ASR_MODEL", "small"), v=2)
         x, _ = load_audio(bytes(audio), sr=16_000)
     else:
         x0, sr = audio
         x = resample(to_mono(np.asarray(x0)), sr, 16_000)
-        key = content_hash(np.ascontiguousarray(x, dtype=np.float32).tobytes(), kind="asr", model=os.environ.get("SOUNDTRACE_ASR_MODEL", "small"), v=2)
+        key = content_hash(np.ascontiguousarray(x, dtype=np.float32).tobytes(), kind="asr", model=os.environ.get("LALALA_ASR_MODEL", "small"), v=2)
     cache = DiskCache("asr")
     hit = cache.get(key)
     if hit is not None:

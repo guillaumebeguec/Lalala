@@ -1,14 +1,14 @@
-"""Évaluation de la recherche sans agent (PLAN.md phase 4.1) → eval/retrieval.md + csv.
+"""Retrieval evaluation without the agent (PLAN.md phase 4.1) → eval/retrieval.md + csv.
 
     uv run python scripts/eval_retrieval.py --subset dev --sets t1,t3,t4 [--embedders clap,peav,gemma] [--limit N]
 
-- T1, T2 (texte → morceau) : BM25 fiches ; texte → fiches et texte → audio pour chaque embedder.
-  Les requêtes françaises (T2) sont encodées telles quelles ; CLAP (anglais) les verra en phase 5
-  via la traduction/réécriture.
-- T3, T4 (audio → morceau) : Chromaprint ; audio → audio pour chaque embedder. L'audio des
-  requêtes (reprises Deezer, mixages MUSAN) est lu en mémoire.
-- Fusion RRF (k ∈ {10, 30, 60}) de toutes les listes d'une même requête.
-Les scores d'un embedder sont restreints aux morceaux présents dans son index.
+- T1, T2 (text → track): BM25 over the cards; text → cards and text → audio for each embedder.
+  French queries (T2) are encoded as is; CLAP (English) will see them in phase 5
+  through translation/rewriting.
+- T3, T4 (audio → track): Chromaprint; audio → audio for each embedder. The query audio
+  (Deezer covers, MUSAN mixes) is read in memory.
+- RRF fusion (k ∈ {10, 30, 60}) of all the lists of a given query.
+An embedder's scores are restricted to the tracks present in its index.
 """
 
 from __future__ import annotations
@@ -39,6 +39,10 @@ from testsets.common import read_jsonl, testsets_dir  # noqa: E402
 
 log = logging.getLogger("eval_retrieval")
 K = 50
+# English labels of the test sets in the report; the French names remain the keys of the sections
+# (eval/retrieval_sections_*.json), of the CSV `set` column and of scripts/make_results_slide.py.
+LABELS = {"T1 ToT_Music": "T1 ToT_Music", "T2 Souvenirs FR": "T2 FR memories", "T3 Bruit": "T3 Noise", "T4 Reprises": "T4 Covers",
+          "T6a Fredonnements CHAD": "T6a CHAD hums", "T6b Fredonnements maison": "T6b Home hums"}
 
 
 def _restrict(cases: list[dict], ids: set[str]) -> list[dict]:
@@ -46,7 +50,7 @@ def _restrict(cases: list[dict], ids: set[str]) -> list[dict]:
 
 
 def _rank(hits, case: dict) -> int | None:
-    """C1 : rang du premier enregistrement acceptable (`reponse_ids`, sinon `reponse_id`)."""
+    """C1: rank of the first acceptable recording (`reponse_ids`, else `reponse_id`)."""
     ok = set(case.get("reponse_ids") or [case["reponse_id"]])
     for i, (id_, _) in enumerate(hits, 1):
         if id_ in ok:
@@ -55,18 +59,18 @@ def _rank(hits, case: dict) -> int | None:
 
 
 def eval_text_set(name: str, cases: list[dict], embedders: list[str], subset: str, bm25: BM25Index | None) -> dict[str, list]:
-    runs: dict[str, list] = defaultdict(list)  # système → liste de hits par cas
+    runs: dict[str, list] = defaultdict(list)  # system → list of hits per case
     if bm25:
         for c in cases:
             runs["bm25"].append(bm25.search(c["texte"], k=K))
-        # C1 / C6 : reformulations LLM de l'article ToT_Music comme baseline directe (BM25 sur `reform`)
+        # C1 / C6: LLM reformulations from the ToT_Music paper as a direct baseline (BM25 on `reform`)
         if any(c.get("reformulations") for c in cases):
             for c in cases:
                 rf = (c.get("reformulations") or {}).get("reform") or (c.get("reformulations") or {}).get("reform_50")
                 runs["bm25:reformulation-article"].append(bm25.search(rf, k=K) if rf else [])
     for name_e in embedders:
         emb = get_embedder(name_e)
-        if getattr(emb, "languages", "") == "none":   # audio seulement (CoverHunter, hum2song)
+        if getattr(emb, "languages", "") == "none":   # audio only (CoverHunter, hum2song)
             continue
         q = emb.embed_text([c["texte"] for c in cases], task="query")
         for mod in ("text", "audio"):
@@ -79,7 +83,7 @@ def eval_text_set(name: str, cases: list[dict], embedders: list[str], subset: st
 
 
 def _query_audio(case: dict, catalog_prev: pd.DataFrame | None) -> bytes | tuple[np.ndarray, int] | None:
-    if case.get("file"):   # enregistrements réels, fredonnements CHAD (T6a)
+    if case.get("file"):   # real recordings, CHAD hums (T6a)
         return Path(case["file"]).read_bytes()
     if "cover_preview_url" in case:
         return fetch_audio(f"cover{case['cover_deezer_id']}", case["cover_preview_url"], deezer_id=case["cover_deezer_id"])
@@ -131,16 +135,16 @@ def eval_audio_set(name: str, cases: list[dict], embedders: list[str], prev: pd.
             try:
                 runs["melody"].append([(t, sc) for t, sc, _ in match(contour_from_track(h.pitch_track(a)), store, top=K)])
             except Exception as e:  # noqa: BLE001
-                log.warning("mélodie : %s", e)
+                log.warning("melody: %s", e)
                 runs["melody"].append([])
-        log.info("melody : %d requêtes en %.0f s (%d contours)", len(audios), time.time() - t0, len(store))
+        log.info("melody: %d queries in %.0f s (%d contours)", len(audios), time.time() - t0, len(store))
     for name_e in embedders:
         if not VectorIndex.exists(name_e, "audio"):
             continue
         emb = get_embedder(name_e)
         t0 = time.time()
         q = emb.embed_audio(audios, batch_size=4)
-        log.info("%s : %d requêtes audio en %.0f s", name_e, len(audios), time.time() - t0)
+        log.info("%s: %d audio queries in %.0f s", name_e, len(audios), time.time() - t0)
         vi = VectorIndex.load(name_e, "audio")
         for hits in vi.search(q, k=K):
             runs[f"{name_e}:audio→audio"].append(hits)
@@ -162,7 +166,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
     ap.add_argument("--sets", default="t1,t2,t3,t4,t6a,t6b")
-    ap.add_argument("--embedders", default=None, help="défaut : embedders actifs de la config")
+    ap.add_argument("--embedders", default=None, help="default: the active embedders from the config")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--no-fingerprint", action="store_true")
     args = ap.parse_args()
@@ -182,14 +186,14 @@ def main() -> int:
     fp = FingerprintIndex.load() if (FingerprintIndex.path().exists() and not args.no_fingerprint) else None
     from core.fingerprint_audfprint import AudfprintIndex
     afp = AudfprintIndex.load() if (AudfprintIndex.path().exists() and not args.no_fingerprint) else None
-    header = [f"# Recherche sans agent — sous-ensemble {args.subset}", "",
-              f"Catalogue : {len(cat)} morceaux ; embedders (dernier run) : {', '.join(embedders)} ; BM25 : {'oui' if bm25 else 'non'} ; Chromaprint : {'oui' if fp else 'non'} ; audfprint : {'oui' if afp else 'non'}.", ""]
+    header = [f"# Retrieval without the agent — {args.subset} subset", "",
+              f"Catalogue: {len(cat)} tracks; embedders (last run): {', '.join(embedders)}; BM25: {'yes' if bm25 else 'no'}; Chromaprint: {'yes' if fp else 'no'}; audfprint: {'yes' if afp else 'no'}.", ""]
     sections_path = PROJECT_ROOT / "eval" / f"retrieval_sections_{args.subset}.json"
     sections: dict = json.loads(sections_path.read_text()) if sections_path.exists() else {}
     report: list[str] = []
     rows_csv = []
     examples = []
-    # le pool évalué = sous-ensemble + cibles ajoutées aux index (--extra-ids de build_embeddings)
+    # evaluated pool = subset + targets added to the indexes (--extra-ids of build_embeddings)
     for name_e in embedders:
         if VectorIndex.exists(name_e, "audio"):
             ids |= set(VectorIndex.load(name_e, "audio").ids)
@@ -204,13 +208,13 @@ def main() -> int:
         if args.limit:
             cases = cases[: args.limit]
         if not cases:
-            sections[name] = {"md": "\n".join([f"## {name}", "", "aucun cas dont la réponse est dans ce sous-ensemble.", ""]), "csv": []}
+            sections[name] = {"md": "\n".join([f"## {LABELS.get(name, name)}", "", "no case whose answer is in this subset.", ""]), "csv": []}
             continue
         t0 = time.time()
         report = []
         runs = eval_text_set(name, cases, embedders, args.subset, bm25) if kind == "text" else eval_audio_set(name, cases, embedders, prev, fp, afp, subset=args.subset)
         add_fusions(runs, len(cases))
-        report += [f"## {name}", "", f"{len(cases)} cas ; {time.time() - t0:.0f} s ; systèmes : {', '.join(runs)}.", "", "| Système | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
+        report += [f"## {LABELS.get(name, name)}", "", f"{len(cases)} cases; {time.time() - t0:.0f} s; systems: {', '.join(runs)}.", "", "| System | top-1 | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
         rows_set: list[dict] = []
         for sysname, lists in runs.items():
             ranks = [_rank(h, c) for h, c in zip(lists, cases)]
@@ -220,21 +224,21 @@ def main() -> int:
             if sysname.startswith("rrf(k=60)"):
                 for h, c, r in list(zip(lists, cases, ranks))[:5]:
                     examples.append((name, c, r, h[:3]))
-        # C1 : découpage par type de demande (T1)
+        # C1: breakdown by query type (T1)
         if kind == "text" and runs and any(c.get("query_types") for c in cases):
             best = max(runs, key=lambda k: summarize([_rank(h, c) for h, c in zip(runs[k], cases)])["top10"])
             by = defaultdict(list)
             for h, c in zip(runs[best], cases):
                 for t in c.get("query_types") or ["?"]:
                     by[t].append(_rank(h, c))
-            report += ["", f"Détail de `{best}` par type de demande (`query_types`) :", "", "| Type | n | top-1 | top-5 | top-10 |", "|---|---|---|---|---|"]
+            report += ["", f"Breakdown of `{best}` by query type (`query_types`):", "", "| Type | n | top-1 | top-5 | top-10 |", "|---|---|---|---|---|"]
             for g, rk in sorted(by.items()):
                 m = summarize(rk)
                 report.append(f"| {g} | {m['n']} | {m['top1']:.3f} | {m['top5']:.3f} | {m['top10']:.3f} |")
             if "bm25" in runs:
-                report += ["", "Comparabilité (C6) : la ligne `bm25` reproduit la baseline de l'article (requête complète) sur le split test de ToT_Music, "
-                           f"mais sur notre catalogue de {len(ids)} morceaux au lieu du corpus WASABI complet : la tâche y est plus facile, les chiffres ne sont pas directement comparables."]
-        # exemples qualitatifs par SNR / type
+                report += ["", "Comparability (C6): the `bm25` row reproduces the paper's baseline (full query) on the ToT_Music test split, "
+                           f"but on our catalogue of {len(ids)} tracks instead of the full WASABI corpus: the task is easier there, so the figures are not directly comparable."]
+        # qualitative examples by SNR / type
         if kind == "audio" and runs:
             best = max(runs, key=lambda k: summarize([_rank(h, c) for h, c in zip(runs[k], cases)])["top5"])
             by = defaultdict(list)
@@ -242,9 +246,9 @@ def main() -> int:
                 g = c.get("snr_db", c.get("kind"))
                 if c.get("original_interval"):
                     a = c["original_interval"][0]
-                    g = f"fragment en {'début (< 60 s)' if a < 60 else 'milieu (60–150 s)' if a < 150 else 'fin (> 150 s)'} du morceau"
+                    g = f"fragment {'at the start (< 60 s)' if a < 60 else 'in the middle (60–150 s)' if a < 150 else 'at the end (> 150 s)'} of the track"
                 by[str(g)].append(_rank(h, c))
-            report += ["", f"Détail de `{best}` par sous-groupe (SNR dB ou type) :", "", "| Groupe | n | top-1 | top-5 |", "|---|---|---|---|"]
+            report += ["", f"Breakdown of `{best}` by subgroup (SNR dB or type):", "", "| Group | n | top-1 | top-5 |", "|---|---|---|---|"]
             for g, rk in sorted(by.items(), key=str):
                 m = summarize(rk)
                 report.append(f"| {g} | {m['n']} | {m['top1']:.3f} | {m['top5']:.3f} |")
@@ -255,13 +259,13 @@ def main() -> int:
     report = header + [sections[n]["md"] for n in order if n in sections]
     rows_csv = [r for n in order if n in sections for r in sections[n]["csv"]]
     if examples:
-        meta = cb.load("full").set_index("track_id")   # le pool indexé peut dépasser le sous-ensemble (cibles T6a)
-        report += ["## Exemples qualitatifs (fusion RRF k=60)", ""]
+        meta = cb.load("full").set_index("track_id")   # the indexed pool may exceed the subset (T6a targets)
+        report += ["## Qualitative examples (RRF fusion k=60)", ""]
         for name, c, r, top in examples[:10]:
             ans = meta.loc[c["reponse_id"]]
             q = (c.get("texte") or c.get("cover_title") or c["id"])[:160].replace("\n", " ")
             tops = "; ".join(f"{meta.loc[t].title} — {meta.loc[t].artist}" if t in meta.index else t for t, _ in top)
-            report += [f"- **{name}** « {q} » → attendu *{ans.title} — {ans.artist}* (rang {r}) ; top-3 : {tops}"]
+            report += [f"- **{LABELS.get(name, name)}** “{q}” → expected *{ans.title} — {ans.artist}* (rank {r}); top-3: {tops}"]
         report.append("")
     out_md = PROJECT_ROOT / "eval" / "retrieval.md"
     out_md.write_text("\n".join(report), encoding="utf-8")
@@ -269,7 +273,7 @@ def main() -> int:
         w = csv.DictWriter(f, fieldnames=["set", "system", "top1", "top5", "top10", "mrr", "n"])
         w.writeheader()
         w.writerows(rows_csv)
-    print(f"\nRapport : {out_md}")
+    print(f"\nReport: {out_md}")
     return 0
 
 

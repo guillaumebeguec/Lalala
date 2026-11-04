@@ -1,4 +1,4 @@
-/** Enregistrement micro 10 s avec niveau en direct (MediaRecorder + AnalyserNode). */
+/** 10 s microphone recording with live level (MediaRecorder + AnalyserNode). */
 export interface Recording { blob: Blob; durationS: number; mime: string }
 
 export function pickMime(): string {
@@ -30,7 +30,7 @@ export async function record(opts: { maxS?: number; onLevel?: (v: number) => voi
       raf = requestAnimationFrame(loop);
     };
     loop();
-  } catch { /* niveau non disponible : on enregistre quand même */ }
+  } catch { /* level unavailable: record anyway */ }
   const started = performance.now();
   const done = new Promise<Recording>((resolve) => {
     rec.onstop = () => {

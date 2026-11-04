@@ -1,10 +1,10 @@
-"""Construit le catalogue grand public (métadonnées seulement, aucun audio).
+"""Builds the mainstream catalogue (metadata only, no audio).
 
     uv run python scripts/build_catalog.py [--target 25000] [--no-distractors] [--no-resolve-tot]
 
-Prérequis : `scripts/extract_wasabi.py` exécuté ; ToT_Music téléchargé (automatique).
-Rejouable : toutes les réponses Deezer sont en cache dans data/cache/deezer_api.
-Produit data/catalog/catalog.parquet et catalog_dev.parquet, puis eval/catalog.md.
+Prerequisites: `scripts/extract_wasabi.py` has been run; ToT_Music downloaded (automatic).
+Replayable: all Deezer responses are cached in data/cache/deezer_api.
+Produces data/catalog/catalog.parquet and catalog_dev.parquet, then eval/catalog.md.
 """
 
 from __future__ import annotations
@@ -25,14 +25,14 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--target", type=int, default=cb.TARGET_SIZE)
     ap.add_argument("--no-distractors", action="store_true")
-    ap.add_argument("--no-resolve-tot", action="store_true", help="ne pas résoudre les réponses ToT sur Deezer (ISRC)")
+    ap.add_argument("--no-resolve-tot", action="store_true", help="do not resolve the ToT answers on Deezer (ISRC)")
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logging.getLogger("httpx").setLevel(logging.WARNING)
     t0 = time.time()
     df = cb.build(target=args.target, resolve_tot=not args.no_resolve_tot, with_distractors=not args.no_distractors)
     path = write_catalog_report(df)
-    print(f"\n{len(df)} morceaux en {time.time() - t0:.0f} s ; rapport : {path}")
+    print(f"\n{len(df)} tracks in {time.time() - t0:.0f} s; report: {path}")
     return 0
 
 

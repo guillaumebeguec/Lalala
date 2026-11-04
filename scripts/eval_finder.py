@@ -1,12 +1,12 @@
-"""Évaluation de l'agent avec utilisateur simulé (PLAN.md phases 6.4 et 7) → eval/finder.md, eval/finder_ig.md.
+"""Evaluation of the agent with a simulated user (PLAN.md phases 6.4 and 7) → eval/finder.md, eval/finder_ig.md.
 
     uv run python scripts/eval_finder.py --subset dev --sets t1,t2 --policies baseline,ig --users plain,informed [--limit N]
 
-Pour chaque cas : l'agent reçoit la description, pose ses questions à l'utilisateur simulé
-(qui ne voit que la description), propose. Mesures : top-1, top-3 (la bonne réponse parmi les
-candidats proposés, dans l'ordre), nombre de questions, appels d'outils, temps, part des
-réponses trouvées via le web. Intervalles de confiance par bootstrap sur top-1.
-La règle anti-fuite est structurelle : l'agent et l'utilisateur simulé ne reçoivent jamais `reponse_id`.
+For each case: the agent receives the description, asks its questions to the simulated user
+(who only sees the description), then proposes. Measures: top-1, top-3 (the right answer among the
+proposed candidates, in order), number of questions, tool calls, time, share of answers
+found via the web. Bootstrap confidence intervals on top-1.
+The anti-leak rule is structural: neither the agent nor the simulated user ever receives `reponse_id`.
 """
 
 from __future__ import annotations
@@ -81,7 +81,7 @@ def main() -> int:
     ids = set(cat.track_id)
     d = testsets_dir()
     rows = []
-    report = [f"# Agent — évaluation avec utilisateur simulé (sous-ensemble {args.subset})", ""]
+    report = [f"# Agent — evaluation with a simulated user ({args.subset} subset)", ""]
     for key, fname in (("t1", "t1_tot_eval.jsonl"), ("t2", "t2_fr_memories.jsonl")):
         if key not in args.sets.split(",") or not (d / fname).exists():
             continue
@@ -90,7 +90,7 @@ def main() -> int:
             cases = cases[: args.limit]
         if not cases:
             continue
-        report += [f"## {key.upper()} ({len(cases)} cas)", "", "| Politique | Utilisateur | top-1 [IC 95 %] | top-3 | questions | outils | s/cas | entropie ↓ |", "|---|---|---|---|---|---|---|---|"]
+        report += [f"## {key.upper()} ({len(cases)} cases)", "", "| Policy | User | top-1 [95 % CI] | top-3 | questions | tools | s/case | entropy ↓ |", "|---|---|---|---|---|---|---|---|"]
         for policy in args.policies.split(","):
             for user_kind in args.users.split(","):
                 res = []
@@ -124,7 +124,7 @@ def main() -> int:
         for r in rows:
             r = dict(r); r["answers"] = json.dumps(r["answers"], ensure_ascii=False)
             w.writerow(r)
-    print(f"\nRapport : {out}")
+    print(f"\nReport: {out}")
     return 0
 
 

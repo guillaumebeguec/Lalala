@@ -1,6 +1,6 @@
 import type { SearchEvent } from "./types";
 
-/** Parse un flux SSE lu via fetch + ReadableStream (EventSource ne gère pas le POST). */
+/** Parses an SSE stream read via fetch + ReadableStream (EventSource does not support POST). */
 export async function readSse(res: Response, onEvent: (e: SearchEvent) => void, signal?: AbortSignal): Promise<void> {
   if (!res.body) throw new Error("no body");
   const reader = res.body.getReader();

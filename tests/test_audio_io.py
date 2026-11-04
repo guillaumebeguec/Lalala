@@ -26,7 +26,7 @@ def test_mix_at_snr_hits_target():
     for snr in (0, 5, 10):
         mixed = mix_at_snr(sig, noise, snr, rng)
         added = mixed - sig
-        assert np.max(np.abs(mixed)) < 1.0  # pas de renormalisation par le pic à ces amplitudes
+        assert np.max(np.abs(mixed)) < 1.0  # no peak renormalisation at these amplitudes
         assert abs(20 * np.log10(rms(sig) / rms(added)) - snr) < 0.1
         assert mixed.dtype == np.float32 and len(mixed) == len(sig)
 
@@ -43,5 +43,5 @@ def test_windows():
     x = np.arange(5000, dtype=np.float32)
     seg, start = random_window(x, sr, 1.0, np.random.default_rng(1))
     assert len(seg) == 1000 and seg[0] == start * sr
-    assert len(crop(x, sr, 4.5, 1.0)) == 1000  # rembourrage
+    assert len(crop(x, sr, 4.5, 1.0)) == 1000  # padding
     assert len(crop(x, sr, 4.5, 1.0, pad=False)) == 500

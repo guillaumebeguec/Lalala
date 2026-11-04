@@ -1,21 +1,21 @@
-"""Assemblage du catalogue grand public (PLAN.md phase 1.3).
+"""Assembly of the mainstream catalogue (PLAN.md phase 1.3).
 
-Sources, par ordre de priorité :
-  a. **tot**      : tous les morceaux réponses de ToT_Music (WASABI → Deezer par ISRC) ;
-  b. **hits_intl** / **hits_fr** : playlists éditoriales Deezer par année 1970–2025
-                    (« Top Hits YYYY » par Deezer Best Of ; « YYYY. Les 50 meilleurs Tubes
-                    de l'année en France » et « Best of YYYY Français » par Top Hits France) ;
-  c. **ads**      : `data/manual/ads_series_fr.csv` (titre, artiste, usage, annee), résolu
-                    par recherche Deezer avec contrôle de similarité ;
-  d. **distract** : autres titres des mêmes artistes (WASABI, meilleur `rank` Deezer),
-                    puis mêmes genres, jusqu'à la cible.
+Sources, in priority order:
+  a. **tot**      : all ToT_Music answer tracks (WASABI → Deezer via ISRC);
+  b. **hits_intl** / **hits_fr** : Deezer editorial playlists per year 1970–2025
+                    ("Top Hits YYYY" by Deezer Best Of; "YYYY. Les 50 meilleurs Tubes
+                    de l'année en France" and "Best of YYYY Français" by Top Hits France);
+  c. **ads**      : `data/manual/ads_series_fr.csv` (titre, artiste, usage, annee), resolved
+                    by Deezer search with a similarity check;
+  d. **distract** : other titles by the same artists (WASABI, best Deezer `rank`),
+                    then same genres, up to the target.
 
-Chaque morceau est enrichi depuis WASABI (année originale, genre, langue, MusicBrainz)
-quand l'ISRC ou l'identifiant Deezer y figure. Dédoublonnage sur (titre, artiste)
-normalisés : on garde la version la mieux classée, les réponses ToT étant prioritaires.
+Each track is enriched from WASABI (original year, genre, language, MusicBrainz)
+when its ISRC or Deezer id is found there. Deduplication on normalised (title, artist):
+the best-ranked version is kept, ToT answers taking priority.
 
-Sortie : `data/catalog/catalog.parquet` (+ `catalog_dev.parquet`, sous-ensemble dev
-de 2 000 morceaux dont 300 réponses ToT). Aucune donnée audio ici.
+Output: `data/catalog/catalog.parquet` (+ `catalog_dev.parquet`, dev subset of
+2,000 tracks including 300 ToT answers). No audio data here.
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ class Track:
     isrc: str | None = None
     wasabi_id: str | None = None
     album_title: str | None = None
-    year: int | None = None          # année de sortie originale (WASABI) ou de la playlist
+    year: int | None = None          # original release year (WASABI) or playlist year
     deezer_year: int | None = None
     genre: str | None = None
     language: str | None = None
@@ -71,10 +71,10 @@ class Track:
     rank: int | None = None
     preview_url: str | None = None
     deezer_artist_id: int | None = None
-    usage: str | None = None         # pub / générique (liste manuelle)
+    usage: str | None = None         # ad / theme tune (manual list)
     sources: list[str] = field(default_factory=list)
     chart_years: list[int] = field(default_factory=list)
-    country_hint: str | None = None  # "FR" si issu d'une playlist France
+    country_hint: str | None = None  # "FR" if from a France playlist
 
     @property
     def track_id(self) -> str:
@@ -112,7 +112,7 @@ def _norm_lang(v) -> str | None:
 
 
 class WasabiIndex:
-    """Accès rapide aux chansons WASABI par ISRC, par identifiant Deezer et par artiste."""
+    """Fast access to WASABI songs by ISRC, Deezer id and artist."""
 
     def __init__(self, songs: pd.DataFrame | None = None):
         s = songs if songs is not None else wasabi.load_songs()
@@ -189,7 +189,7 @@ def _from_deezer(t: dict, source: str, chart_year: int | None = None, country: s
 
 
 def source_tot(dz: DeezerClient, widx: WasabiIndex, resolve: bool = True) -> list[Track]:
-    """Réponses ToT_Music : métadonnées WASABI, identifiant Deezer courant via ISRC."""
+    """ToT_Music answers: WASABI metadata, current Deezer id via ISRC."""
     out: list[Track] = []
     n_resolved = 0
     for wid, a in tot_music.answer_ids().items():
@@ -206,12 +206,12 @@ def source_tot(dz: DeezerClient, widx: WasabiIndex, resolve: bool = True) -> lis
                 t.rank = max(t.rank or 0, live.get("rank") or 0) or None
                 n_resolved += 1
         out.append(t)
-    logger.info("tot : %d morceaux, %d résolus sur Deezer par ISRC", len(out), n_resolved)
+    logger.info("tot: %d tracks, %d resolved on Deezer via ISRC", len(out), n_resolved)
     return out
 
 
 def discover_playlists(dz: DeezerClient) -> dict[str, dict[int, int]]:
-    """Playlists éditoriales par année. Résultat : {"intl": {année: id}, "fr": {année: id}}."""
+    """Editorial playlists per year. Result: {"intl": {year: id}, "fr": {year: id}}."""
     intl, fr = {}, {}
     for y in YEARS:
         for p in dz.search_playlists(f"Top Hits {y}", limit=10):
@@ -231,7 +231,7 @@ def discover_playlists(dz: DeezerClient) -> dict[str, dict[int, int]]:
                     break
             if y in fr:
                 break
-    logger.info("playlists : intl %d/%d années, fr %d/%d années ; manquantes intl=%s fr=%s",
+    logger.info("playlists: intl %d/%d years, fr %d/%d years; missing intl=%s fr=%s",
                 len(intl), len(YEARS), len(fr), len(YEARS),
                 [y for y in YEARS if y not in intl], [y for y in YEARS if y not in fr])
     return {"intl": intl, "fr": fr}
@@ -247,15 +247,15 @@ def source_hits(dz: DeezerClient, playlists: dict[str, dict[int, int]]) -> list[
                 if not t.get("readable", True):
                     continue
                 out.append(_from_deezer(t, src, chart_year=y, country="FR" if kind == "fr" else None))
-            logger.info("%s %d : %d pistes (playlist %d)", src, y, len(tracks), pid)
+            logger.info("%s %d: %d tracks (playlist %d)", src, y, len(tracks), pid)
     return out
 
 
 def source_ads(dz: DeezerClient, path: Path | None = None, min_sim: float = 0.8) -> list[Track]:
-    """Liste manuelle pubs / génériques, résolue par recherche Deezer avec contrôle de similarité."""
+    """Manual list of ads / theme tunes, resolved by Deezer search with a similarity check."""
     path = path or (get_settings().manual_dir / "ads_series_fr.csv")
     if not path.exists():
-        logger.warning("ads : %s absent", path)
+        logger.warning("ads: %s missing", path)
         return []
     out: list[Track] = []
     rejected: list[str] = []
@@ -279,13 +279,13 @@ def source_ads(dz: DeezerClient, path: Path | None = None, min_sim: float = 0.8)
             y = (row.get("annee") or "").strip()
             t.year = int(y) if y.isdigit() else None
             out.append(t)
-    logger.info("ads : %d résolus, %d rejetés", len(out), len(rejected))
+    logger.info("ads: %d resolved, %d rejected", len(out), len(rejected))
     for r in rejected:
-        logger.warning("ads non apparié : %s", r)
+        logger.warning("ads unmatched: %s", r)
     return out
 
 
-# --------------------------------------------------------------------------- assemblage
+# --------------------------------------------------------------------------- assembly
 
 def dedup(tracks: Iterable[Track]) -> dict[str, Track]:
     by_key: dict[str, Track] = {}
@@ -316,7 +316,7 @@ def add_distractors(by_key: dict[str, Track], widx: WasabiIndex, target: int, pe
             break
         for t in widx.tracks_of_artist(a, per_artist, exclude):
             by_key[dedup_key(t.title, t.artist)] = t
-    logger.info("distracteurs même artiste : +%d", len(by_key) - n0)
+    logger.info("same-artist distractors: +%d", len(by_key) - n0)
     if len(by_key) < target:
         n1 = len(by_key)
         genres = Counter(t.genre for t in seeds if t.genre)
@@ -334,7 +334,7 @@ def add_distractors(by_key: dict[str, Track], widx: WasabiIndex, target: int, pe
                               year=int(r.year) if pd.notna(r.year) else None,
                               genre=r.album_genre if isinstance(r.album_genre, str) else None,
                               language=r.language, rank=int(r["rank"]), sources=["distract"])
-        logger.info("distracteurs même genre : +%d", len(by_key) - n1)
+        logger.info("same-genre distractors: +%d", len(by_key) - n1)
 
 
 def to_frame(tracks: Iterable[Track]) -> pd.DataFrame:
@@ -361,7 +361,7 @@ def make_dev_subset(df: pd.DataFrame, size: int = DEV_SIZE, n_tot: int = DEV_TOT
     tot_idx = df.index[df.is_tot_answer].to_numpy()
     chosen = set(rng.choice(tot_idx, size=min(n_tot, len(tot_idx)), replace=False).tolist())
     rest = df.index[~df.index.isin(chosen) & ~df.is_tot_answer].to_numpy()
-    # le reste pris hors réponses ToT, toutes sources confondues (hits, ads, distracteurs)
+    # the rest is taken outside the ToT answers, all sources combined (hits, ads, distractors)
     chosen |= set(rng.choice(rest, size=min(size - len(chosen), len(rest)), replace=False).tolist())
     return df.index.isin(chosen)
 
@@ -379,14 +379,14 @@ def build(target: int = TARGET_SIZE, resolve_tot: bool = True, with_distractors:
         widx.enrich(t)
     tracks += hits + ads
     by_key = dedup(tracks)
-    logger.info("après dédoublonnage des sources : %d morceaux", len(by_key))
+    logger.info("after deduplicating the sources: %d tracks", len(by_key))
     if with_distractors:
         add_distractors(by_key, widx, target)
     df = to_frame(by_key.values())
     df["in_dev"] = make_dev_subset(df)
     df.to_parquet(catalog_dir() / "catalog.parquet", index=False)
     df[df.in_dev].to_parquet(catalog_dir() / "catalog_dev.parquet", index=False)
-    logger.info("catalogue : %d morceaux (%d dev) ; requêtes Deezer : %d, cache : %d",
+    logger.info("catalogue: %d tracks (%d dev); Deezer requests: %d, cache: %d",
                 len(df), int(df.in_dev.sum()), dz.n_requests, dz.n_cached)
     return df
 

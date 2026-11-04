@@ -1,12 +1,12 @@
-"""🧪 Fusion de listes de résultats par Reciprocal Rank Fusion (PLAN.md phase 4.2).
+"""🧪 Fusion of result lists by Reciprocal Rank Fusion (PLAN.md phase 4.2).
 
-`rrf(lists, k=60, weights=None)` : chaque liste est une suite de (id, score) triée
-par pertinence décroissante ; le score fusionné d'un id est Σ_l w_l / (k + rang_l(id)),
-rang à partir de 1. Les ids absents d'une liste n'y contribuent pas. `k` ∈ {10, 30, 60}
-est comparé dans l'évaluation ; la variante pondérée sert à privilégier une source.
+`rrf(lists, k=60, weights=None)`: each list is a sequence of (id, score) sorted by
+decreasing relevance; the fused score of an id is Σ_l w_l / (k + rank_l(id)),
+rank starting at 1. Ids absent from a list do not contribute to it. `k` ∈ {10, 30, 60}
+is compared in the evaluation; the weighted variant is used to favour one source.
 
-`soft_bonus(hits, meta, hints)` : filtres doux de la phase 5 — bonus multiplicatif
-sur la décennie et la langue, jamais une exclusion.
+`soft_bonus(hits, meta, hints)`: soft filters from phase 5 — multiplicative bonus
+on the decade and the language, never an exclusion.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ def rrf(lists: Sequence[Iterable[Hit]], k: float = 60.0, weights: Sequence[float
     if weights is None:
         weights = [1.0] * len(lists)
     if len(weights) != len(lists):
-        raise ValueError("weights doit avoir la longueur de lists")
+        raise ValueError("weights must have the same length as lists")
     scores: dict[str, float] = defaultdict(float)
     for w, lst in zip(weights, lists):
         if not w:
@@ -41,7 +41,7 @@ def rrf(lists: Sequence[Iterable[Hit]], k: float = 60.0, weights: Sequence[float
 
 
 def normalize_scores(hits: Iterable[Hit]) -> list[Hit]:
-    """Min-max sur une liste (pour la fusion par scores, baseline de comparaison)."""
+    """Min-max over a list (for score-based fusion, comparison baseline)."""
     hits = list(hits)
     if not hits:
         return []
@@ -54,8 +54,8 @@ def normalize_scores(hits: Iterable[Hit]) -> list[Hit]:
 
 def soft_bonus(hits: Iterable[Hit], meta: Mapping[str, Mapping], hints: Mapping[str, object],
                decade_bonus: float = 0.15, language_bonus: float = 0.15, neighbor_decade_bonus: float = 0.05) -> list[Hit]:
-    """Bonus multiplicatif si la décennie / la langue de la fiche correspond aux indices.
-    `hints` : {"decade": "1980s", "language": "french"} (valeurs absentes ignorées)."""
+    """Multiplicative bonus when the decade / language of the card matches the hints.
+    `hints`: {"decade": "1980s", "language": "french"} (missing values are ignored)."""
     dec = hints.get("decade")
     lang = hints.get("language")
     dec_val = int(str(dec)[:4]) if dec and str(dec)[:4].isdigit() else None

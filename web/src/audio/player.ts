@@ -1,4 +1,4 @@
-/** Un seul lecteur actif à la fois dans toute l'application. */
+/** Only one active player at a time across the whole app. */
 let current: HTMLAudioElement | null = null;
 const listeners = new Set<(el: HTMLAudioElement | null) => void>();
 
@@ -6,7 +6,7 @@ export function play(el: HTMLAudioElement) {
   if (current && current !== el) current.pause();
   current = el;
   listeners.forEach((l) => l(el));
-  void el.play().catch(() => { /* lecture auto refusée : l'utilisateur cliquera */ });
+  void el.play().catch(() => { /* autoplay refused: the user will click */ });
 }
 
 export function pause(el: HTMLAudioElement) {

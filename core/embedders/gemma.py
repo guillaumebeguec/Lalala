@@ -1,12 +1,12 @@
-"""EmbeddingGemma 2 (`google/embeddinggemma-2`) en local via sentence-transformers ≥ 6.1.
+"""EmbeddingGemma 2 (`google/embeddinggemma-2`) locally via sentence-transformers >= 6.1.
 
-Modèle ouvert (Apache 2.0, ~740 M paramètres) : texte, image, vidéo et audio dans
-un même espace, 100+ langues, 768 d (MRL 512/256/128). Fiche HF lue le 28/10/2026 :
-- audio **mono 16 kHz**, 25 tokens/s, ≈ 327 s max ; vidéo échantillonnée à 1 image/s
-  par l'encodeur vision (la piste audio n'est pas lue) ;
-- prompts fournis par le modèle : `query` = « task: search result | query: », `document` =
-  « title: none | text: » ; pas de préfixe pour l'audio et la vidéo.
-Même famille de préfixes que Gemini Embedding 2 (API), mais ici **rien ne quitte la machine**.
+Open model (Apache 2.0, ~740M parameters): text, image, video and audio in
+the same space, 100+ languages, 768 d (MRL 512/256/128). HF card read on 28/10/2026:
+- audio **mono 16 kHz**, 25 tokens/s, ≈ 327 s max; video sampled at 1 frame/s
+  by the vision encoder (the audio track is not read);
+- prompts provided by the model: `query` = "task: search result | query: ", `document` =
+  "title: none | text: "; no prefix for audio and video.
+Same family of prefixes as Gemini Embedding 2 (API), but here **nothing leaves the machine**.
 """
 
 from __future__ import annotations
@@ -45,11 +45,11 @@ class GemmaEmbedder(Embedder):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
             device = str(get_device())
-            logger.info("Chargement EmbeddingGemma 2 %s sur %s (dim %d)", self.model_id, device, self.dim)
+            logger.info("Loading EmbeddingGemma 2 %s on %s (dim %d)", self.model_id, device, self.dim)
             self._model = SentenceTransformer(self.model_id, device=device, truncate_dim=self.dim if self.dim != 768 else None)
             prompts = getattr(self._model, "prompts", {}) or {}
             if "query" not in prompts or "document" not in prompts:
-                raise RuntimeError(f"EmbeddingGemma 2 : prompts `query`/`document` absents ({list(prompts)[:5]}) ; vérifier le modèle")
+                raise RuntimeError(f"EmbeddingGemma 2: `query`/`document` prompts missing ({list(prompts)[:5]}); check the model")
 
     def _to_wave(self, item: AudioItem) -> np.ndarray:
         if isinstance(item, (bytes, bytearray)):

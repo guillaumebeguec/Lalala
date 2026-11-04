@@ -1,8 +1,8 @@
-"""Index de recherche : FAISS (`IndexFlatIP`, vecteurs normalisés) par (embedder × modalité)
-et BM25 sur les fiches (PLAN.md phase 3.5).
+"""Search index: FAISS (`IndexFlatIP`, normalised vectors) per (embedder x modality)
+and BM25 over the cards (PLAN.md phase 3.5).
 
-Chaque index vit dans data/index/<embedder>_<modalité>/ : `vectors.npy`, `ids.json`.
-API : `search(query_vec, embedder, modality, k)` → [(track_id, score)…] et
+Each index lives in data/index/<embedder>_<modality>/: `vectors.npy`, `ids.json`.
+API: `search(query_vec, embedder, modality, k)` → [(track_id, score)...] and
 `bm25_search(text, k)`.
 """
 
@@ -35,7 +35,7 @@ def index_dir(embedder: str, modality: str) -> Path:
 @dataclass
 class VectorIndex:
     embedder: str
-    modality: str          # "audio" (extraits) ou "text" (fiches)
+    modality: str          # "audio" (previews) or "text" (cards)
     ids: list[str]
     index: faiss.Index
 

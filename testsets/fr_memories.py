@@ -1,8 +1,8 @@
-"""T2 — Souvenirs flous en français (`data/manual/fr_memories.csv` : description, titre, artiste).
+"""T2 — Fuzzy memories in French (`data/manual/fr_memories.csv`: description, titre, artiste).
 
-Validation : chaque réponse doit exister dans le catalogue (appariement titre/artiste
-normalisés, puis similarité ≥ 0,85). Les lignes non appariées sont listées pour
-correction ou ajout au catalogue. Sortie figée : data/testsets/t2_fr_memories.jsonl.
+Validation: every answer must exist in the catalog (normalised title/artist match,
+then similarity ≥ 0.85). Unmatched rows are listed for correction or for adding to
+the catalog. Frozen output: data/testsets/t2_fr_memories.jsonl.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def build_t2(catalog: pd.DataFrame) -> tuple[list[dict], list[dict]]:
     p = csv_path()
     rows, unmatched = [], []
     if not p.exists():
-        logger.warning("T2 : %s absent (à remplir : description, titre, artiste)", p)
+        logger.warning("T2: %s missing (to fill in: description, titre, artiste)", p)
         return rows, unmatched
     cat = catalog.assign(_key=catalog.apply(lambda r: dedup_key(r.title, r.artist), axis=1))
     with p.open(encoding="utf-8") as f:
@@ -57,7 +57,7 @@ def build_t2(catalog: pd.DataFrame) -> tuple[list[dict], list[dict]]:
                 unmatched.append({"ligne": i, "titre": title, "artiste": artist, "meilleure_similarite": round(s, 2)})
                 continue
             rows.append({"id": f"t2_{i:03d}", "texte": desc, "reponse_id": tid, "titre": title, "artiste": artist})
-    logger.info("T2 : %d descriptions appariées, %d non appariées", len(rows), len(unmatched))
+    logger.info("T2: %d descriptions matched, %d unmatched", len(rows), len(unmatched))
     return rows, unmatched
 
 
@@ -66,5 +66,5 @@ def write_t2(catalog: pd.DataFrame) -> Path:
     out = testsets_dir() / "t2_fr_memories.jsonl"
     write_jsonl(out, rows)
     for u in unmatched:
-        logger.warning("T2 non apparié (ligne %d) : %s — %s (sim %.2f)", u["ligne"], u["titre"], u["artiste"], u["meilleure_similarite"])
+        logger.warning("T2 unmatched (line %d): %s — %s (sim %.2f)", u["ligne"], u["titre"], u["artiste"], u["meilleure_similarite"])
     return out

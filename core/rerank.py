@@ -1,10 +1,10 @@
-"""🧪 Reranking par Llama (cross-encodeur LLM) — PLAN.md phase 6.3.
+"""🧪 Reranking by Llama (LLM cross-encoder) — PLAN.md phase 6.3.
 
-Les embeddings sont des bi-encodeurs (requête et morceau encodés séparément). Ici
-Llama voit **la description et la fiche ensemble** et note chaque candidat de 0 à 10
-avec une justification courte. Lots de 5 candidats pour tenir dans le contexte du 8B.
-Score final = `alpha · score_fusion_normalisé + (1 − alpha) · score_llama / 10`
-(`alpha` réglé sur un sous-ensemble de T1). Cache par hash (description + fiche).
+Embeddings are bi-encoders (query and track encoded separately). Here
+Llama sees **the description and the card together** and rates each candidate from 0 to 10
+with a short justification. Batches of 5 candidates to fit in the 8B's context.
+Final score = `alpha · normalised_fusion_score + (1 − alpha) · llama_score / 10`
+(`alpha` tuned on a subset of T1). Cached by hash (description + card).
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ def _score_batch(description: str, batch: Sequence[tuple[str, str]], model: str 
             if cid in dict(batch):
                 out[cid] = (sc, str(item.get("reason", ""))[:200])
     except llm.LLMError as e:
-        logger.warning("rerank : %s", e)
+        logger.warning("rerank: %s", e)
     cache.put(key, {k: list(v) for k, v in out.items()})
     return out
 
@@ -99,8 +99,8 @@ _LISTWISE_SYSTEM = (
 
 
 def _rank_listwise(description: str, items: Sequence[tuple[str, str]], model: str | None) -> dict[str, tuple[float, str]]:
-    """Mode listwise (recommandation 7, option 1) : un seul appel classe tous les candidats ;
-    réservé aux modèles plus gros (contexte et qualité). Score = position inversée dans [0, 10]."""
+    """Listwise mode (recommendation 7, option 1): a single call ranks all candidates;
+    reserved for bigger models (context and quality). Score = inverted position in [0, 10]."""
     cache = DiskCache("rerank_listwise")
     key = cache.key(description + "\n" + "\n".join(f"{i}\t{c}" for i, c in items), model=model or get_settings().llm_model, v=2)
     hit = cache.get(key)
@@ -119,15 +119,15 @@ def _rank_listwise(description: str, items: Sequence[tuple[str, str]], model: st
         for pos, cid in enumerate(order):
             out[cid] = (10.0 * (n - pos) / n, reasons.get(cid, ""))
     except llm.LLMError as e:
-        logger.warning("rerank listwise : %s", e)
+        logger.warning("rerank listwise: %s", e)
     cache.put(key, {k: list(v) for k, v in out.items()})
     return out
 
 
 def rerank(description: str, fused: Sequence[tuple[str, float]], cards: Mapping[str, str], alpha: float = 0.5,
            batch_size: int = 5, top: int = 20, model: str | None = None, mode: str | None = None) -> list[Reranked]:
-    """`fused` : (track_id, score de fusion) triés ; `cards` : track_id → fiche courte.
-    `mode` : `pointwise` (lots de 5 notés 0–10, défaut pour un 8B) ou `listwise` (RERANK_MODE)."""
+    """`fused`: (track_id, fusion score) sorted; `cards`: track_id → short card.
+    `mode`: `pointwise` (batches of 5 rated 0–10, default for an 8B) or `listwise` (RERANK_MODE)."""
     import os
     mode = mode or os.environ.get("RERANK_MODE", "pointwise")
     fused = list(fused)[:top]
@@ -143,7 +143,7 @@ def rerank(description: str, fused: Sequence[tuple[str, float]], cards: Mapping[
     out = []
     for i, _ in fused:
         ls = llm_scores.get(i)
-        llm_part = ls[0] / 10.0 if ls else norm.get(i, 0.0)   # sans note LLM : on retombe sur la fusion
+        llm_part = ls[0] / 10.0 if ls else norm.get(i, 0.0)   # without an LLM score: fall back on the fusion
         final = alpha * norm.get(i, 0.0) + (1 - alpha) * llm_part
         out.append(Reranked(id=i, fused=norm.get(i, 0.0), llm_score=ls[0] if ls else None, reason=ls[1] if ls else "", final=final))
     out.sort(key=lambda r: -r.final)
@@ -151,5 +151,5 @@ def rerank(description: str, fused: Sequence[tuple[str, float]], cards: Mapping[
 
 
 def _short(card: str, max_chars: int = 600) -> str:
-    """Fiche courte : on coupe le résumé long pour tenir 5 fiches dans le contexte."""
+    """Short card: the long summary is cut so that 5 cards fit in the context."""
     return card if len(card) <= max_chars else card[:max_chars].rsplit(" ", 1)[0] + "…"

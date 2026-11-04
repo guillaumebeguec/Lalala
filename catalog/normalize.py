@@ -1,4 +1,4 @@
-"""Normalisation titre / artiste pour le dédoublonnage et l'appariement."""
+"""Title / artist normalisation for deduplication and matching."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ _LEADING_THE_RE = re.compile(r"^(the|les|le|la|los|las|die|der|das)\s+")
 
 
 def fold(s: str | None) -> str:
-    """Minuscules, sans accents, sans ponctuation, espaces réduits."""
+    """Lowercase, no accents, no punctuation, collapsed whitespace."""
     if not s:
         return ""
     s = unicodedata.normalize("NFKD", s)
@@ -28,7 +28,7 @@ def fold(s: str | None) -> str:
 
 
 def norm_title(title: str | None) -> str:
-    """Retire les mentions de version : « (Remastered 2011) », « - Live », « feat. X »."""
+    """Strips version mentions: "(Remastered 2011)", "- Live", "feat. X"."""
     if not title:
         return ""
     t = _DASH_SUFFIX_RE.sub("", title)
@@ -51,7 +51,7 @@ def dedup_key(title: str | None, artist: str | None) -> str:
 
 
 def similarity(a: str | None, b: str | None) -> float:
-    """Similarité [0, 1] entre deux chaînes repliées (SequenceMatcher)."""
+    """Similarity in [0, 1] between two folded strings (SequenceMatcher)."""
     fa, fb = fold(a), fold(b)
     if not fa or not fb:
         return 0.0
@@ -61,7 +61,7 @@ def similarity(a: str | None, b: str | None) -> float:
 
 
 def is_version_of(title: str | None) -> bool:
-    """Vrai si le titre annonce une version alternative (live, remix, karaoke…)."""
+    """True if the title announces an alternative version (live, remix, karaoke…)."""
     if not title:
         return False
     return bool(re.search(r"\b(live|remix|karaoke|instrumental|acoustic|acoustique|demo|cover|reprise|piano|unplugged)\b",

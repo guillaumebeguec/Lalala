@@ -1,13 +1,13 @@
-"""Empreinte audio Chromaprint (baseline type Shazam) — PLAN.md phase 3.6.
+"""Chromaprint audio fingerprint (Shazam-style baseline) — PLAN.md phase 3.6.
 
-`fpcalc` (Chromaprint, Homebrew) calcule une empreinte = suite d'entiers 32 bits
-(une valeur ≈ 1/8 s). On compare une requête à chaque extrait du catalogue par
-le **meilleur alignement** (décalage) qui minimise la distance de Hamming
-moyenne sur la zone de recouvrement. Score ∈ [0, 1] : 1 = identique. Au-delà
-d'environ 0,85 sur ≥ 4 s de recouvrement, c'est le même enregistrement.
+`fpcalc` (Chromaprint, Homebrew) computes a fingerprint = sequence of 32-bit integers
+(one value ≈ 1/8 s). A query is compared to each catalogue preview by the
+**best alignment** (offset) that minimises the mean Hamming distance over the
+overlap region. Score ∈ [0, 1]: 1 = identical. Above roughly 0.85 over >= 4 s
+of overlap, it is the same recording.
 
-Les empreintes du catalogue sont stockées dans data/index/fingerprints.npz
-(objets : track_id → np.uint32[]). Rien d'audio n'est conservé.
+Catalogue fingerprints are stored in data/index/fingerprints.npz
+(objects: track_id → np.uint32[]). No audio is kept.
 """
 
 from __future__ import annotations
@@ -26,11 +26,11 @@ from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-FP_RATE = 8.0  # valeurs par seconde (approx. Chromaprint par défaut)
+FP_RATE = 8.0  # values per second (approx. Chromaprint default)
 
 
 def fpcalc_raw(audio: bytes | tuple[np.ndarray, int] | str | Path, max_length_s: int = 60) -> np.ndarray:
-    """Empreinte brute via `fpcalc -raw`. Accepte octets (mp3/wav), (signal, sr) ou chemin."""
+    """Raw fingerprint via `fpcalc -raw`. Accepts bytes (mp3/wav), (signal, sr) or a path."""
     import acoustid
     if isinstance(audio, (str, Path)):
         _, fp = acoustid.fingerprint_file(str(audio), maxlength=max_length_s)
@@ -51,11 +51,11 @@ def fpcalc_raw(audio: bytes | tuple[np.ndarray, int] | str | Path, max_length_s:
     for line in out.splitlines():
         if line.startswith("FINGERPRINT="):
             return np.array([int(v) for v in line[len("FINGERPRINT="):].split(",") if v], dtype=np.uint32)
-    raise RuntimeError("fpcalc : pas d'empreinte dans la sortie")
+    raise RuntimeError("fpcalc: no fingerprint in the output")
 
 
 def _decode(fp) -> np.ndarray:
-    """Empreinte compressée (chaîne base64 de fpcalc) → brute, via pyacoustid/chromaprint."""
+    """Compressed fingerprint (fpcalc base64 string) → raw, via pyacoustid/chromaprint."""
     import chromaprint
     raw, _algo = chromaprint.decode_fingerprint(fp if isinstance(fp, bytes) else fp.encode())
     return np.array(raw, dtype=np.uint32)
@@ -70,7 +70,7 @@ def _hamming(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def match_score(query: np.ndarray, ref: np.ndarray, min_overlap: int = 32) -> tuple[float, int]:
-    """Meilleur (1 − distance de Hamming moyenne) sur tous les décalages avec ≥ min_overlap valeurs."""
+    """Best (1 − mean Hamming distance) over all offsets with >= min_overlap values."""
     q, r = query.astype(np.uint32), ref.astype(np.uint32)
     best, best_off = 0.0, 0
     for off in range(-(len(q) - min_overlap), len(r) - min_overlap + 1):

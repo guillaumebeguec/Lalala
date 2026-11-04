@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Installation SAM Audio dans un venv séparé (perception-models exige decord, sans roue macOS arm64 → eva-decord + --no-deps)
+# SAM Audio install in a separate venv (perception-models requires decord, no macOS arm64 wheel → eva-decord + --no-deps)
 R="$(cd "$(dirname "$0")/.." && pwd)"
 PY=$R/data/raw/sam_audio/venv/bin/python
 set -x

@@ -1,12 +1,12 @@
-"""Empreintes de paroles non réversibles (hachés de 4-grammes de mots) pour les morceaux du catalogue.
+"""Non-reversible lyrics fingerprints (hashes of word 4-grams) for the catalogue tracks.
 
     uv run python scripts/build_lyrics_hashes.py [--n 4]
 
-Lit en streaming `data/raw/wasabi/json/song.json` (champ `lyrics`), ne garde pour chaque morceau
-du catalogue (par `wasabi_id`) que l'ensemble des hachés 64 bits de ses n-grammes de mots
-normalisés. **Aucun texte de paroles n'est écrit** : les hachés sont à sens unique et ne
-permettent pas de reconstituer les paroles (règle du projet : pas de paroles stockées). Sert à relier un
-fragment chanté transcrit par Whisper à un morceau. Sortie : data/index/lyrics_ngrams.parquet.
+Streams `data/raw/wasabi/json/song.json` (`lyrics` field) and keeps, for each catalogue track
+(by `wasabi_id`), only the set of 64-bit hashes of its normalised word n-grams.
+**No lyrics text is written**: the hashes are one-way and do not allow the lyrics to be
+reconstructed (project rule: no lyrics stored). Used to link a sung fragment transcribed by
+Whisper to a track. Output: data/index/lyrics_ngrams.parquet.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     cat = cb.load("full")
     by_wid = {w: t for w, t in zip(cat.wasabi_id, cat.track_id) if isinstance(w, str) and w}
-    log.info("catalogue : %d morceaux, %d avec identifiant WASABI", len(cat), len(by_wid))
+    log.info("catalogue: %d tracks, %d with a WASABI identifier", len(cat), len(by_wid))
     src = wasabi.raw_dir() / "json" / "song.json"
     t0 = time.time()
     ids, hashes, n_words = [], [], []
@@ -75,11 +75,11 @@ def main() -> int:
             continue
         ids.append(by_wid[wid]); hashes.append(ngram_hashes(words, args.n)); n_words.append(len(words))
         if len(ids) % 2000 == 0:
-            log.info("%d morceaux avec empreinte (%d lus, %.0f s)", len(ids), seen, time.time() - t0)
+            log.info("%d tracks with a fingerprint (%d read, %.0f s)", len(ids), seen, time.time() - t0)
     out = get_settings().index_dir / "lyrics_ngrams.parquet"
     table = pa.table({"track_id": ids, "n_words": n_words, "hashes": pa.array([h.tolist() for h in hashes], type=pa.list_(pa.uint64()))})
     pq.write_table(table, out, compression="zstd")
-    log.info("écrit %s : %d morceaux, %d n-grammes au total, %.0f s", out, len(ids), sum(len(h) for h in hashes), time.time() - t0)
+    log.info("wrote %s: %d tracks, %d n-grams in total, %.0f s", out, len(ids), sum(len(h) for h in hashes), time.time() - t0)
     return 0
 
 

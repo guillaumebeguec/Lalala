@@ -1,9 +1,9 @@
-"""Chargement, rééchantillonnage, découpage et mixage audio.
+"""Audio loading, resampling, cropping and mixing.
 
-Tout l'audio circule en `np.ndarray` float32 mono, normalisé dans [-1, 1], avec
-sa fréquence d'échantillonnage. Les MP3 peuvent venir d'octets en mémoire
-(mode `PREVIEW_STORAGE=memory`) : on passe par `soundfile` (libsndfile ≥ 1.1
-lit le MP3) avec repli `librosa`/`audioread`.
+All audio flows as mono float32 `np.ndarray`, normalised in [-1, 1], with
+its sampling rate. MP3s may come from in-memory bytes
+(`PREVIEW_STORAGE=memory` mode): we go through `soundfile` (libsndfile >= 1.1
+reads MP3) with `librosa`/`audioread` as fallback.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def resample(x: np.ndarray, sr: int, target_sr: int) -> np.ndarray:
 
 
 def sniff_suffix(data: bytes) -> str:
-    """Extension probable d'après les octets de tête (webm/opus, mp4/m4a, ogg, wav, flac, mp3)."""
+    """Likely extension from the leading bytes (webm/opus, mp4/m4a, ogg, wav, flac, mp3)."""
     head = data[:16]
     if head.startswith(b"\x1a\x45\xdf\xa3"):
         return ".webm"
@@ -49,24 +49,24 @@ def sniff_suffix(data: bytes) -> str:
 
 
 def _decode_with_ffmpeg(src: Path | str, sr: int | None, mono: bool) -> tuple[np.ndarray, int]:
-    """Décodage par ffmpeg (webm/opus, m4a/aac, mp4, mp3 abîmé…) vers PCM float32."""
+    """Decoding via ffmpeg (webm/opus, m4a/aac, mp4, damaged mp3...) to float32 PCM."""
     import shutil
     import subprocess
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
-        raise RuntimeError("ffmpeg introuvable (brew install ffmpeg)")
+        raise RuntimeError("ffmpeg not found (brew install ffmpeg)")
     cmd = [ffmpeg, "-v", "error", "-nostdin", "-i", str(src), "-f", "f32le", "-acodec", "pcm_f32le", "-ac", "1" if mono else "2"]
     if sr:
         cmd += ["-ar", str(sr)]
     cmd.append("-")
     out = subprocess.run(cmd, capture_output=True, check=False)
     if out.returncode != 0 or not out.stdout:
-        raise RuntimeError(f"ffmpeg : {out.stderr.decode(errors='ignore')[:200]}")
+        raise RuntimeError(f"ffmpeg: {out.stderr.decode(errors='ignore')[:200]}")
     x = np.frombuffer(out.stdout, dtype=np.float32)
     if not mono:
-        x = x.reshape(-1, 2)   # échantillons entrelacés → (n, 2) comme soundfile
+        x = x.reshape(-1, 2)   # interleaved samples → (n, 2) like soundfile
     if not sr:
-        # fréquence native : relue via ffprobe
+        # native rate: read back via ffprobe
         ffprobe = shutil.which("ffprobe")
         probe = subprocess.run([ffprobe, "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=sample_rate",
                                 "-of", "csv=p=0", str(src)], capture_output=True, text=True) if ffprobe else None
@@ -75,10 +75,10 @@ def _decode_with_ffmpeg(src: Path | str, sr: int | None, mono: bool) -> tuple[np
 
 
 def load_audio(src: bytes | str | Path, sr: int | None = None, mono: bool = True) -> tuple[np.ndarray, int]:
-    """Charge un fichier ou des octets (mp3, wav, webm/opus, m4a, mp4…). Renvoie (signal, sr).
+    """Load a file or bytes (mp3, wav, webm/opus, m4a, mp4...). Return (signal, sr).
 
-    libsndfile d'abord (wav, flac, mp3) ; sinon ffmpeg (enregistrements du navigateur en
-    webm/opus ou m4a/aac, vidéos)."""
+    libsndfile first (wav, flac, mp3); otherwise ffmpeg (browser recordings in
+    webm/opus or m4a/aac, videos)."""
     import soundfile as sf
     is_bytes = isinstance(src, (bytes, bytearray))
     suffix = sniff_suffix(bytes(src[:16])) if is_bytes else Path(str(src)).suffix.lower()
@@ -92,8 +92,8 @@ def load_audio(src: bytes | str | Path, sr: int | None = None, mono: bool = True
                 x = resample(x, native_sr, sr)
                 native_sr = sr
             return x.astype(np.float32), int(native_sr)
-        except Exception as e:  # noqa: BLE001 — mp3 abîmé, codec non géré : on passe à ffmpeg
-            logger.debug("soundfile a échoué (%s), repli ffmpeg", e)
+        except Exception as e:  # noqa: BLE001 — damaged mp3, unsupported codec: fall through to ffmpeg
+            logger.debug("soundfile failed (%s), falling back to ffmpeg", e)
     if is_bytes:
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as tmp:
@@ -126,7 +126,7 @@ def crop(x: np.ndarray, sr: int, start_s: float, duration_s: float, pad: bool = 
 
 
 def random_window(x: np.ndarray, sr: int, duration_s: float, rng: np.random.Generator) -> tuple[np.ndarray, float]:
-    """Fenêtre de `duration_s` à position aléatoire ; renvoie (segment, début en s)."""
+    """Window of `duration_s` at a random position; return (segment, start in s)."""
     n = int(round(duration_s * sr))
     if len(x) <= n:
         return crop(x, sr, 0.0, duration_s), 0.0
@@ -135,9 +135,9 @@ def random_window(x: np.ndarray, sr: int, duration_s: float, rng: np.random.Gene
 
 
 def mix_at_snr(signal: np.ndarray, noise: np.ndarray, snr_db: float, rng: np.random.Generator | None = None) -> np.ndarray:
-    """Mélange `signal` et `noise` (même sr) au rapport signal/bruit demandé, en dB,
-    mesuré en RMS. Le bruit est bouclé ou découpé à la longueur du signal ; le
-    résultat est ramené dans [-1, 1] si nécessaire."""
+    """Mix `signal` and `noise` (same sr) at the requested signal-to-noise ratio, in dB,
+    measured in RMS. The noise is looped or cropped to the signal length; the
+    result is brought back into [-1, 1] if needed."""
     n = len(signal)
     if len(noise) == 0:
         return signal.copy()

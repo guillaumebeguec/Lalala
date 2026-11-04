@@ -1,12 +1,12 @@
-"""T6b — Fredonnements « maison » : enregistrements réels et fredonnements synthétiques.
+"""T6b — Home-made hums: real recordings and synthetic hums.
 
-- `data/manual/hums/<track_id>[_n].<m4a|wav|mp3|webm|ogg>` : vrais fredonnements (micro), produits
-  par `scripts/record_queries.py --mode hum` ou déposés à la main ;
-- `data/manual/hums_synth/<track_id>[_n].wav` : fredonnements synthétiques rendus depuis la mélodie
-  dominante de l'extrait (`scripts/synth_hums.py`). Ils testent la chaîne mélodique sans humain,
-  mais ne remplacent pas des fredonnements réels (CHAD, T6a, reste la référence).
+- `data/manual/hums/<track_id>[_n].<m4a|wav|mp3|webm|ogg>`: real hums (microphone), produced
+  by `scripts/record_queries.py --mode hum` or dropped in by hand;
+- `data/manual/hums_synth/<track_id>[_n].wav`: synthetic hums rendered from the dominant
+  melody of the preview (`scripts/synth_hums.py`). They exercise the melody pipeline without a
+  human, but do not replace real hums (CHAD, T6a, remains the reference).
 
-Le nom de fichier porte la réponse attendue ; l'agent ne voit jamais ces identifiants.
+The file name carries the expected answer; the agent never sees these identifiers.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ AUDIO_EXT = (".m4a", ".wav", ".mp3", ".webm", ".ogg", ".flac")
 
 
 def manual_hums(catalog_ids: set[str] | None = None) -> list[dict]:
-    """Lignes T6b depuis les deux dossiers ; `catalog_ids` filtre sur les réponses connues."""
+    """T6b rows from both folders; `catalog_ids` filters on known answers."""
     rows: list[dict] = []
     for sub, kind in (("hums", "real"), ("hums_synth", "synth")):
         d = get_settings().manual_dir / sub

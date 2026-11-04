@@ -1,18 +1,18 @@
-"""Routes `/api/*` attendues par le front « Lalala » (FRONT_PLAN.md § 4).
+"""`/api/*` routes expected by the "Lalala" front (FRONT_PLAN.md § 4).
 
-Flux d'une recherche (`POST /api/search/stream`, SSE) :
+Flow of a search (`POST /api/search/stream`, SSE):
   event: input  → {kind, duration_s?, noise_detected?, note?, waveform[64]}
-  event: step   → {id, title, model, status: pending|running|done|skipped, detail, elapsed_ms?}  (étape complète à chaque mise à jour)
+  event: step   → {id, title, model, status: pending|running|done|skipped, detail, elapsed_ms?}  (full step on every update)
   event: result → {query_id, confidence, best, alternatives, proofs, scores, timings, analysis}
   event: error  → {message}
-`POST /api/search` renvoie le résultat final seul. `/api/preview/{id}` redirige vers l'extrait
-officiel (aucun audio en cache local) ; `/api/cover/{id}` sert la pochette (petite image mise en
-cache localement pour le mode hors ligne) ; `/api/feedback` journalise le verdict ;
-`/api/replay/{scene}` rejoue une session enregistrée avec le même flux.
+`POST /api/search` returns the final result only. `/api/preview/{id}` redirects to the official
+preview (no audio cached locally); `/api/cover/{id}` serves the cover art (small image cached
+locally for offline mode); `/api/feedback` logs the verdict;
+`/api/replay/{scene}` replays a recorded session with the same flow.
 
-Le pipeline réutilise `finder.tools.Toolbox` (recherche hybride, audio_match, reranking). Les
-étapes affichées suivent les titres de FRONT_PLAN.md § 3.2 ; SAM Audio est « skipped » tant
-que la phase 9 n'est pas faite.
+The pipeline reuses `finder.tools.Toolbox` (hybrid search, audio_match, reranking). The
+displayed steps follow the titles of FRONT_PLAN.md § 3.2; SAM Audio is "skipped" until
+phase 9 is done.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def toolbox():
     if _TOOLBOX is None:
         import os
         from finder.tools import Toolbox
-        _TOOLBOX = Toolbox(subset=os.environ.get("SOUNDTRACE_SUBSET", "dev"))
+        _TOOLBOX = Toolbox(subset=os.environ.get("LALALA_SUBSET", "dev"))
     return _TOOLBOX
 
 
@@ -53,7 +53,7 @@ def set_toolbox(tb) -> None:
     _TOOLBOX = tb
 
 
-# --------------------------------------------------------------------------- utilitaires
+# --------------------------------------------------------------------------- utilities
 
 def waveform(x: np.ndarray, n: int = 64) -> list[float]:
     if len(x) == 0:
@@ -65,7 +65,7 @@ def waveform(x: np.ndarray, n: int = 64) -> list[float]:
 
 
 def noise_detected(x: np.ndarray, sr: int) -> bool:
-    """Heuristique simple : part d'énergie au-dessus de 4 kHz élevée ou dynamique faible."""
+    """Simple heuristic: high share of energy above 4 kHz, or low dynamics."""
     if len(x) < sr:
         return False
     seg = x[: sr * 10].astype(np.float64)
@@ -79,10 +79,10 @@ def noise_detected(x: np.ndarray, sr: int) -> bool:
 
 
 def melody_confidence(melody: list[tuple[str, float, float]]) -> str:
-    """Confiance d'un fredonnement par la **marge** top-1/top-2 de l'alignement mélodique. Le score seul ne discrimine pas
-    (bon 0,73 vs faux 0,72), la marge si. Recalibré le 29/10 au soir sur 393 fredonnements CHAD avec le magasin fusionné
-    Deezer + iTunes (`data/melody_calib_chad.csv`) : ≥ 0,05 → 77 % de précision (12 % des requêtes), ≥ 0,03 → 50 % (28 %),
-    ≥ 0,08 n'apporte plus rien (79 %)."""
+    """Confidence of a hummed query from the top-1/top-2 **margin** of the melodic alignment. The score alone does not
+    discriminate (good 0.73 vs wrong 0.72), the margin does. Recalibrated on the evening of 29/10 on 393 CHAD hums with the
+    merged Deezer + iTunes store (`data/melody_calib_chad.csv`): ≥ 0.05 → 77 % precision (12 % of queries), ≥ 0.03 → 50 % (28 %),
+    ≥ 0.08 brings nothing more (79 %)."""
     if not melody:
         return "low"
     margin = melody[0][1] - (melody[1][1] if len(melody) > 1 else 0.0)
@@ -173,7 +173,7 @@ class Pipeline:
             try:
                 x, sr = load_audio(self.audio, sr=32_000)
             except Exception as e:  # noqa: BLE001
-                yield self.emit("error", {"message": f"Audio illisible : {e}"})
+                yield self.emit("error", {"message": f"Unreadable audio: {e}"})
                 return
             has_hum = "hum2song" in tb.active_embedders() and tb.vec("hum2song", "audio") is not None
             humming = bool(has_hum and self.kind in ("audio", "mixed") and tb.is_humming(self.audio))
@@ -215,10 +215,10 @@ class Pipeline:
             s_iso, s_exact, s_sim = self._find("isolate"), self._find("exact"), self._find("audio_sim")
             yield self.step(s_exact, "running", "Comparing the fingerprint with the catalogue…")
             exact = tb.fingerprint_match(self.audio)
-            # SAM Audio (phase 9) : seconde chance pour l'empreinte seulement. Mesuré le 29/10 (eval/sam_audio.md, 20 cas
-            # T3 ≤ 5 dB) : la séparation générative n'est pas fidèle à l'échantillon — l'empreinte sur l'audio isolé
-            # passe de 80 % à 45 %, Gemma de 15 % à 5 % — mais elle rattrape des cas perdus (85 % en « brut ou isolé »).
-            # On ne remplace donc jamais l'audio brut pour la similarité.
+            # SAM Audio (phase 9): second chance for the fingerprint only. Measured on 29/10 (eval/sam_audio.md, 20 T3
+            # cases ≤ 5 dB): generative separation is not faithful to the sample — the fingerprint on the isolated audio
+            # drops from 80 % to 45 %, Gemma from 15 % to 5 % — but it recovers lost cases (85 % for "raw or isolated").
+            # So the raw audio is never replaced for similarity.
             if exact or humming or not noisy or isolate.engine() is None:
                 why = ("Skipped: exact recording already found" if exact else "Skipped: a single voice" if humming
                        else "Skipped: clean recording" if not noisy else "Skipped: SAM Audio not installed")
@@ -228,14 +228,14 @@ class Pipeline:
                 iso = isolate.isolate_music(self.audio)
                 if iso:
                     info = iso[1]
-                    exact = tb.fingerprint_match(iso[0])   # seconde chance pour l'empreinte sur l'audio nettoyé
+                    exact = tb.fingerprint_match(iso[0])   # second chance for the fingerprint on the cleaned audio
                     yield self.step(s_iso, "done", f"Music isolated with SAM Audio ({info.get('engine')}, {info.get('seconds', '?')} s)"
                                     + (" — fingerprint recovered." if exact else " — no fingerprint match either."))
                 else:
                     yield self.step(s_iso, "skipped", "SAM Audio failed — continuing with the raw recording.")
             yield self.step(s_exact, "done", "Same recording found." if exact else "No identical recording — not a Shazam case.")
             if exact and not self.text:
-                # Empreinte forte = même enregistrement : réponse immédiate, les autres branches sont sautées (PLAN 6.1)
+                # Strong fingerprint = same recording: immediate answer, the other branches are skipped (PLAN 6.1)
                 for sid in ("audio_sim", "version", "melody"):
                     try:
                         yield self.step(self._find(sid), "skipped", "Skipped: exact recording already found")
@@ -275,8 +275,8 @@ class Pipeline:
                     yield self.step(s_mel, "done", f"Contour aligned against the catalogue melodies ({len(res_m['candidates'])} candidates).")
             s_lyr = self._find("lyrics")
             if humming and not exact:
-                # Fredonnement : deux cas à séparer — des paroles chantées (Whisper → empreintes de paroles) ou une
-                # mélodie sans mots (« mmm », « la la ») où Whisper invente des phrases : alors mélodie seule.
+                # Humming: two cases to tell apart — sung lyrics (Whisper → lyrics fingerprints) or a wordless
+                # melody ("mmm", "la la") where Whisper makes up sentences: then melody only.
                 yield self.step(s_lyr, "running", "Listening for sung words…")
                 res_l = tb.sung_lyrics_search(self.audio)
                 tr = res_l["transcript"]
@@ -337,7 +337,7 @@ class Pipeline:
             yield self.emit("result", {"query_id": self.query_id, "confidence": "low", "best": None, "alternatives": [], "proofs": [],
                                        "scores": [], "timings": self.timings, "analysis": analysis})
             return
-        best, others = ranked[0], ranked[1:10]   # top 10 : en confiance basse le front les montre en suggestions
+        best, others = ranked[0], ranked[1:10]   # top 10: at low confidence the front shows them as suggestions
         proofs = []
         if exact:
             proofs.append({"source": "Fingerprint", "text": "The audio fingerprint matches this exact recording."})
@@ -358,13 +358,13 @@ class Pipeline:
         scores = [{"track_id": c.track_id, "emb": {}, "final": round(float(c.score), 4), "source": c.source} for c in ranked[:10]]
         conf = confidence_label(float(best.score), float(others[0].score) if others else None, bool(exact))
         if humming and not exact and analysis.get("melody"):
-            # fredonnement : la confiance vient de la marge mélodique (les scores RRF fusionnés sont toujours « low »)
+            # humming: confidence comes from the melodic margin (the fused RRF scores are always "low")
             mel_top = analysis["melody"]["top"][0]["track_id"]
             conf = analysis["melody"]["confidence"] if best.track_id == mel_top else ("medium" if analysis.get("humming_mode") == "words" else "low")
         result = {"query_id": self.query_id, "confidence": conf, "best": _track(tb, best), "alternatives": [_track(tb, c) for c in others],
                   "proofs": proofs, "scores": scores, "timings": self.timings, "analysis": analysis}
         RESULTS[self.query_id] = {"result": result, "events": self.events, "t": time.time()}
-        logger.info("requête %s : kind=%s humming=%s mode=%s exact=%s conf=%s top-3=%s", self.query_id, self.kind, humming,
+        logger.info("query %s: kind=%s humming=%s mode=%s exact=%s conf=%s top-3=%s", self.query_id, self.kind, humming,
                     analysis.get("humming_mode"), bool(exact), conf, [(c.title, c.artist, round(float(c.score), 3)) for c in ranked[:3]])
         yield self.emit("result", result)
 
@@ -376,8 +376,8 @@ def queries_dir() -> Path:
 
 
 def persist_query(pipe: "Pipeline") -> None:
-    """Garde l'audio envoyé et les événements de chaque requête (`data/queries/<id>/`, jamais commité) :
-    diagnostic des échecs et constitution d'un jeu de fredonnements réels."""
+    """Keeps the submitted audio and the events of each query (`data/queries/<id>/`, never committed):
+    failure diagnosis and building a set of real hums."""
     try:
         d = queries_dir() / pipe.query_id
         d.mkdir(exist_ok=True)
@@ -386,7 +386,7 @@ def persist_query(pipe: "Pipeline") -> None:
         (d / "events.json").write_text(json.dumps({"t": time.time(), "kind": pipe.kind, "text": pipe.text, "events": pipe.events},
                                                    ensure_ascii=False, indent=1), encoding="utf-8")
     except OSError as e:  # noqa: BLE001
-        logger.warning("persistance de la requête : %s", e)
+        logger.warning("query persistence: %s", e)
 
 
 def _sse(gen: Iterator[dict[str, Any]], pipe: "Pipeline | None" = None) -> StreamingResponse:
@@ -411,7 +411,7 @@ async def _read_inputs(text: str | None, audio: UploadFile | None, video: Upload
             x, sr = load_audio(p, sr=32_000)
             data, kind = to_wav_bytes(x, sr), "video"
         except Exception as e:  # noqa: BLE001
-            raise HTTPException(400, f"Vidéo illisible : {e}")
+            raise HTTPException(400, f"Unreadable video: {e}")
         finally:
             p.unlink(missing_ok=True)
     elif audio is not None:
@@ -419,7 +419,7 @@ async def _read_inputs(text: str | None, audio: UploadFile | None, video: Upload
     if data is not None and (text or "").strip():
         kind = "mixed"
     if data is None and not (text or "").strip():
-        raise HTTPException(400, "Donnez un texte, un audio ou une vidéo.")
+        raise HTTPException(400, "Provide a text, an audio or a video.")
     return text, data, kind
 
 
@@ -448,7 +448,7 @@ async def search(text: str | None = Form(None), audio: UploadFile | None = File(
 
 @router.get("/queries")
 def list_queries(limit: int = 20):
-    """Dernières requêtes persistées (diagnostic) : id, heure, type, meilleur candidat, confiance."""
+    """Latest persisted queries (diagnostics): id, time, kind, best candidate, confidence."""
     out = []
     for d in sorted(queries_dir().iterdir(), key=lambda p: p.stat().st_mtime, reverse=True)[:limit]:
         f = d / "events.json"
@@ -476,7 +476,7 @@ def preview(track_id: str):
         url = fresh_preview_url(track_id, url if isinstance(url, str) else None, deezer_id=tb.previews.at[track_id, "deezer_id"])
         if isinstance(url, str) and url:
             return RedirectResponse(url)
-    raise HTTPException(404, "pas d'extrait")
+    raise HTTPException(404, "no preview")
 
 
 def covers_dir() -> Path:
@@ -510,7 +510,7 @@ def cover(track_id: str):
     except HTTPException:
         raise
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(502, f"pochette indisponible : {e}")
+        raise HTTPException(502, f"cover art unavailable: {e}")
 
 
 @router.post("/feedback")
@@ -532,7 +532,7 @@ def replays_dir() -> Path:
 @router.post("/save/{query_id}/{scene}")
 def save_scene(query_id: str, scene: str):
     if query_id not in RESULTS:
-        raise HTTPException(404, "query inconnue")
+        raise HTTPException(404, "unknown query")
     safe = "".join(c for c in scene if c.isalnum() or c in "-_")[:40] or "scene"
     (replays_dir() / f"api_{safe}.json").write_text(json.dumps(RESULTS[query_id]["events"], ensure_ascii=False, indent=1), encoding="utf-8")
     return {"scene": safe}
@@ -542,7 +542,7 @@ def save_scene(query_id: str, scene: str):
 def replay(scene: str, delay: float = 0.7):
     p = replays_dir() / f"api_{scene}.json"
     if not p.exists():
-        raise HTTPException(404, "scène inconnue")
+        raise HTTPException(404, "unknown scene")
     events = json.loads(p.read_text(encoding="utf-8"))
 
     def gen():

@@ -1,8 +1,8 @@
-"""Recherche web (Tavily ou Brave) avec cache disque — pour les usages (pubs, séries)
-et les fragments de paroles au moment de la requête (pas de scraping massif).
+"""Web search (Tavily or Brave) with disk cache — for usages (ads, series)
+and lyrics fragments at query time (no massive scraping).
 
-`SEARCH_PROVIDER=tavily|brave`, `SEARCH_API_KEY`. Sans clé : `WebSearchDisabled`.
-Résultat : liste de {title, url, snippet}.
+`SEARCH_PROVIDER=tavily|brave`, `SEARCH_API_KEY`. Without a key: `WebSearchDisabled`.
+Result: list of {title, url, snippet}.
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ class WebSearch:
         self.provider = s.search_provider.lower()
         self.key = s.search_api_key
         if not self.key:
-            raise WebSearchDisabled("SEARCH_API_KEY absente")
+            raise WebSearchDisabled("SEARCH_API_KEY missing")
         self._http = httpx.Client(timeout=20)
         self._cache = DiskCache("web_search")
         self.n_calls = 0
@@ -45,7 +45,7 @@ class WebSearch:
             r.raise_for_status()
             return [{"title": x.get("title", ""), "url": x.get("url", ""), "snippet": x.get("description", "")}
                     for x in r.json().get("web", {}).get("results", [])]
-        raise WebSearchDisabled(f"fournisseur inconnu : {self.provider}")
+        raise WebSearchDisabled(f"unknown provider: {self.provider}")
 
     def search(self, query: str, k: int = 8) -> list[dict]:
         key = self._cache.key(query, provider=self.provider, k=k)

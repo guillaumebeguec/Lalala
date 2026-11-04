@@ -1,6 +1,6 @@
 import { copy } from "../copy";
 
-/** Trois « la » en escalier (rose, jaune, blanc), décalés de 0 / 7 / 14 px vers le haut. */
+/** Three staggered "la" (pink, yellow, white), shifted up by 0 / 7 / 14 px. */
 export function Logo({ onLongPress }: { onLongPress?: () => void }) {
   let timer: number | undefined;
   const start = () => { if (onLongPress) timer = window.setTimeout(onLongPress, 1000); };

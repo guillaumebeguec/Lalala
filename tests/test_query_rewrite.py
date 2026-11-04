@@ -21,11 +21,11 @@ def test_rewrite_with_mocked_llm(monkeypatch):
 
     monkeypatch.setattr(qr.llm, "chat", lambda *a, **k: R())
     r = qr.rewrite("Une pub Citroën vers 2008 avec un sifflement, chantée par un homme", use_cache=False)
-    assert r.decade == "2000s" and r.language is None      # « english » n'est pas cité : indice retiré
+    assert r.decade == "2000s" and r.language is None      # "english" is not mentioned: hint dropped
     assert r.hints["medium"] == "ad" and r.hints["vocals"] == "male" and r.hints["genre"] is None
-    assert r.hints["named_entities"] == ["Citroën"]       # Coldplay n'est pas cité par l'utilisateur
+    assert r.hints["named_entities"] == ["Citroën"]       # Coldplay is not mentioned by the user
     assert "Coldplay" not in r.query and "Citroën" in r.query
-    assert r.captions == ["whistled melody over acoustic guitar", "male vocals"]   # « indie pop » et le tempo ne sont pas cités
+    assert r.captions == ["whistled melody over acoustic guitar", "male vocals"]   # "indie pop" and the tempo are not mentioned
     assert r.query_fr.startswith("sifflement")
 
 

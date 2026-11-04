@@ -1,4 +1,4 @@
-"""core.isolate (sélection du moteur SAM Audio) et testsets.hums (T6b) sans modèle ni réseau."""
+"""core.isolate (SAM Audio engine selection) and testsets.hums (T6b) without a model or network."""
 
 import numpy as np
 import pandas as pd

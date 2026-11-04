@@ -1,14 +1,14 @@
-"""Cache disque par hash de contenu, pour tous les calculs et appels coûteux.
+"""Disk cache keyed by content hash, for every expensive computation and API call.
 
-Clé = SHA-256 du contenu (texte, octets ou fichier) et des paramètres
-(modèle, dimension, tâche…). Chaque espace de noms (`namespace`) a son dossier
-dans `data/cache/`. Valeurs sérialisées en JSON (dicts, listes, nombres) ou
-en octets bruts ; les tableaux numpy passent par `np.save`.
+Key = SHA-256 of the content (text, bytes or file) and of the parameters
+(model, dimension, task...). Each namespace (`namespace`) has its own folder
+in `data/cache/`. Values are serialised as JSON (dicts, lists, numbers) or
+as raw bytes; numpy arrays go through `np.save`.
 
-Usage :
+Usage:
 
     cache = DiskCache("gemini_text")
-    key = cache.key("un texte", model="gemini-embedding-2", dim=768)
+    key = cache.key("some text", model="gemini-embedding-2", dim=768)
     vec = cache.get_array(key)
     if vec is None:
         vec = compute()
@@ -29,11 +29,11 @@ from core.config import get_settings
 
 
 def content_hash(content: str | bytes | Path, **params: Any) -> str:
-    """SHA-256 du contenu et des paramètres (triés pour être déterministes).
+    """SHA-256 of the content and the parameters (sorted to be deterministic).
 
-    - `str`  : encodé en UTF-8 ;
-    - `bytes`: tel quel ;
-    - `Path` : contenu du fichier (lu par blocs).
+    - `str`  : encoded as UTF-8;
+    - `bytes`: as is;
+    - `Path` : file contents (read in chunks).
     """
     h = hashlib.sha256()
     if isinstance(content, Path):
@@ -56,12 +56,12 @@ class DiskCache:
         self.root = (root or get_settings().cache_dir) / namespace
         self.root.mkdir(parents=True, exist_ok=True)
 
-    # ---- clés ----
+    # ---- keys ----
     def key(self, content: str | bytes | Path, **params: Any) -> str:
         return content_hash(content, namespace=self.namespace, **params)
 
     def _path(self, key: str, ext: str) -> Path:
-        # Deux niveaux de sous-dossiers pour éviter des dossiers énormes.
+        # Two levels of sub-folders to avoid huge directories.
         return self.root / key[:2] / f"{key}{ext}"
 
     # ---- JSON ----
@@ -81,7 +81,7 @@ class DiskCache:
         tmp.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
         tmp.replace(p)
 
-    # ---- octets ----
+    # ---- bytes ----
     def get_bytes(self, key: str, ext: str = ".bin") -> bytes | None:
         p = self._path(key, ext)
         return p.read_bytes() if p.exists() else None

@@ -33,7 +33,7 @@ def test_load_real_file_if_present():
     from pathlib import Path
     p = Path(__file__).resolve().parent.parent / "data" / "raw" / "tot" / "data.jsonl"
     if not p.exists():
-        pytest.skip("ToT_Music non téléchargé")
+        pytest.skip("ToT_Music not downloaded")
     os.environ["DATA_DIR"] = str(p.parent.parent.parent)
     from core import config
     config.get_settings.cache_clear()

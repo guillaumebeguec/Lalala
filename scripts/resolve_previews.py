@@ -1,9 +1,9 @@
-"""Résout les métadonnées d'extrait (URL Deezer/iTunes courante, contrôle d'appariement)
-pour tout le catalogue. Métadonnées seulement : aucun audio n'est téléchargé ici.
+"""Resolves the preview metadata (current Deezer/iTunes URL, matching check)
+for the whole catalogue. Metadata only: no audio is downloaded here.
 
     uv run python scripts/resolve_previews.py [--subset dev|full] [--no-itunes] [--workers 4]
 
-Rejouable (reprise ligne à ligne). Met ensuite à jour eval/catalog.md.
+Replayable (row-by-row resume). Then updates eval/catalog.md.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ def main() -> int:
     df = resolve_all(cat, use_itunes=not args.no_itunes, workers=args.workers)
     full = cb.load("full")
     write_catalog_report(full, previews=df)
-    print(f"\n{len(df)} lignes ; ok {100 * df.status.eq('ok').mean():.1f} %")
+    print(f"\n{len(df)} rows; ok {100 * df.status.eq('ok').mean():.1f} %")
     return 0
 
 

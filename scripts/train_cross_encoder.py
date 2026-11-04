@@ -1,15 +1,15 @@
-"""🧪 Reranker cross-encoder maison (recommandation 7, option 2).
+"""🧪 In-house cross-encoder reranker (recommendation 7, option 2).
 
-Entraîne un cross-encoder (requête ToT ↔ fiche morceau) sur les splits train/val de ToT_Music
-(réserve T1), avec des **négatifs difficiles** tirés du top BM25 + Gemma de la fiche, perte
-listwise (softmax sur chaque groupe requête : 1 positif + k négatifs). Évalue sur T1 test contre
-la fusion seule et le reranking Llama. Modèle de départ multilingue léger (les souvenirs peuvent
-être en français) : `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (Apache 2.0).
+Trains a cross-encoder (ToT query ↔ track card) on the train/val splits of ToT_Music
+(T1 reserve), with **hard negatives** drawn from the card's BM25 + Gemma top, listwise
+loss (softmax over each query group: 1 positive + k negatives). Evaluates on T1 test against
+fusion alone and Llama reranking. Lightweight multilingual starting model (memories may
+be in French): `cross-encoder/mmarco-mMiniLMv2-L12-H384-v1` (Apache 2.0).
 
-    uv run python scripts/train_cross_encoder.py --subset dev [--epochs 2] [--negatives 7] [--base <modèle HF>]
+    uv run python scripts/train_cross_encoder.py --subset dev [--epochs 2] [--negatives 7] [--base <HF model>]
 
-Sortie : data/index/cross_encoder/ (poids) et eval/cross_encoder.md. Rien de l'échantillon
-d'évaluation n'est vu à l'entraînement.
+Output: data/index/cross_encoder/ (weights) and eval/cross_encoder.md. Nothing from the evaluation
+sample is seen during training.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ DEFAULT_BASE = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
 
 
 def candidates_for(tb: Toolbox, text: str, k: int = 30) -> list[str]:
-    """Candidats par BM25 + Gemma texte→fiches (sans Llama) : source des négatifs difficiles."""
+    """Candidates from BM25 + Gemma text→cards (without Llama): source of the hard negatives."""
     lists = []
     bm = tb.bm25()
     if bm is not None:
@@ -79,9 +79,9 @@ def main() -> int:
     rng = random.Random(args.seed)
     rng.shuffle(reserve)
     train = reserve[: args.n_train]
-    log.info("entraînement : %d demandes ; test : %d ; base %s", len(train), len(test), args.base)
+    log.info("training: %d queries; test: %d; base %s", len(train), len(test), args.base)
 
-    # ---- groupes listwise : (requête, [positif] + négatifs difficiles)
+    # ---- listwise groups: (query, [positive] + hard negatives)
     groups = []
     t0 = time.time()
     for i, c in enumerate(train, 1):
@@ -94,11 +94,11 @@ def main() -> int:
             continue
         groups.append((c["texte"], pos, negs))
         if i % 50 == 0:
-            log.info("groupes : %d / %d (%.1f s/demande)", len(groups), i, (time.time() - t0) / i)
-    log.info("%d groupes d'entraînement", len(groups))
+            log.info("groups: %d / %d (%.1f s/query)", len(groups), i, (time.time() - t0) / i)
+    log.info("%d training groups", len(groups))
 
-    # ---- entraînement (perte listwise : CrossEntropy sur les logits du groupe)
-    device = str(get_device())  # SOUNDTRACE_DEVICE=cpu permet de laisser le GPU à un autre job
+    # ---- training (listwise loss: CrossEntropy over the group's logits)
+    device = str(get_device())  # LALALA_DEVICE=cpu lets another job keep the GPU
     model = CrossEncoder(args.base, num_labels=1, max_length=384, device=device)
     tok = model.tokenizer
     opt = torch.optim.AdamW(model.model.parameters(), lr=2e-5)
@@ -116,14 +116,14 @@ def main() -> int:
                 opt.step(); opt.zero_grad()
             tot += float(loss); n += 1
             if gi % 100 == 0:
-                log.info("époque %d : %d / %d groupes, perte %.3f", epoch + 1, gi, len(groups), tot / n)
+                log.info("epoch %d: %d / %d groups, loss %.3f", epoch + 1, gi, len(groups), tot / n)
         opt.step(); opt.zero_grad()
-        log.info("époque %d terminée : perte moyenne %.3f", epoch + 1, tot / max(n, 1))
+        log.info("epoch %d done: mean loss %.3f", epoch + 1, tot / max(n, 1))
     out_dir = get_settings().index_dir / "cross_encoder"
     model.save(str(out_dir))
     model.model.eval()
 
-    # ---- évaluation sur T1 test : fusion seule contre cross-encoder sur le top-20
+    # ---- evaluation on T1 test: fusion alone vs cross-encoder on the top-20
     ranks_fused, ranks_ce = [], []
     with torch.inference_mode():
         for c in test:
@@ -137,15 +137,15 @@ def main() -> int:
             scores = model.model(**enc).logits.view(-1).cpu().numpy()
             order = [cands[j] for j in scores.argsort()[::-1]]
             ranks_ce.append(next((i for i, t in enumerate(order, 1) if t in answers), None))
-    lines = [f"# Cross-encoder maison contre fusion — T1 test ({len(test)} demandes, sous-ensemble {args.subset})", "",
-             f"Base : `{args.base}` ; {len(groups)} groupes (1 positif + ≤ {args.negatives} négatifs BM25/Gemma), {args.epochs} époques, perte listwise. Candidats rerankés : top-20 de BM25 + Gemma.", "",
-             "| Système | top-1 [IC 95 %] | top-3 | top-5 | top-10 | MRR |", "|---|---|---|---|---|---|"]
-    for name, rk in (("fusion BM25 + Gemma (top-20)", ranks_fused), ("+ cross-encoder maison", ranks_ce)):
+    lines = [f"# In-house cross-encoder vs fusion — T1 test ({len(test)} queries, {args.subset} subset)", "",
+             f"Base: `{args.base}`; {len(groups)} groups (1 positive + ≤ {args.negatives} BM25/Gemma negatives), {args.epochs} epochs, listwise loss. Reranked candidates: top-20 from BM25 + Gemma.", "",
+             "| System | top-1 [95 % CI] | top-3 | top-5 | top-10 | MRR |", "|---|---|---|---|---|---|"]
+    for name, rk in (("fusion BM25 + Gemma (top-20)", ranks_fused), ("+ in-house cross-encoder", ranks_ce)):
         m = summarize(rk, ks=(1, 3, 5, 10)); lo, hi = bootstrap_ci(rk, 1)
         lines.append(f"| {name} | {m['top1']:.3f} [{lo:.2f}, {hi:.2f}] | {m['top3']:.3f} | {m['top5']:.3f} | {m['top10']:.3f} | {m['mrr']:.3f} |")
     out = PROJECT_ROOT / "eval" / "cross_encoder.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"\nRapport : {out} ; modèle : {out_dir}")
+    print(f"\nReport: {out}; model: {out_dir}")
     return 0
 
 

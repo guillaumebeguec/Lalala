@@ -1,16 +1,16 @@
-"""Empreinte robuste au micro — audfprint (Dan Ellis, MIT), recommandation n° 8.
+"""Microphone-robust fingerprint — audfprint (Dan Ellis, MIT), recommendation no. 8.
 
-Empreinte par paires de pics spectraux (landmarks, type Shazam) : contrairement à Chromaprint
-(conçu pour comparer des fichiers), elle résiste à la capture au micro, au bruit et aux
-extraits partiels. Code `dpwe/audfprint` cloné dans data/raw/audfprint/repo (`AUDFPRINT_DIR`).
+Fingerprint by pairs of spectral peaks (landmarks, Shazam-style): unlike Chromaprint
+(designed to compare files), it withstands microphone capture, noise and
+partial excerpts. Code `dpwe/audfprint` cloned in data/raw/audfprint/repo (`AUDFPRINT_DIR`).
 
-API lue le 29/10/2026 : `Analyzer(density).wavfile2hashes(fichier)` → paires (temps, hash) ;
-`HashTable.store(nom, hashes)` / `get_hits` ; `Matcher.match_hashes(ht, hashes)` → liste de
-(id, hashes alignés, décalage, hashes bruts, rang, tmin, tmax). Score = hashes alignés ; au-delà
-de `MIN_ALIGNED` (défaut 12) la correspondance est quasi certaine. Audio à 11 025 Hz ; les
-octets mp3/wav/webm passent par un fichier temporaire (audio_read/ffmpeg).
+API read on 29/10/2026: `Analyzer(density).wavfile2hashes(file)` → pairs (time, hash);
+`HashTable.store(name, hashes)` / `get_hits`; `Matcher.match_hashes(ht, hashes)` → list of
+(id, aligned hashes, offset, raw hashes, rank, tmin, tmax). Score = aligned hashes; above
+`MIN_ALIGNED` (default 12) the match is near certain. Audio at 11,025 Hz; mp3/wav/webm
+bytes go through a temporary file (audio_read/ffmpeg).
 
-Base persistée dans data/index/audfprint.pklz (2^20 hachages, profondeur 100 : ~100 k morceaux).
+Database persisted in data/index/audfprint.pklz (2^20 hashes, depth 100: ~100k tracks).
 """
 
 from __future__ import annotations
@@ -28,9 +28,9 @@ from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-MIN_ALIGNED = 10      # hashes alignés au-delà desquels on tient la correspondance pour sûre
+MIN_ALIGNED = 10      # aligned hashes above which the match is considered certain
 DENSITY = 20.0
-QUERY_SHIFTS = 4      # décalages sous-trame côté requête : indispensable sur extraits coupés / capturés (0/10 → 6/10 mesuré)
+QUERY_SHIFTS = 4      # sub-frame shifts on the query side: essential on cut / captured excerpts (0/10 → 6/10 measured)
 THRESHCOUNT = 3
 
 
@@ -41,7 +41,7 @@ def audfprint_dir() -> Path:
 def _import():
     d = str(audfprint_dir())
     if not (audfprint_dir() / "audfprint_analyze.py").exists():
-        raise RuntimeError(f"audfprint absent : {d} (git clone https://github.com/dpwe/audfprint)")
+        raise RuntimeError(f"audfprint missing: {d} (git clone https://github.com/dpwe/audfprint)")
     if d not in sys.path:
         sys.path.insert(0, d)
     import audfprint_analyze, hash_table, audfprint_match  # type: ignore  # noqa: E401
@@ -64,16 +64,16 @@ class AudfprintIndex:
     def path(cls) -> Path:
         return get_settings().index_dir / "audfprint.pklz"
 
-    # ---- empreintes ----
+    # ---- fingerprints ----
     def hashes(self, audio: bytes | tuple[np.ndarray, int] | str | Path) -> np.ndarray:
-        """Paires (temps, hash) d'un audio (octets, (signal, sr) ou chemin)."""
+        """(time, hash) pairs of an audio (bytes, (signal, sr) or path)."""
         if isinstance(audio, (str, Path)):
             return self._an.wavfile2hashes(str(audio))
         if isinstance(audio, tuple):
             x, sr = audio
             data, suffix = to_wav_bytes(np.asarray(x, dtype=np.float32), sr), ".wav"
         else:
-            x, sr = load_audio(bytes(audio), sr=11_025)   # décodage robuste (mp3, webm, m4a) puis wav
+            x, sr = load_audio(bytes(audio), sr=11_025)   # robust decoding (mp3, webm, m4a) then wav
             data, suffix = to_wav_bytes(x, sr), ".wav"
         fd, p = tempfile.mkstemp(suffix=suffix)
         try:
@@ -97,8 +97,8 @@ class AudfprintIndex:
             return track_id in getattr(self.ht, "names", [])
 
     def search(self, audio, k: int = 5) -> list[tuple[str, float, int]]:
-        """[(track_id, score = hashes alignés, décalage en trames)] triés. Vide si rien n'atteint threshcount.
-        La requête est hachée avec `QUERY_SHIFTS` décalages sous-trame (la référence sans)."""
+        """[(track_id, score = aligned hashes, offset in frames)] sorted. Empty if nothing reaches threshcount.
+        The query is hashed with `QUERY_SHIFTS` sub-frame shifts (the reference without)."""
         self._an.shifts = QUERY_SHIFTS
         try:
             h = self.hashes(audio)
@@ -116,7 +116,7 @@ class AudfprintIndex:
             out.append((self.ht.names[idx], float(aligned), offset))
         return out
 
-    # ---- persistance ----
+    # ---- persistence ----
     def save(self) -> Path:
         p = self.path(); p.parent.mkdir(parents=True, exist_ok=True)
         self.ht.save(str(p))

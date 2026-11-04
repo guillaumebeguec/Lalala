@@ -1,4 +1,4 @@
-"""Métriques de recherche : top-k et MRR sur des listes de (id, score)."""
+"""Retrieval metrics: top-k and MRR over lists of (id, score)."""
 
 from __future__ import annotations
 

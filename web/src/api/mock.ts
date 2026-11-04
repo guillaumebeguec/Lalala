@@ -13,7 +13,7 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     signal?.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
   });
 
-/** Rejoue les événements d'une fixture avec des délais réalistes (300–1 200 ms par étape). */
+/** Replays a fixture's events with realistic delays (300–1,200 ms per step). */
 async function play(fx: Fixture, onEvent: (e: SearchEvent) => void, signal?: AbortSignal, fast = false) {
   for (const e of fx.events) {
     if (signal?.aborted) return;

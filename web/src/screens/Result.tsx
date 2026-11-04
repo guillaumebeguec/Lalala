@@ -31,7 +31,7 @@ export function Result() {
   const candidates = useMemo(() => orderedCandidates(state.result, state.rejected), [state.result, state.rejected]);
   if (!state.result) return null;
   const best = state.phase === "result" ? candidates[0] : null;
-  // confiance basse : pas de « meilleur » mis en avant, le top 10 est proposé en suggestions jusqu'à ce que l'on en choisisse une
+  // low confidence: no "best" match highlighted, the top 10 is offered as suggestions until one is picked
   const suggesting = !!best && state.result.confidence === "low" && !pinned;
   const others = best && !suggesting ? candidates.slice(1, 10) : candidates.slice(0, 10);
   const isAudio = state.inputInfo ? state.inputInfo.kind !== "text" : !!(state.input.audio || state.input.video);

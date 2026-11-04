@@ -1,7 +1,7 @@
-"""Configuration centrale lue depuis `.env` (voir `.env.example`).
+"""Central configuration read from `.env` (see `.env.example`).
 
-Aucune clé en dur : tout vient de l'environnement. Les chemins sont résolus en
-absolu et les répertoires de données créés à la demande.
+No hard-coded key: everything comes from the environment. Paths are resolved to
+absolute paths and data directories are created on demand.
 """
 
 from __future__ import annotations
@@ -30,28 +30,28 @@ def _as_list(value: str | None, default: list[str]) -> list[str]:
 
 @dataclass(frozen=True)
 class Settings:
-    # LLM (Llama via Ollama ou API hébergée, protocole OpenAI)
+    # LLM (Llama via Ollama or a hosted API, OpenAI protocol)
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "llama3.1:8b"
     llm_api_key: str = "ollama"
 
-    # Gemini Embedding 2 : un embedder parmi d'autres, désactivable
+    # Gemini Embedding 2: one embedder among others, can be disabled
     use_gemini: bool = True
     gemini_api_key: str = ""
     gemini_dim: int = 768
     gemini_model: str = "gemini-embedding-2"
 
-    # Recherche web
+    # Web search
     search_provider: str = "tavily"
     search_api_key: str = ""
 
-    # Embedders actifs
+    # Active embedders
     embedders: list[str] = field(default_factory=lambda: ["gemma", "peav", "gemini", "coverhunter", "hum2song"])
 
-    # Données
+    # Data
     data_dir: Path = PROJECT_ROOT / "data"
 
-    # ---- chemins dérivés ----
+    # ---- derived paths ----
     @property
     def cache_dir(self) -> Path:
         return self.data_dir / "cache"
@@ -74,8 +74,8 @@ class Settings:
 
     @property
     def active_embedders(self) -> list[str]:
-        """Embedders réellement utilisables : `gemini` est retiré si USE_GEMINI=false
-        ou si la clé est absente, sans casser le reste du système."""
+        """Embedders actually usable: `gemini` is removed if USE_GEMINI=false
+        or if the key is missing, without breaking the rest of the system."""
         active = list(self.embedders)
         if "gemini" in active and (not self.use_gemini or not self.gemini_api_key):
             active.remove("gemini")
@@ -89,7 +89,7 @@ class Settings:
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Charge `.env` (sans écraser l'environnement existant) et construit les réglages."""
+    """Load `.env` (without overriding the existing environment) and build the settings."""
     load_dotenv(PROJECT_ROOT / ".env", override=False)
     env = os.environ
 

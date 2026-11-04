@@ -1,11 +1,11 @@
-"""Paquet `core`. Réglages d'environnement à faire avant tout import de torch/faiss.
+"""Package `core`. Environment settings to apply before any import of torch/faiss.
 
-Sur macOS, faiss-cpu et PyTorch embarquent chacun un runtime OpenMP (libomp). Le second
-chargement avorte le processus (« OMP: Error #15 ») ; KMP_DUPLICATE_LIB_OK=TRUE le laisse
-continuer, mais des plantages (SIGSEGV dans __kmp_suspend) surviennent dès qu'un worker
-OpenMP est lancé (observé le 28/10 avec CoverHunter). OMP_NUM_THREADS=1 supprime les
-workers : les calculs lourds sont sur MPS, et FAISS sur 25 k vecteurs reste instantané.
-Ces valeurs sont des défauts : l'environnement peut les surcharger."""
+On macOS, faiss-cpu and PyTorch each ship their own OpenMP runtime (libomp). Loading the
+second one aborts the process ("OMP: Error #15"); KMP_DUPLICATE_LIB_OK=TRUE lets it
+continue, but crashes (SIGSEGV in __kmp_suspend) occur as soon as an OpenMP worker is
+started (observed on 28/10 with CoverHunter). OMP_NUM_THREADS=1 removes the workers:
+heavy computations run on MPS, and FAISS over 25k vectors remains instantaneous.
+These values are defaults: the environment can override them."""
 
 import os
 

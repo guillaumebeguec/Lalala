@@ -1,4 +1,4 @@
-"""Rapport `eval/catalog.md` : taille, couverture, répartitions (PLAN.md phase 1, validation)."""
+"""`eval/catalog.md` report: size, coverage, distributions (PLAN.md phase 1, validation)."""
 
 from __future__ import annotations
 
@@ -19,63 +19,63 @@ def write_catalog_report(df: pd.DataFrame, path: Path | None = None, previews: p
     n = len(df)
     src = df.sources.explode().value_counts()
     dec = (df.year // 10 * 10).value_counts().sort_index()
-    lang = df.language.fillna("inconnue").value_counts()
+    lang = df.language.fillna("unknown").value_counts()
     tot = df[df.is_tot_answer]
     lines = [
-        "# Catalogue — rapport de phase 1",
+        "# Catalogue — phase 1 report",
         "",
-        f"Généré depuis `data/catalog/catalog.parquet` ({n} morceaux, {int(df.in_dev.sum())} dans le sous-ensemble dev).",
+        f"Generated from `data/catalog/catalog.parquet` ({n} tracks, {int(df.in_dev.sum())} in the dev subset).",
         "",
-        "## Taille et sources",
+        "## Size and sources",
         "",
-        "| Source | Morceaux |", "|---|---|",
+        "| Source | Tracks |", "|---|---|",
         *[f"| {k} | {v} |" for k, v in src.items()],
         "",
-        "## Couverture des métadonnées",
+        "## Metadata coverage",
         "",
-        "| Champ | Couverture |", "|---|---|",
-        f"| identifiant Deezer | {_pct(df.deezer_id.notna().mean())} |",
+        "| Field | Coverage |", "|---|---|",
+        f"| Deezer identifier | {_pct(df.deezer_id.notna().mean())} |",
         f"| ISRC | {_pct(df.isrc.notna().mean())} |",
-        f"| URL d'extrait (métadonnée Deezer) | {_pct(df.preview_url.notna().mean())} |",
-        f"| année (métadonnée) | {_pct((df.year_source == 'meta').mean())} |",
-        f"| année (métadonnée ou playlist) | {_pct(df.year.notna().mean())} |",
+        f"| preview URL (Deezer metadata) | {_pct(df.preview_url.notna().mean())} |",
+        f"| year (metadata) | {_pct((df.year_source == 'meta').mean())} |",
+        f"| year (metadata or playlist) | {_pct(df.year.notna().mean())} |",
         f"| genre | {_pct(df.genre.notna().mean())} |",
-        f"| langue | {_pct(df.language.notna().mean())} |",
+        f"| language | {_pct(df.language.notna().mean())} |",
         f"| MusicBrainz | {_pct(df.musicbrainz_id.notna().mean())} |",
         "",
     ]
     if previews is not None and len(previews):
         ok = previews.status.eq("ok").mean()
-        lines += ["## Extraits audio", "", f"Extraits obtenus : {_pct(ok)} ({int(previews.status.eq('ok').sum())} / {len(previews)}).", ""]
+        lines += ["## Audio previews", "", f"Previews obtained: {_pct(ok)} ({int(previews.status.eq('ok').sum())} / {len(previews)}).", ""]
         by = previews.groupby("provider").status.apply(lambda s: s.eq("ok").mean())
-        lines += ["| Fournisseur | Taux |", "|---|---|", *[f"| {k} | {_pct(v)} |" for k, v in by.items()], ""]
+        lines += ["| Provider | Rate |", "|---|---|", *[f"| {k} | {_pct(v)} |" for k, v in by.items()], ""]
         if "resolved_by" in previews.columns:
             okp = previews[previews.status == "ok"]
             tot_ids = set(df[df.is_tot_answer].track_id)
-            lines += ["Mode de résolution des extraits (C1) :", "", "| Mode | Tous | Réponses ToT |", "|---|---|---|"]
+            lines += ["Preview resolution mode (C1):", "", "| Mode | All | ToT answers |", "|---|---|---|"]
             for mode in ("id", "isrc", "search", "itunes"):
                 n_all = int((okp.resolved_by == mode).sum())
                 n_tot = int((okp[okp.track_id.isin(tot_ids)].resolved_by == mode).sum())
                 lines.append(f"| {mode} | {n_all} | {n_tot} |")
             n_none = int((previews.status != "ok").sum()); n_none_tot = int((previews[previews.track_id.isin(tot_ids)].status != "ok").sum())
-            lines += [f"| non trouvé | {n_none} | {n_none_tot} |", ""]
+            lines += [f"| not found | {n_none} | {n_none_tot} |", ""]
     lines += [
-        "## Réponses ToT_Music",
+        "## ToT_Music answers",
         "",
-        f"{len(tot)} morceaux réponses distincts dans le catalogue, {_pct(tot.deezer_id.notna().mean())} avec identifiant Deezer courant.",
+        f"{len(tot)} distinct answer tracks in the catalogue, {_pct(tot.deezer_id.notna().mean())} with a current Deezer identifier.",
         "",
-        "## Répartition par décennie",
+        "## Breakdown by decade",
         "",
-        "| Décennie | Morceaux | dont ToT |", "|---|---|---|",
+        "| Decade | Tracks | of which ToT |", "|---|---|---|",
         *[f"| {int(d)}s | {int(c)} | {int(((tot.year // 10 * 10) == d).sum())} |" for d, c in dec.items()],
-        f"| inconnue | {int(df.year.isna().sum())} | {int(tot.year.isna().sum())} |",
+        f"| unknown | {int(df.year.isna().sum())} | {int(tot.year.isna().sum())} |",
         "",
-        "## Répartition par langue (métadonnée WASABI)",
+        "## Breakdown by language (WASABI metadata)",
         "",
-        "| Langue | Morceaux |", "|---|---|",
+        "| Language | Tracks |", "|---|---|",
         *[f"| {k} | {int(v)} |" for k, v in lang.head(12).items()],
         "",
-        f"Morceaux issus des playlists France (`country_hint = FR`) : {int(df.country_hint.eq('FR').sum())}.",
+        f"Tracks from the France playlists (`country_hint = FR`): {int(df.country_hint.eq('FR').sum())}.",
         "",
     ]
     path.write_text("\n".join(lines), encoding="utf-8")

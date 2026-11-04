@@ -23,5 +23,5 @@ def test_to_frame_year_fallback_and_dev_subset():
     mask = make_dev_subset(df, size=30, n_tot=5)
     sub = df[mask]
     assert len(sub) == 30 and sub.is_tot_answer.sum() == 5
-    # déterministe
+    # deterministic
     assert (make_dev_subset(df, size=30, n_tot=5) == mask).all()

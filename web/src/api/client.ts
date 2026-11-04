@@ -17,7 +17,7 @@ export const liveApi: SearchApi = {
       await readSse(res, onEvent, signal);
     } catch (e) {
       if (signal?.aborted) return;
-      // Repli : réponse JSON finale seule.
+      // Fallback: final JSON response only.
       const res = await fetch("/api/search", { method: "POST", body: form(input), signal });
       if (!res.ok) throw e instanceof Error ? e : new Error(String(e));
       const data = (await res.json()) as ResultEvent;

@@ -1,4 +1,4 @@
-// Tous les textes de l'interface (FRONT_PLAN.md § 3). Un seul endroit à modifier.
+// All UI copy (FRONT_PLAN.md § 3). Single place to edit.
 export const copy = {
   logo: "lalala",
   capture: {

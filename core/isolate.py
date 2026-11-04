@@ -1,17 +1,17 @@
-"""Isolation de la musique avec SAM Audio (Meta), phase 9.
+"""Music isolation with SAM Audio (Meta), phase 9.
 
-SAM Audio sépare une source décrite en texte (« music ») du reste (voix, bruit de salle). On
-l'applique aux enregistrements bruités avant l'empreinte et la similarité audio. Le modèle tourne
-dans un **sous-processus** avec son propre venv (voir `scripts/sam_runner*.py`) : le paquet officiel
-dépend de `perception_models`, qui installe un paquet Python `core` en conflit avec le nôtre, et le
-portage MLX a ses propres dépendances.
+SAM Audio separates a source described in text ("music") from the rest (voice, room noise). We
+apply it to noisy recordings before fingerprinting and audio similarity. The model runs
+in a **subprocess** with its own venv (see `scripts/sam_runner*.py`): the official package
+depends on `perception_models`, which installs a Python package named `core` that conflicts with ours, and the
+MLX port has its own dependencies.
 
-Moteurs, par ordre de préférence (`SAM_AUDIO_ENGINE=auto|mlx|torch|off`) :
-- `mlx`   : `data/raw/sam_audio/venv_mlx` + `mlx-community/sam-audio-base` (Apple Silicon natif) ;
-- `torch` : `data/raw/sam_audio/venv` + `facebook/sam-audio-base` (poids officiels, accès restreint, HF_TOKEN).
+Engines, in order of preference (`SAM_AUDIO_ENGINE=auto|mlx|torch|off`):
+- `mlx`  : `data/raw/sam_audio/venv_mlx` + `mlx-community/sam-audio-base` (native Apple Silicon);
+- `torch`: `data/raw/sam_audio/venv` + `facebook/sam-audio-base` (official weights, gated access, HF_TOKEN).
 
-Résultats mis en cache par hash du contenu (`data/cache/sam_audio/`). Toute erreur → `None` :
-l'appelant continue avec l'audio d'origine.
+Results cached by content hash (`data/cache/sam_audio/`). Any error → `None`:
+the caller continues with the original audio.
 """
 
 from __future__ import annotations
@@ -40,8 +40,8 @@ ENGINES = {
 
 
 def engine() -> str | None:
-    """Moteur disponible selon `SAM_AUDIO_ENGINE` et les venvs présents ; None si désactivé/absent."""
-    get_settings()  # charge .env (HF_TOKEN, SAM_AUDIO_ENGINE)
+    """Available engine according to `SAM_AUDIO_ENGINE` and the present venvs; None if disabled/absent."""
+    get_settings()  # loads .env (HF_TOKEN, SAM_AUDIO_ENGINE)
     want = os.environ.get("SAM_AUDIO_ENGINE", "auto").lower()
     if want in ("off", "0", "false", "none"):
         return None
@@ -55,7 +55,7 @@ def engine() -> str | None:
 
 def isolate_music(audio: bytes | tuple[np.ndarray, int], prompt: str = "music", timeout: float = 600.0,
                   sr_out: int = 16_000) -> tuple[bytes, dict] | None:
-    """Renvoie (wav mono `sr_out` de la musique isolée, infos {engine, seconds, sr}) ou None."""
+    """Return (mono wav at `sr_out` of the isolated music, info {engine, seconds, sr}) or None."""
     name = engine()
     if name is None:
         return None
@@ -72,7 +72,7 @@ def isolate_music(audio: bytes | tuple[np.ndarray, int], prompt: str = "music", 
         return cached, {**info, "cached": True}
 
     py, runner = ENGINES[name]
-    with tempfile.TemporaryDirectory(prefix="sam_") as tmp:   # hors du projet : évite le conflit de paquet `core`
+    with tempfile.TemporaryDirectory(prefix="sam_") as tmp:   # outside the project: avoids the `core` package conflict
         tmp = Path(tmp)
         (tmp / "in.wav").write_bytes(wav_in)
         cmd = [str(py), str(runner), "--in", str(tmp / "in.wav"), "--out", str(tmp / "out.wav"), "--prompt", prompt]
@@ -81,10 +81,10 @@ def isolate_music(audio: bytes | tuple[np.ndarray, int], prompt: str = "music", 
         try:
             proc = subprocess.run(cmd, cwd=tmp, env=env, capture_output=True, text=True, timeout=timeout)
         except subprocess.TimeoutExpired:
-            logger.warning("SAM Audio (%s) : délai dépassé (%.0f s)", name, timeout)
+            logger.warning("SAM Audio (%s): timeout exceeded (%.0f s)", name, timeout)
             return None
         if proc.returncode != 0 or not (tmp / "out.wav").exists():
-            logger.warning("SAM Audio (%s) : échec — %s", name, (proc.stderr or "").strip()[-400:])
+            logger.warning("SAM Audio (%s): failure — %s", name, (proc.stderr or "").strip()[-400:])
             return None
         try:
             info = json.loads([l for l in proc.stdout.splitlines() if l.startswith("{")][-1])
@@ -95,5 +95,5 @@ def isolate_music(audio: bytes | tuple[np.ndarray, int], prompt: str = "music", 
     info = {"engine": name, "seconds": round(time.time() - t0, 1), "sr": sr_y, "model": info.get("model")}
     cache.put_bytes(key, out, ext=".wav")
     cache.put(key + "_info", info)
-    logger.info("SAM Audio (%s) : %.1f s pour %.1f s d'audio", name, info["seconds"], len(x) / sr)
+    logger.info("SAM Audio (%s): %.1f s for %.1f s of audio", name, info["seconds"], len(x) / sr)
     return out, info

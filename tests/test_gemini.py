@@ -1,6 +1,6 @@
-"""Appel Gemini de test (texte court) : un vecteur de la dimension demandée.
+"""Gemini smoke test (short text): one vector of the requested dimension.
 
-Nécessite GEMINI_API_KEY ; ignoré sinon (voir conftest).
+Requires GEMINI_API_KEY; skipped otherwise (see conftest).
 """
 import pytest
 
@@ -16,7 +16,7 @@ def test_gemini_text_embedding_dimension():
     client = genai.Client(api_key=s.gemini_api_key)
     resp = client.models.embed_content(
         model=s.gemini_model,
-        # gemini-embedding-2 : pas de task_type, l'instruction est un préfixe texte (doc officielle)
+        # gemini-embedding-2: no task_type, the instruction is a text prefix (official docs)
         contents="task: search result | query: a slow piano ballad with a female voice",
         config=types.EmbedContentConfig(output_dimensionality=s.gemini_dim),
     )

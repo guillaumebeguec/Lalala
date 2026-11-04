@@ -5,7 +5,7 @@ import { Result } from "./screens/Result";
 import { Searching } from "./screens/Searching";
 import { SearchProvider, useSearch } from "./state/useSearch";
 
-/** `?replay=memory|cover|noisy` et `?scale=1.25` (FRONT_PLAN.md § 7). */
+/** `?replay=memory|cover|noisy` and `?scale=1.25` (FRONT_PLAN.md § 7). */
 function QueryOptions() {
   const [params] = useSearchParams();
   const { replay } = useSearch();

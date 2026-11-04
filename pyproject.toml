@@ -1,7 +1,7 @@
 [project]
 name = "lalala"
 version = "0.1.0"
-description = "Lalala (SoundTrace) : un Shazam amélioré qui retrouve une chanson à partir d'un souvenir, d'une reprise ou d'un son bruité"
+description = "Lalala: an improved Shazam that finds a song from a memory, a cover or a noisy recording"
 readme = "README.md"
 requires-python = ">=3.11,<3.12"
 dependencies = [
@@ -41,8 +41,8 @@ dependencies = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
-    "llm: tests qui appellent le LLM (Ollama) ; ignorés si le serveur n'est pas joignable",
-    "gemini: tests qui appellent l'API Gemini ; ignorés sans GEMINI_API_KEY",
+    "llm: tests that call the LLM (Ollama); skipped when the server is unreachable",
+    "gemini: tests that call the Gemini API; skipped without GEMINI_API_KEY",
 ]
 addopts = "-ra"
 

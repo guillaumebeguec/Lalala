@@ -3,7 +3,7 @@ import { copy } from "../copy";
 
 export type ListenState = "idle" | "recording" | "disabled";
 
-/** Disque de 168 px dans une zone de 300 px : cercle pointillé + cercle jaune + 3 points décoratifs. */
+/** 168 px disc inside a 300 px area: dotted circle + yellow circle + 3 decorative dots. */
 export function ListenButton({ state, level = 0, seconds = 0, onClick }: { state: ListenState; level?: number; seconds?: number; onClick: () => void }) {
   const reduce = useReducedMotion();
   const recording = state === "recording";

@@ -1,4 +1,4 @@
-"""Utilitaires communs aux jeux de test : écriture JSONL figée, graine, statistiques."""
+"""Utilities shared by the test sets: frozen JSONL output, seed, statistics."""
 
 from __future__ import annotations
 

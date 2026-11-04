@@ -1,23 +1,22 @@
-"""Appariement mélodique direct (requête fredonnée ↔ contours du catalogue), sans modèle appris.
+"""Direct melodic matching (hummed query <-> catalogue contours), without a learned model.
 
-Constat du 29/10 : hum2song (embeddings de contours, entraîné sur chansons complètes + voix
-séparée) retrouve < 3 % des fredonnements CHAD et rate même des fredonnements *synthétiques*
-rendus depuis la mélodie de l'extrait lui-même. Ici on revient à la méthode classique de la
-recherche par fredonnement (query-by-humming) : aligner le contour de hauteur de la requête
-sur les contours des extraits, avec tolérance à la **transposition** (la voix ne chante pas
-dans la tonalité du disque), au **tempo** (facteurs 0,8–1,25) et aux **trous** (trames non
-voisées ignorées).
+Finding from 29/10: hum2song (contour embeddings, trained on full songs + separated
+vocals) retrieves < 3% of CHAD hums and even misses *synthetic* hums rendered from
+the melody of the preview itself. Here we go back to the classic query-by-humming
+method: align the pitch contour of the query onto the contours of the previews, with
+tolerance to **transposition** (the voice does not sing in the key of the record), to
+**tempo** (factors 0.8–1.25) and to **gaps** (unvoiced frames ignored).
 
-- Contours : RMVPE (même traceur que hum2song), trames de 20 ms, hauteur en demi-tons MIDI,
-  NaN quand la trame n'est pas voisée. Catalogue : `ContourStore` (`data/index/contours_<subset>.npz`,
-  construit par `scripts/build_contours.py`).
-- Score d'une fenêtre = 1 − erreur / 3, où l'erreur est la moyenne tronquée (à 3 demi-tons) de
-  |contour − requête − transposition| sur les trames voisées des deux côtés ; la transposition est
-  la moyenne des écarts, raffinée une fois en écartant les trames à plus de 2 demi-tons (erreurs
-  d'octave). Score du morceau = max sur les positions (pas de 100 ms) et les tempos.
+- Contours: RMVPE (same tracker as hum2song), 20 ms frames, pitch in MIDI semitones,
+  NaN when the frame is unvoiced. Catalogue: `ContourStore` (`data/index/contours_<subset>.npz`,
+  built by `scripts/build_contours.py`).
+- Score of a window = 1 − error / 3, where the error is the truncated mean (at 3 semitones) of
+  |contour − query − transposition| over the frames voiced on both sides; the transposition is
+  the mean of the differences, refined once by discarding frames more than 2 semitones away (octave
+  errors). Track score = max over positions (100 ms hop) and tempos.
 
-Coût : ≈ 4–8 s par requête de 10 s sur 2 000 extraits (numpy, par lots) ; cache des contours
-par hash du contenu audio.
+Cost: ≈ 4–8 s per 10 s query over 2,000 previews (numpy, batched); contours cached
+by audio content hash.
 """
 
 from __future__ import annotations
@@ -32,31 +31,31 @@ from core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-FRAME_S = 0.02            # pas des contours (RMVPE sort du 10 ms, on moyenne par deux)
-MIN_CONF = 0.3            # saillance RMVPE minimale pour une trame voisée
+FRAME_S = 0.02            # contour hop (RMVPE outputs 10 ms, averaged by pairs)
+MIN_CONF = 0.3            # minimum RMVPE salience for a voiced frame
 F0_MIN, F0_MAX = 60.0, 1100.0
 TEMPOS = (0.8, 0.9, 1.0, 1.12, 1.25)
-HOP = 5                   # pas de glissement sur le catalogue, en trames décimées (5 × 40 ms = 200 ms)
-DECIM = 2                 # trames de 40 ms à l'appariement
-MAX_DEV = 3.0             # écart (demi-tons) au-delà duquel une trame compte comme « fausse »
-MIN_OVERLAP = 0.5         # part minimale des trames voisées de la requête couvertes par la fenêtre
-MIN_QUERY_FRAMES = 20     # 0,8 s voisée au moins (trames décimées)
+HOP = 5                   # sliding hop over the catalogue, in decimated frames (5 x 40 ms = 200 ms)
+DECIM = 2                 # 40 ms frames at matching time
+MAX_DEV = 3.0             # deviation (semitones) beyond which a frame counts as "wrong"
+MIN_OVERLAP = 0.5         # minimum share of the query's voiced frames covered by the window
+MIN_QUERY_FRAMES = 20     # at least 0.8 s voiced (decimated frames)
 
 
 def contour_from_track(track: np.ndarray, min_conf: float = MIN_CONF) -> np.ndarray:
-    """(2, trames 10 ms) [F0 Hz, saillance] → demi-tons MIDI à 20 ms, NaN si non voisé."""
+    """(2, 10 ms frames) [F0 Hz, salience] → MIDI semitones at 20 ms, NaN if unvoiced."""
     f0, conf = np.asarray(track[0], dtype=np.float64), np.asarray(track[1], dtype=np.float64)
     voiced = (conf > min_conf) & (f0 > F0_MIN) & (f0 < F0_MAX)
     semi = np.where(voiced, 12.0 * np.log2(np.maximum(f0, 1.0) / 440.0) + 69.0, np.nan)
     n = (len(semi) // 2) * 2
     pairs = semi[:n].reshape(-1, 2)
     with np.errstate(all="ignore"):
-        out = np.nanmean(pairs, axis=1)   # une trame sur deux voisée suffit
+        out = np.nanmean(pairs, axis=1)   # one voiced frame out of two is enough
     return out.astype(np.float32)
 
 
 def _resample_tempo(q: np.ndarray, tempo: float) -> np.ndarray:
-    """Étire/compresse la requête : tempo 1,25 = la personne a chanté plus vite que le disque."""
+    """Stretch/compress the query: tempo 1.25 = the person sang faster than the record."""
     m = max(1, int(round(len(q) * tempo)))
     idx = np.clip(np.round(np.linspace(0, len(q) - 1, m)).astype(int), 0, len(q) - 1)
     return q[idx]
@@ -65,7 +64,7 @@ def _resample_tempo(q: np.ndarray, tempo: float) -> np.ndarray:
 @dataclass
 class ContourStore:
     ids: list[str]
-    data: np.ndarray          # (n, T) float32, NaN = non voisé ou au-delà de la longueur
+    data: np.ndarray          # (n, T) float32, NaN = unvoiced or beyond the length
 
     @staticmethod
     def path(subset: str, provider: str | None = None) -> Path:
@@ -74,7 +73,7 @@ class ContourStore:
 
     @classmethod
     def paths(cls, subset: str) -> list[Path]:
-        """Magasin principal (extraits Deezer) + fenêtres supplémentaires (`contours_<subset>_itunes.npz`…)."""
+        """Main store (Deezer previews) + extra windows (`contours_<subset>_itunes.npz`...)."""
         base = cls.path(subset)
         extra = sorted(base.parent.glob(f"contours_{subset}_*.npz"))
         return [p for p in [base] + extra if p.exists()]
@@ -89,8 +88,8 @@ class ContourStore:
 
     @classmethod
     def load(cls, subset: str, merge: bool = True) -> "ContourStore":
-        """Charge le magasin ; avec `merge`, concatène les fenêtres supplémentaires (un même id peut
-        apparaître plusieurs fois : `match` garde le meilleur alignement par morceau)."""
+        """Load the store; with `merge`, concatenate the extra windows (the same id may
+        appear several times: `match` keeps the best alignment per track)."""
         paths = cls.paths(subset) if merge else [cls.path(subset)]
         ids: list[str] = []
         blocks: list[np.ndarray] = []
@@ -127,7 +126,7 @@ class ContourStore:
 
 
 def _score_batch(D: np.ndarray, q: np.ndarray, hop: int) -> tuple[np.ndarray, np.ndarray]:
-    """D (b, T), q (m,) → meilleur score (b,) et position (b,) sur les fenêtres glissantes."""
+    """D (b, T), q (m,) → best score (b,) and position (b,) over the sliding windows."""
     b, T = D.shape
     m = len(q)
     qv = ~np.isnan(q)
@@ -136,14 +135,14 @@ def _score_batch(D: np.ndarray, q: np.ndarray, hop: int) -> tuple[np.ndarray, np
         pad = np.full((b, m - T), np.nan, dtype=np.float32)
         D = np.concatenate([D, pad], axis=1)
         T = m
-    W = np.lib.stride_tricks.sliding_window_view(D, m, axis=1)[:, ::hop, :]   # (b, P, m) vue sans copie
+    W = np.lib.stride_tricks.sliding_window_view(D, m, axis=1)[:, ::hop, :]   # (b, P, m) view without copy
     with np.errstate(all="ignore"):
-        diff = W - q                                                # NaN si l'un des deux n'est pas voisé
+        diff = W - q                                                # NaN if either side is unvoiced
         both = ~np.isnan(diff)
         overlap = both.sum(axis=2)                                  # (b, P)
         d0 = np.where(both, diff, 0.0)
-        shift = d0.sum(axis=2) / np.maximum(overlap, 1)             # transposition : moyenne des écarts
-        keep = both & (np.abs(diff - shift[..., None]) < 2.0)       # raffinement : on écarte les erreurs d'octave
+        shift = d0.sum(axis=2) / np.maximum(overlap, 1)             # transposition: mean of the differences
+        keep = both & (np.abs(diff - shift[..., None]) < 2.0)       # refinement: discard octave errors
         n_keep = keep.sum(axis=2)
         shift = np.where(n_keep > 0, np.where(keep, diff, 0.0).sum(axis=2) / np.maximum(n_keep, 1), shift)
         dev = np.minimum(np.abs(diff - shift[..., None]), MAX_DEV)
@@ -156,13 +155,13 @@ def _score_batch(D: np.ndarray, q: np.ndarray, hop: int) -> tuple[np.ndarray, np
 
 def match(query: np.ndarray, store: ContourStore, top: int = 20, tempos: tuple[float, ...] = TEMPOS,
           hop: int = HOP, batch: int = 128, decim: int = DECIM) -> list[tuple[str, float, float]]:
-    """Classement du catalogue pour un contour de requête : [(track_id, score 0–1, position s)].
-    `decim` sous-échantillonne requête et catalogue (2 → trames de 40 ms, ≈ 4× plus rapide)."""
+    """Ranking of the catalogue for a query contour: [(track_id, score 0–1, position s)].
+    `decim` subsamples query and catalogue (2 → 40 ms frames, ≈ 4x faster)."""
     q = np.asarray(query, dtype=np.float32)[::decim]
     data = store.data[:, ::decim]
     voiced = ~np.isnan(q)
     if voiced.sum() < MIN_QUERY_FRAMES:
-        logger.info("mélodie : requête trop peu voisée (%d trames)", int(voiced.sum()))
+        logger.info("melody: query has too few voiced frames (%d frames)", int(voiced.sum()))
         return []
     first, last = np.argmax(voiced), len(q) - np.argmax(voiced[::-1])
     q = q[first:last]
@@ -176,7 +175,7 @@ def match(query: np.ndarray, store: ContourStore, top: int = 20, tempos: tuple[f
             better = sc > best[s : s + batch]
             best[s : s + batch] = np.where(better, sc, best[s : s + batch])
             pos[s : s + batch] = np.where(better, p, pos[s : s + batch])
-    # un morceau présent sous plusieurs fenêtres (Deezer, iTunes) : on garde son meilleur alignement
+    # a track present under several windows (Deezer, iTunes): keep its best alignment
     seen: dict[str, int] = {}
     for i in np.argsort(-best):
         if best[i] <= 0:

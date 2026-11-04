@@ -41,7 +41,7 @@ def test_dont_know_is_uninformative():
 def test_other_hypothesis_grows_on_contradiction():
     b = Belief.from_candidates(SCORED, META, temperature=1.0, p_other=0.1, epsilon=0.05)
     b.update("language", "autre langue", ["français", "anglais", "autre langue"])
-    assert b.p_other > 0.5  # aucun candidat ne colle : « autre » domine
+    assert b.p_other > 0.5  # no candidate fits: "other" dominates
 
 
 def test_merge_candidates_redistributes_other_mass():
@@ -62,7 +62,7 @@ def test_policy_stops_when_confident():
     class A:
         tools = T()
     pol = ig_policy(stop_prob=0.7, temperature=0.1, p_other=0.05)
-    assert pol(A(), S()) is None  # « a » domine déjà
+    assert pol(A(), S()) is None  # "a" already dominates
     S2 = type("S2", (), {"candidates": {k: C(k, 1.0, META[k]["year"]) for k in META}, "questions": []})()
     q = pol(A(), S2)
     assert q and q["options"] and "expected_gain" in q

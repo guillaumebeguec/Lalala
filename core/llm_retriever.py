@@ -1,14 +1,14 @@
-"""Llama comme moteur de recherche à part entière (recommandation n° 1).
+"""Llama as a full-fledged search engine (recommendation no. 1).
 
-Pour un souvenir décrit en mots, le meilleur signal est souvent la connaissance du modèle :
-on lui demande « quelles chansons correspondent à cette description ? » (titre + artiste +
-année, avec une confiance), puis on **résout** chaque proposition dans le catalogue (titre /
-artiste normalisés, similarité ≥ 0,85). Les titres non résolus sont renvoyés à part
-(candidats « hors catalogue », à vérifier par le web), jamais injectés comme certitudes.
+For a memory described in words, the best signal is often the model's own knowledge:
+we ask it "which songs match this description?" (title + artist + year, with a
+confidence), then **resolve** each proposal in the catalogue (normalised title /
+artist, similarity >= 0.85). Unresolved titles are returned separately
+("off-catalogue" candidates, to be checked via the web), never injected as certainties.
 
-Un Llama 8B connaît mal les morceaux ; un modèle plus gros via API (LLM_BASE_URL / LLM_MODEL)
-change l'échelle : `LLM_RETRIEVER_MODEL` permet d'utiliser un modèle différent pour cette
-seule étape. Cache par hash de la description.
+An 8B Llama has poor knowledge of songs; a bigger model via API (LLM_BASE_URL / LLM_MODEL)
+changes the scale: `LLM_RETRIEVER_MODEL` allows using a different model for this
+single step. Cached by description hash.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def propose(description: str, model: str | None = None, max_items: int = 8) -> l
                          json_schema=SCHEMA, temperature=0.2, max_tokens=700, model=model)
             hit = r.json or {"candidates": []}
         except llm.LLMError as e:
-            logger.warning("llm_retriever : %s", e)
+            logger.warning("llm_retriever: %s", e)
             hit = {"candidates": []}
         cache.put(key, hit)
     out: list[LLMCandidate] = []
@@ -78,7 +78,7 @@ def propose(description: str, model: str | None = None, max_items: int = 8) -> l
         if not isinstance(c, dict) or not c.get("title") or not c.get("artist"):
             continue
         k = (str(c["title"]).strip().lower(), str(c["artist"]).strip().lower())
-        if k in seen:   # le 8B répète souvent ses propositions
+        if k in seen:   # the 8B often repeats its proposals
             continue
         seen.add(k)
         try:

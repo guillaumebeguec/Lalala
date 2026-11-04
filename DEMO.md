@@ -1,108 +1,108 @@
-# DEMO.md — Scénario de démo et stratégie de données
+# DEMO.md — Demo scenario and data strategy
 
-## 1. Le message à faire passer
+## 1. The message to get across
 
-> « Shazam reconnaît un **enregistrement**. SoundTrace retrouve une **chanson** : à partir d'un souvenir, d'une reprise ou d'un son capté dans le bruit. »
+> "Shazam recognizes a **recording**. Lalala finds a **song**: from a memory, a cover, or a sound captured in the noise."
 
-Le jury doit repartir avec trois images :
-1. un agent qui **pose la bonne question** et dont on voit l'incertitude fondre ;
-2. Shazam qui **échoue en direct** sur une reprise, SoundTrace qui réussit ;
-3. un tableau de résultats chiffrés contre des baselines sérieuses.
+The jury should leave with three images in mind:
+1. an agent that **asks the right question**, with its uncertainty visibly melting away;
+2. Shazam **failing live** on a cover, Lalala succeeding;
+3. a table of hard numbers against serious baselines.
 
-Thème du hackathon visé : **Build for Your World** (problème vécu par tout le monde), avec une profondeur technique qui touche à « Push the Frontier » (recherche cross-modale, inférence bayésienne).
+Target hackathon theme: **Build for Your World** (a problem everyone has had), with technical depth that touches "Push the Frontier" (cross-modal retrieval, Bayesian inference).
 
 ---
 
 ## 2. Storyboard (3 minutes)
 
-| Temps | Scène | Ce qu'on montre | Ce qui doit marcher |
+| Time | Scene | What we show | What has to work |
 |---|---|---|---|
-| 0:00–0:20 | **Le problème** | « Vous avez tous déjà eu un air en tête sans pouvoir le nommer. Shazam ne sert à rien sans le son. » Chiffre : des milliers de demandes de ce type sur r/TipOfMyTongue. | Une diapo |
-| 0:20–1:20 | **Scène 1 — Le souvenir** | Une personne du jury décrit un morceau de mémoire. L'agent pose 1 à 3 questions en boutons. Le panneau montre les hypothèses et **la courbe d'entropie qui chute**. Proposition avec extrait de 30 s pour confirmer. | Agent + gain d'information + catalogue grand public |
-| 1:20–2:10 | **Scène 2 — La reprise** | On joue une reprise piano ou acoustique d'un tube depuis un téléphone. **Shazam en direct sur un second téléphone : échec.** SoundTrace : le titre original en tête. | Recherche audio sémantique robuste aux reprises |
-| 2:10–2:35 | **Scène 3 — Le bruit** (ou la vidéo, selon ce qui est le plus fiable en répétition) | Morceau joué avec du brouhaha de café ; SAM Audio isole la musique ; on entend l'avant/après ; match. Variante : extrait de pub vidéo de 5 s. | SAM Audio ou PE-AV vidéo |
-| 2:35–3:00 | **Résultats et stack** | Tableau : SoundTrace contre BM25, embedding brut, empreinte audio (type Shazam). Diapo d'architecture : Llama, PE-AV, SAM Audio, FAISS (+ Gemini Embedding 2 en fusion). | `eval/` à jour |
+| 0:00–0:20 | **The problem** | "You've all had a tune stuck in your head without being able to name it. Shazam is useless without the sound." Figure: thousands of requests of this kind on r/TipOfMyTongue. | One slide |
+| 0:20–1:20 | **Scene 1 — The memory** | A jury member describes a track from memory. The agent asks 1 to 3 questions as buttons. The panel shows the hypotheses and **the entropy curve dropping**. A proposal with a 30 s clip to confirm. | Agent + information gain + mainstream catalogue |
+| 1:20–2:10 | **Scene 2 — The cover** | We play a piano or acoustic cover of a hit from a phone. **Shazam live on a second phone: fails.** Lalala: the original title at the top. | Semantic audio search robust to covers |
+| 2:10–2:35 | **Scene 3 — The noise** (or the video, whichever proves more reliable in rehearsal) | A track played with café chatter; SAM Audio isolates the music; we hear before/after; match. Variant: a 5 s video ad clip. | SAM Audio or PE-AV video |
+| 2:35–3:00 | **Results and stack** | Table: Lalala against BM25, raw embedding, audio fingerprint (Shazam-style). Architecture slide: Llama, PE-AV, SAM Audio, FAISS (+ Gemini Embedding 2 in fusion). | `eval/` up to date |
 
-**Règle d'or** : chaque scène a un **cas de secours répété** (bouton « rejouer » qui rejoue une session enregistrée) si le direct déraille.
+**Golden rule**: every scene has a **rehearsed fallback** (a "replay" button that replays a recorded session) in case the live run goes wrong.
 
-### Scène 1 : comment la sécuriser
-- Le jury choisit son morceau, donc le catalogue doit être **large côté grand public** (tubes 1970–2025, musiques de pubs et de séries connues en France et à l'international).
-- Préparer 5 cas répétés qui marchent à coup sûr, à proposer si la personne du jury sèche (« Pensez à une pub, ou à un générique de série… »).
-- Si la personne pense à un morceau hors catalogue, l'agent bascule sur la recherche web : la démo reste valable, le journal montre l'enquête.
+### Scene 1: how to make it safe
+- The jury picks the track, so the catalogue has to be **broad on the mainstream side** (hits from 1970–2025, well-known ad and TV series music in France and internationally).
+- Prepare 5 rehearsed cases that work every time, to suggest if the jury member draws a blank ("Think of an ad, or a TV series theme...").
+- If the person thinks of a track outside the catalogue, the agent switches to web search: the demo still holds, the log shows the investigation.
 
-### Scène 2 : pourquoi c'est la scène clé
-- C'est le seul moment où l'on **bat un produit que tout le monde connaît, en direct**. L'empreinte audio (Shazam, Chromaprint) compare des enregistrements exacts : une reprise est un autre enregistrement. Un embedding sémantique compare des contenus musicaux.
-- À valider absolument en phase 4 : si aucun embedder ne retrouve les originaux à partir de reprises (top-5 < 50 %), remplacer la scène 2 par la vidéo et ne pas promettre les reprises.
-- Choisir pour la démo 3 reprises **instrumentales** (piano, guitare) de tubes très connus, où la mélodie est intacte mais le timbre totalement différent.
+### Scene 2: why it is the key scene
+- It is the only moment where we **beat a product everyone knows, live**. Audio fingerprinting (Shazam, Chromaprint) compares exact recordings: a cover is a different recording. A semantic embedding compares musical content.
+- Must be validated in phase 4: if no embedder finds the originals from covers (top-5 < 50 %), replace scene 2 with the video and do not promise covers.
+- For the demo, pick 3 **instrumental** covers (piano, guitar) of very well-known hits, where the melody is intact but the timbre is completely different.
 
-### Scène 3 : vidéo ou bruit
-- Bruit : spectaculaire si on fait entendre l'avant/après SAM Audio. Risque : latence de SAM Audio sur Mac.
-- Vidéo : simple et visuel. Risque : limité à 80 s avec audio côté Gemini, et dépendance au réseau.
-- Décider en répétition (J6) sur la base de la fiabilité mesurée, pas de l'envie.
+### Scene 3: video or noise
+- Noise: spectacular if we let people hear the SAM Audio before/after. Risk: SAM Audio latency on Mac.
+- Video: simple and visual. Risk: limited to 80 s with audio on the Gemini side, and dependent on the network.
+- Decide in rehearsal (D6) based on measured reliability, not on what we would like.
 
 ---
 
 
-### Décisions prises sur les chiffres (29/10/2026, panel dev de 2 124 morceaux, `eval/retrieval.md`)
+### Decisions taken on the numbers (29/10/2026, dev panel of 2,124 tracks, `eval/retrieval.md`)
 
-- **Scène 2 (reprise)** : seuil de 50 % en top-5 **non atteint**. Reprises T4 (44 cas) : Gemma audio 25 % top-5, CoverHunter 18 % top-5 (11 % top-1), meilleure fusion 32 % top-10 ; fenêtres glissantes CoverHunter : gain marginal. Cause structurelle : la reprise et l'original ne sont connus que par deux extraits de 30 s à des positions différentes du morceau. Conséquence : **ne pas promettre les reprises en direct** ; si on veut garder une reprise en démo, choisir à l'avance une paire dont les deux extraits se recouvrent (vérifiée à l'écoute) et la rejouer.
-- **Scène 3 (bruit)** : solide sans SAM Audio sur le bruit synthétique MUSAN : empreinte (audfprint ou Chromaprint) 87 % top-1 ; avec l'index audio PE-AV (30/10, 2 063 extraits : seul 30 % top-1 / 50 % top-10 sur T3, 14 % / 23 % sur T4, un peu sous Gemma) la fusion RRF k=10 monte à **93 % top-1 / 100 % top-5** sur T3 ; auparavant fusion 97 % top-10 à 0/5/10 dB. Reste à valider sur les 20 vrais enregistrements de café (`data/manual/real_recordings/`) : c'est le vrai juge de « Shazam échoue, nous réussissons ». **SAM Audio (29/10, `eval/sam_audio.md`, 20 cas ≤ 5 dB)** : la séparation générative n'est pas fidèle à l'échantillon — empreinte 80 % → 45 % sur l'audio isolé, Gemma 15 % → 5 % — mais rattrape un cas (85 % en brut *ou* isolé) ; 38 s par extrait (MLX). Gardé comme **seconde chance pour l'empreinte seulement**, l'audio brut sert à la similarité. À l'écran : étape « Isolating the music » visible, honnête sur son apport.
-- **Fredonnement (scène bonus, PLAN_COMPLEMENTS C4)** : les embedders généralistes sont à ~0 sur 393 fredonnements humains (CHAD). hum2song : sur 6 fredonnements face à 36 morceaux, 2/6 en top-5 avec le contour du mixage ; la séparation de voix par Demucs (54 s par extrait) fait **moins bien** (1/6) et les fenêtres glissantes n'apportent rien → contour du mixage, sans Demucs. Sur les 393 cas CHAD face au panel de 2 124 morceaux : hum2song **0,5 % top-1 / 2,3 % top-5 / 3,6 % top-10** (fragments en début de morceau : 3,5 % top-5), tous les autres systèmes à 0. **Décision : pas de scène « fredonnement pur »** avec des références de 30 s. Voies retenues : (a) **paroles chantées** → transcription Whisper → empreintes de paroles (hachés de n-grammes, 21 015 morceaux) + Llama + fiches : sur 12 extraits de 10 s de chant studio, 5 top-1, les 7 échecs sont des échecs de transcription ; en production dans l'API (détection voix seule calibrée : rappel 0,93, faux positifs 0,13 sur CHAD) ; (b) éventuel panel réduit préparé pour une scène bonus fredonnement. **Mise à jour 29/10 16 h 40** : hum2song rate même des fredonnements *synthétiques* rendus depuis la mélodie de l'extrait (1/6 en top-3) alors que RMVPE les suit à 0,2 demi-ton près → c'est l'embedder appris qui échoue, pas la voix. Remplacé par un **appariement mélodique direct** (`core/melody.py` : alignement des contours, tolérant transposition, tempo 0,8–1,25 et silences, 3,2 s par requête sur 2 063 contours). Sur les **393 fredonnements CHAD** : **16,0 % top-1 / 21,1 % top-5 / 24,9 % top-10, MRR 0,19** (30× hum2song) ; 6/6 top-1 sur les synthétiques. Plafond structurel : le fragment fredonné est souvent hors des 30 s de l'extrait. **Décision révisée : scène fredonnement possible** avec des morceaux dont le passage fredonné est dans l'extrait (vérifier à l'avance ; `scripts/record_queries.py --mode hum` pour s'entraîner), hum2song relégué en vote secondaire. **Mise à jour 29/10 21 h 50** : seconde fenêtre de 30 s par morceau (extrait iTunes, 1 819 morceaux sur 2 064 ; `scripts/build_contours.py --provider itunes`, magasins fusionnés, meilleur alignement par morceau) → **19,6 % top-1 / 26,5 % top-5 / 29,8 % top-10, MRR 0,23** sur les 393 CHAD (fragments en fin de morceau : 23,5 % top-1, 37,3 % top-5), 6/6 synthétiques ; 7 s par requête sur 3 882 contours.
-- **Scène 1 (souvenir, texte)** : sur 43 demandes réelles ToT dont la réponse est dans le panel, EmbeddingGemma 2 texte→fiches 14 % top-1 / 26 % top-10, fusion 30 % top-10 ; BM25 7 % top-10. Un Llama plus gros comme moteur de recherche (recommandation 1) est le levier attendu.
+- **Scene 2 (cover)**: 50 % top-5 threshold **not reached**. T4 covers (44 cases): Gemma audio 25 % top-5, CoverHunter 18 % top-5 (11 % top-1), best fusion 32 % top-10; CoverHunter sliding windows: marginal gain. Structural cause: the cover and the original are only known through two 30 s clips taken at different positions in the song. Consequence: **do not promise covers live**; if we want to keep a cover in the demo, pick in advance a pair whose two clips overlap (checked by ear) and replay it.
+- **Scene 3 (noise)**: solid without SAM Audio on synthetic MUSAN noise: fingerprint (audfprint or Chromaprint) 87 % top-1; with the PE-AV audio index (30/10, 2,063 clips: alone 30 % top-1 / 50 % top-10 on T3, 14 % / 23 % on T4, slightly below Gemma) the RRF k=10 fusion climbs to **93 % top-1 / 100 % top-5** on T3; previously fusion 97 % top-10 at 0/5/10 dB. Still to validate on the 20 real café recordings (`data/manual/real_recordings/`): that is the real judge of "Shazam fails, we succeed". **SAM Audio (29/10, `eval/sam_audio.md`, 20 cases ≤ 5 dB)**: generative separation is not faithful to the sample — fingerprint 80 % → 45 % on the isolated audio, Gemma 15 % → 5 % — but it rescues one case (85 % on raw *or* isolated); 38 s per clip (MLX). Kept as a **second chance for the fingerprint only**, the raw audio is used for similarity. On screen: an "Isolating the music" step is visible, honest about what it contributes.
+- **Humming (bonus scene, PLAN_COMPLEMENTS C4)**: general-purpose embedders are at ~0 on 393 human hums (CHAD). hum2song: on 6 hums against 36 tracks, 2/6 in the top-5 with the contour of the mix; vocal separation with Demucs (54 s per clip) does **worse** (1/6) and sliding windows bring nothing → contour of the mix, no Demucs. On the 393 CHAD cases against the 2,124-track panel: hum2song **0.5 % top-1 / 2.3 % top-5 / 3.6 % top-10** (fragments at the start of the song: 3.5 % top-5), every other system at 0. **Decision: no "pure humming" scene** with 30 s references. Paths kept: (a) **sung lyrics** → Whisper transcription → lyric fingerprints (hashed n-grams, 21,015 tracks) + Llama + song cards: on 12 clips of 10 s of studio singing, 5 top-1, the 7 failures are all transcription failures; in production in the API (calibrated voice-only detection: recall 0.93, false positives 0.13 on CHAD); (b) possibly a reduced panel prepared for a bonus humming scene. **Update 29/10 16:40**: hum2song misses even *synthetic* hums rendered from the clip's melody (1/6 in top-3) while RMVPE tracks them to within 0.2 semitones → it is the learned embedder that fails, not the voice. Replaced by **direct melodic matching** (`core/melody.py`: contour alignment, tolerant to transposition, tempo 0.8–1.25 and silences, 3.2 s per query over 2,063 contours). On the **393 CHAD hums**: **16.0 % top-1 / 21.1 % top-5 / 24.9 % top-10, MRR 0.19** (30× hum2song); 6/6 top-1 on the synthetic ones. Structural ceiling: the hummed fragment is often outside the clip's 30 s. **Revised decision: a humming scene is possible** with tracks whose hummed passage is inside the clip (check in advance; `scripts/record_queries.py --mode hum` to practice), hum2song relegated to a secondary vote. **Update 29/10 21:50**: a second 30 s window per track (iTunes clip, 1,819 tracks out of 2,064; `scripts/build_contours.py --provider itunes`, merged stores, best alignment per track) → **19.6 % top-1 / 26.5 % top-5 / 29.8 % top-10, MRR 0.23** on the 393 CHAD (fragments at the end of the song: 23.5 % top-1, 37.3 % top-5), 6/6 synthetic; 7 s per query over 3,882 contours.
+- **Scene 1 (memory, text)**: on 43 real ToT requests whose answer is in the panel, EmbeddingGemma 2 text→cards 14 % top-1 / 26 % top-10, fusion 30 % top-10; BM25 7 % top-10. A bigger Llama as the search engine (recommendation 1) is the expected lever.
 
 ---
 
-## 3. Stratégie de données
+## 3. Data strategy
 
-### 3.1 Pourquoi pas FMA
-FMA est libre mais ne contient **aucun morceau connu**. Or tout l'intérêt de la démo, c'est que le jury cherche des morceaux qu'il connaît. Il faut donc un **catalogue grand public**, dont on ne stocke que des métadonnées, des embeddings et des extraits mis en cache localement.
+### 3.1 Why not FMA
+FMA is free but contains **no well-known track**. The whole point of the demo is that the jury searches for tracks they know. So we need a **mainstream catalogue**, of which we only store metadata, embeddings and locally cached clips.
 
-### 3.2 Catalogue grand public (cœur du système)
+### 3.2 Mainstream catalogue (core of the system)
 
-| Brique | Source | Usage | À vérifier |
+| Building block | Source | Use | To check |
 |---|---|---|---|
-| Métadonnées de chansons | **WASABI Song Corpus** (≈ 2 M chansons, métadonnées enrichies, liens vers des identifiants externes dont Deezer d'après sa documentation) | Titre, artiste, année, genre, identifiants | Licence, présence effective des identifiants Deezer |
-| Extraits audio de 30 s | **API Deezer** (champ `preview` de l'endpoint de recherche) ; **iTunes Search API** en repli (`previewUrl`) | Embeddings audio, écoute de confirmation | Conditions d'utilisation, limites de débit |
-| Contexte des morceaux | Wikipédia / Wikidata (résumé, année, usages notables) ; MusicBrainz pour dédoublonner | « Fiche morceau » texte | — |
-| Usages pubs / séries / films | Recherche web au moment de la requête (Tunefind, sites de musiques de pub, forums) ; pas de scraping massif | L'agent s'en sert en direct | — |
-| Paroles | **Pas stockées.** Fragments de paroles cherchés via le web au moment de la requête | Indice « je me souviens d'un bout de refrain » | — |
+| Song metadata | **WASABI Song Corpus** (≈ 2 M songs, enriched metadata, links to external identifiers including Deezer according to its documentation) | Title, artist, year, genre, identifiers | Licence, actual presence of Deezer identifiers |
+| 30 s audio clips | **Deezer API** (`preview` field of the search endpoint); **iTunes Search API** as fallback (`previewUrl`) | Audio embeddings, confirmation listening | Terms of use, rate limits |
+| Track context | Wikipedia / Wikidata (summary, year, notable uses); MusicBrainz for deduplication | Text "song card" | — |
+| Uses in ads / series / films | Web search at query time (Tunefind, ad music sites, forums); no mass scraping | The agent uses it live | — |
+| Lyrics | **Not stored.** Lyric fragments searched on the web at query time | "I remember a bit of the chorus" clue | — |
 
-**Composition visée : 20 000 à 30 000 morceaux.**
-1. Tous les morceaux réponses du jeu ToT_Music (voir 3.3) présents dans WASABI avec un extrait disponible : indispensable pour évaluer.
-2. Tubes par décennie (1970–2025), France et international : charts, playlists éditoriales « best of » par année.
-3. Musiques de pubs et de génériques connues en France (liste construite à la main en partie, ~300 titres).
-4. Distracteurs : morceaux du même artiste ou du même genre que les précédents, pour que la recherche ne soit pas artificiellement facile.
+**Target composition: 20,000 to 30,000 tracks.**
+1. All answer tracks of the ToT_Music set (see 3.3) present in WASABI with an available clip: essential for evaluation.
+2. Hits by decade (1970–2025), France and international: charts, editorial "best of" playlists by year.
+3. Well-known ad and theme music in France (list partly built by hand, ~300 titles).
+4. Distractors: tracks by the same artist or in the same genre as the above, so the search is not artificially easy.
 
-**Fiche morceau** (texte indexé, un document par morceau) : titre, artiste, année, genre, résumé court (Wikipédia), usages connus, description audio générée une fois par Llama à partir des métadonnées (instruments probables, ambiance). Indexée en BM25 et en embedding texte.
+**Song card** (indexed text, one document per track): title, artist, year, genre, short summary (Wikipedia), known uses, audio description generated once by Llama from the metadata (likely instruments, mood). Indexed with BM25 and a text embedding.
 
-**Coût Gemini (ordre de grandeur, à vérifier sur la grille officielle)** : l'audio compte environ 25 tokens par seconde, soit ~750 tokens par extrait de 30 s, soit ~20 M tokens pour 25 000 extraits. Utiliser l'API batch (moitié prix) et le cache.
+**Gemini cost (order of magnitude, to check against the official pricing)**: audio counts about 25 tokens per second, i.e. ~750 tokens per 30 s clip, i.e. ~20 M tokens for 25,000 clips. Use the batch API (half price) and the cache.
 
-### 3.3 Jeux de test
+### 3.3 Test sets
 
-| Jeu | Contenu | Taille | Mesure | Rôle |
+| Set | Content | Size | Metric | Role |
 |---|---|---|---|---|
-| **T1 — ToT_Music** | Demandes réelles de r/TipOfMyTongue avec réponse vérifiée, liées au corpus WASABI (Bhargav et al., SIGIR 2023) | ~2 300, échantillon de 200 pour l'éval agent | top-1 / top-3 / top-10, nb de questions | Crédibilité scientifique : de vraies descriptions humaines, pas des cas inventés |
-| **T2 — Souvenirs FR** | Descriptions floues écrites par des proches et collègues, en français, sur des pubs, génériques, tubes | 50 | idem | La démo sera probablement en français ; CLAP ne comprend que l'anglais |
-| **T3 — Bruit** | Extraits du catalogue mixés avec du brouhaha et du bruit (corpus libre **MUSAN**) à SNR 0, 5 et 10 dB, + 20 vrais enregistrements (enceinte de téléphone dans un café, captés par un autre téléphone) | 300 + 20 | top-5, avec / sans SAM Audio | Valider la scène 3 |
-| **T4 — Reprises** | Reprises piano, acoustiques, live, karaoké de morceaux du catalogue, trouvées via la recherche Deezer (« titre piano cover », « titre acoustic ») | 200 | top-1 / top-5 de l'original ; **empreinte Chromaprint en baseline** | Prouver « on bat Shazam » |
-| **T5 — Vidéo** | Extraits de 5–10 s de pubs ou génériques dont la musique est dans le catalogue | 20 | top-5 | Valider la variante vidéo |
+| **T1 — ToT_Music** | Real requests from r/TipOfMyTongue with a verified answer, linked to the WASABI corpus (Bhargav et al., SIGIR 2023) | ~2,300, sample of 200 for the agent eval | top-1 / top-3 / top-10, number of questions | Scientific credibility: real human descriptions, not made-up cases |
+| **T2 — French memories** | Fuzzy descriptions written by friends and colleagues, in French, about ads, theme songs, hits | 50 | same | The demo will probably be in French; CLAP only understands English |
+| **T3 — Noise** | Catalogue clips mixed with chatter and noise (free **MUSAN** corpus) at SNR 0, 5 and 10 dB, + 20 real recordings (phone speaker in a café, captured by another phone) | 300 + 20 | top-5, with / without SAM Audio | Validate scene 3 |
+| **T4 — Covers** | Piano, acoustic, live, karaoke covers of catalogue tracks, found through Deezer search ("title piano cover", "title acoustic") | 200 | top-1 / top-5 of the original; **Chromaprint fingerprint as baseline** | Prove "we beat Shazam" |
+| **T5 — Video** | 5–10 s clips of ads or theme songs whose music is in the catalogue | 20 | top-5 | Validate the video variant |
 
-**Utilisateur simulé** (pour évaluer l'agent sur T1 et T2 sans humain) : un Llama distinct de l'agent, qui ne connaît **que le texte de la demande d'origine**. Il répond aux questions de l'agent à partir de ce texte, et dit « je ne sais pas » sinon. Il ne voit jamais la réponse attendue. Une variante « utilisateur informé », qui connaît aussi l'année et la langue du vrai morceau, sert de borne haute ; les deux chiffres sont reportés.
+**Simulated user** (to evaluate the agent on T1 and T2 without a human): a Llama distinct from the agent, which knows **only the text of the original request**. It answers the agent's questions from that text, and says "I don't know" otherwise. It never sees the expected answer. An "informed user" variant, which also knows the year and language of the real track, serves as an upper bound; both numbers are reported.
 
-**Point d'attention scientifique** : dans l'article ToT_Music, les reformulations de requêtes par LLM faisaient **moins bien** que la demande complète utilisée telle quelle. Notre réécriture (phase 5) doit donc être comparée honnêtement à la requête brute, et la fusion des deux est probablement la bonne réponse. C'est un résultat intéressant à montrer dans les deux sens.
+**Scientific point of attention**: in the ToT_Music paper, LLM query reformulations did **worse** than the full request used as is. Our rewriting (phase 5) must therefore be compared honestly against the raw query, and the fusion of the two is probably the right answer. It is an interesting result to show either way.
 
-### 3.4 Baselines à battre (tableau final)
-1. **BM25** sur les fiches morceaux (la baseline de l'article ToT_Music).
-2. **Embedding brut** de la requête, sans agent.
-3. **Empreinte audio Chromaprint** (proxy de Shazam) pour T3 et T4.
-4. **Agent baseline** (questions choisies librement par Llama) contre **agent à gain d'information**.
+### 3.4 Baselines to beat (final table)
+1. **BM25** on the song cards (the baseline of the ToT_Music paper).
+2. **Raw embedding** of the query, without the agent.
+3. **Chromaprint audio fingerprint** (Shazam proxy) for T3 and T4.
+4. **Baseline agent** (questions freely chosen by Llama) against **information-gain agent**.
 
 ---
 
-## 4. Ce qu'il faut préparer soi-même (hors code)
+## 4. What to prepare ourselves (outside code)
 
-- J1 : clé Gemini, clé de recherche web (Tavily ou Brave), demandes d'accès aux poids PE-AV et SAM Audio.
-- J1 : lire les conditions d'utilisation Deezer / iTunes pour l'usage des extraits ; vérifier les règles du hackathon sur l'usage de modèles non-Meta.
-- J1–J3 : collecter les 50 descriptions françaises de T2 (un formulaire envoyé aux collègues : « décrivez de mémoire un morceau de pub ou de série, et donnez la réponse »).
-- J5 : enregistrer les 20 vrais enregistrements bruités de T3 et choisir les 3 reprises de la scène 2.
-- J6 : deux répétitions complètes chronométrées, avec Shazam installé sur le second téléphone.
+- D1: Gemini key, web search key (Tavily or Brave), access requests for the PE-AV and SAM Audio weights.
+- D1: read the Deezer / iTunes terms of use for clip usage; check the hackathon rules on the use of non-Meta models.
+- D1–D3: collect the 50 French descriptions for T2 (a form sent to colleagues: "describe from memory a track from an ad or a series, and give the answer").
+- D5: record the 20 real noisy recordings for T3 and choose the 3 covers for scene 2.
+- D6: two full timed rehearsals, with Shazam installed on the second phone.

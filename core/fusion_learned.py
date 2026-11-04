@@ -1,11 +1,11 @@
-"""🧪 Fusion apprise (recommandation n° 4) : régression logistique sur des caractéristiques
-simples par (requête, candidat) — score et rang par branche, présence dans la branche, type
-d'entrée, accord avec les indices de décennie et de langue. Entraînée sur les splits train/val
-de ToT_Music (jamais sur l'échantillon d'évaluation), évaluée sur T1 test. Plus défendable
-qu'un RRF à poids fixes, et le RRF reste la baseline.
+"""🧪 Learned fusion (recommendation no. 4): logistic regression over simple
+per-(query, candidate) features — score and rank per branch, presence in the branch, input
+type, agreement with the decade and language hints. Trained on the train/val splits
+of ToT_Music (never on the evaluation sample), evaluated on T1 test. More defensible
+than a fixed-weight RRF, and RRF remains the baseline.
 
-Modèle sérialisé dans data/index/fusion_lr.pkl ; `LearnedFusion.rank(lists, hints, meta)`
-renvoie [(track_id, probabilité)] trié, comme `rrf`.
+Model serialised in data/index/fusion_lr.pkl; `LearnedFusion.rank(lists, hints, meta)`
+returns [(track_id, probability)] sorted, like `rrf`.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ Hit = tuple[str, float]
 
 
 def _norm(hits: Sequence[Hit]) -> dict[str, tuple[float, int]]:
-    """{id: (score min-max normalisé, rang)}"""
+    """{id: (min-max normalised score, rank)}"""
     if not hits:
         return {}
     vals = [s for _, s in hits]
@@ -44,7 +44,7 @@ class LearnedFusion:
     model: object = None                      # sklearn LogisticRegression
     input_types: list[str] = field(default_factory=lambda: ["text", "audio", "humming"])
 
-    # ---- caractéristiques ----
+    # ---- features ----
     def feature_names(self) -> list[str]:
         names = []
         for b in self.branches:
@@ -81,9 +81,9 @@ class LearnedFusion:
                 X[row, col] = 1.0 if input_type == t else 0.0; col += 1
         return ids, X
 
-    # ---- apprentissage / inférence ----
+    # ---- training / inference ----
     def fit(self, samples: list[tuple[Mapping[str, Sequence[Hit]], Mapping | None, Mapping[str, Mapping], str, set[str]]]) -> dict:
-        """`samples` : (lists, hints, meta, input_type, answer_ids). Pointwise : 1 si candidat = réponse."""
+        """`samples`: (lists, hints, meta, input_type, answer_ids). Pointwise: 1 if candidate = answer."""
         from sklearn.linear_model import LogisticRegression
         Xs, ys = [], []
         for lists, hints, meta, itype, answers in samples:
@@ -106,7 +106,7 @@ class LearnedFusion:
         out = [(ids[j], float(p[j])) for j in order]
         return out[:top] if top else out
 
-    # ---- persistance ----
+    # ---- persistence ----
     @classmethod
     def path(cls) -> Path:
         return get_settings().index_dir / "fusion_lr.pkl"

@@ -1,21 +1,21 @@
-"""Extraits de 30 s : résolution des métadonnées et accès à l'audio (PLAN.md phase 1.4).
+"""30 s previews: metadata resolution and audio access (PLAN.md phase 1.4).
 
-Deux étapes séparées, parce que les conditions Deezer les traitent différemment :
+Two separate steps, because the Deezer terms treat them differently:
 
-1. **Résolution (métadonnées, toujours autorisée)** — `resolve_all` : pour chaque
-   morceau du catalogue, l'objet track Deezer courant (`/track/{id}`, repli
-   `/track/isrc:`), d'où l'URL d'extrait fraîche, `readable`, `rank`,
-   `release_date`, `bpm`, et un contrôle titre/artiste (similarité de chaînes)
-   pour détecter les mauvais appariements. Résultat : `data/catalog/previews.parquet`.
-   Repli iTunes Search API (`previewUrl`) quand Deezer n'a pas d'extrait.
+1. **Resolution (metadata, always allowed)** — `resolve_all`: for each
+   catalogue track, the current Deezer track object (`/track/{id}`, fallback
+   `/track/isrc:`), hence the fresh preview URL, `readable`, `rank`,
+   `release_date`, `bpm`, and a title/artist check (string similarity)
+   to detect bad matches. Result: `data/catalog/previews.parquet`.
+   iTunes Search API fallback (`previewUrl`) when Deezer has no preview.
 
-2. **Audio** — `fetch_audio` : ouvre l'URL d'extrait et renvoie les octets MP3.
-   Le mode de conservation est réglé par `PREVIEW_STORAGE` :
-     - `memory` (défaut) : rien n'est écrit sur disque ; les embeddings et
-       empreintes sont calculés à la volée et seuls les vecteurs sont conservés ;
-     - `disk` : cache dans `data/previews/` (jamais commité). À n'activer qu'après
-       validation des conditions d'utilisation (les guidelines Deezer interdisent
-       le stockage local de l'audio ; voir README).
+2. **Audio** — `fetch_audio`: opens the preview URL and returns the MP3 bytes.
+   The retention mode is set by `PREVIEW_STORAGE`:
+     - `memory` (default): nothing is written to disk; embeddings and
+       fingerprints are computed on the fly and only the vectors are kept;
+     - `disk`: cache in `data/previews/` (never committed). Only enable after
+       validating the terms of use (the Deezer guidelines forbid local
+       storage of the audio; see README).
 """
 
 from __future__ import annotations
@@ -38,18 +38,18 @@ from core.config import get_settings
 logger = logging.getLogger(__name__)
 
 ITUNES_URL = "https://itunes.apple.com/search"
-_ITUNES_MIN_INTERVAL = 3.2  # ≈ 20 requêtes / minute (limite documentée par Apple)
+_ITUNES_MIN_INTERVAL = 3.2  # ≈ 20 requests / minute (limit documented by Apple)
 
 
 def previews_path() -> Path:
     return get_settings().data_dir / "catalog" / "previews.parquet"
 
 
-# --------------------------------------------------------------------------- iTunes (repli)
+# --------------------------------------------------------------------------- iTunes (fallback)
 
 class ITunesClient:
     def __init__(self):
-        self._http = httpx.Client(timeout=20, headers={"User-Agent": "SoundTrace/0.1"})
+        self._http = httpx.Client(timeout=20, headers={"User-Agent": "Lalala/0.1"})
         self._cache = DiskCache("itunes_api")
         self._last = 0.0
 
@@ -83,10 +83,10 @@ class ITunesClient:
         return best if best_s >= min_sim else None
 
 
-# --------------------------------------------------------------------------- résolution
+# --------------------------------------------------------------------------- resolution
 
 def _match_score(cat_title: str, cat_artist: str, t: dict) -> float:
-    """Similarité titre/artiste, sur les chaînes brutes et normalisées (sans « (feat. …) », « - Remaster »)."""
+    """Title/artist similarity, on the raw and normalised strings (without "(feat. …)", "- Remaster")."""
     tt, ta = t.get("title"), (t.get("artist") or {}).get("name")
     st = max(similarity(cat_title, tt), similarity(norm_title(cat_title), norm_title(tt)))
     sa = max(similarity(cat_artist, ta), similarity(norm_artist(cat_artist), norm_artist(ta)))
@@ -94,7 +94,7 @@ def _match_score(cat_title: str, cat_artist: str, t: dict) -> float:
 
 
 def resolve_one(dz: DeezerClient, row, min_sim: float = 0.7) -> dict:
-    """Retourne la ligne previews pour un morceau du catalogue (sans audio)."""
+    """Returns the previews row for a catalogue track (no audio)."""
     out = {"track_id": row.track_id, "deezer_id": None, "preview_url": None, "provider": None, "status": "none",
            "match_score": None, "resolved_title": None, "resolved_artist": None, "release_date": None,
            "bpm": None, "rank": None, "duration": None, "resolved_by": None}
@@ -119,7 +119,7 @@ def resolve_one(dz: DeezerClient, row, min_sim: float = 0.7) -> dict:
                     out["resolved_by"] = "search"
                     break
     except DeezerError as e:
-        logger.warning("deezer %s : %s", row.track_id, e)
+        logger.warning("deezer %s: %s", row.track_id, e)
     if t:
         s = track_summary(t)
         score = _match_score(row.title, row.artist, t)
@@ -132,12 +132,12 @@ def resolve_one(dz: DeezerClient, row, min_sim: float = 0.7) -> dict:
 
 def resolve_all(catalog: pd.DataFrame, use_itunes: bool = True, workers: int = 4, log_every: int = 500,
                 out: Path | None = None) -> pd.DataFrame:
-    """Résout tous les morceaux ; reprise : les lignes déjà présentes dans previews.parquet sont gardées."""
+    """Resolves all tracks; resumable: rows already present in previews.parquet are kept."""
     out = out or previews_path()
     done = pd.read_parquet(out) if out.exists() else pd.DataFrame()
     done_ids = set(done.track_id) if len(done) else set()
     todo = catalog[~catalog.track_id.isin(done_ids)]
-    logger.info("résolution : %d à faire, %d déjà faits", len(todo), len(done_ids))
+    logger.info("resolution: %d to do, %d already done", len(todo), len(done_ids))
     dz = DeezerClient()
     rows: list[dict] = list(done.to_dict("records")) if len(done) else []
     t0 = time.time()
@@ -148,13 +148,13 @@ def resolve_all(catalog: pd.DataFrame, use_itunes: bool = True, workers: int = 4
                 df = pd.DataFrame(rows)
                 df.to_parquet(out, index=False)
                 rate = i / (time.time() - t0)
-                logger.info("résolution : %d / %d (%.1f/s, ok %.1f %%, reste ≈ %.0f min)", i, len(todo), rate,
+                logger.info("resolution: %d / %d (%.1f/s, ok %.1f %%, ≈ %.0f min left)", i, len(todo), rate,
                             100 * df.status.eq("ok").mean(), (len(todo) - i) / max(rate, 1e-6) / 60)
     df = pd.DataFrame(rows)
     if use_itunes:
         missing = df[df.status != "ok"]
         if len(missing):
-            logger.info("repli iTunes pour %d morceaux (≈ %.0f min à 20 req/min)", len(missing), len(missing) * _ITUNES_MIN_INTERVAL / 60)
+            logger.info("iTunes fallback for %d tracks (≈ %.0f min at 20 req/min)", len(missing), len(missing) * _ITUNES_MIN_INTERVAL / 60)
             it = ITunesClient()
             cat = catalog.set_index("track_id")
             for idx in missing.index:
@@ -162,14 +162,14 @@ def resolve_all(catalog: pd.DataFrame, use_itunes: bool = True, workers: int = 4
                 try:
                     m = it.best_match(row.artist, row.title)
                 except httpx.HTTPError as e:
-                    logger.warning("itunes %s : %s", row.name, e)
+                    logger.warning("itunes %s: %s", row.name, e)
                     continue
                 if m:
                     df.loc[idx, ["preview_url", "provider", "status", "resolved_title", "resolved_artist", "match_score", "resolved_by"]] = [
                         m["previewUrl"], "itunes", "ok", m.get("trackName"), m.get("artistName"),
                         round(0.6 * similarity(row.title, m.get("trackName")) + 0.4 * similarity(row.artist, m.get("artistName")), 3), "itunes"]
     df.to_parquet(out, index=False)
-    logger.info("résolution terminée : %d lignes, ok %.1f %% (deezer %d, itunes %d), mismatch %d, none %d ; requêtes Deezer %d, cache %d",
+    logger.info("resolution complete: %d rows, ok %.1f %% (deezer %d, itunes %d), mismatch %d, none %d; Deezer requests %d, cache %d",
                 len(df), 100 * df.status.eq("ok").mean(), int((df.provider == "deezer").sum()), int((df.provider == "itunes").sum()),
                 int(df.status.eq("mismatch").sum()), int(df.status.eq("none").sum()), dz.n_requests, dz.n_cached)
     return df
@@ -186,17 +186,17 @@ def storage_mode() -> str:
     return os.environ.get("PREVIEW_STORAGE", "memory").strip().lower()
 
 
-_audio_http = httpx.Client(timeout=30, follow_redirects=True, headers={"User-Agent": "SoundTrace/0.1"})
+_audio_http = httpx.Client(timeout=30, follow_redirects=True, headers={"User-Agent": "Lalala/0.1"})
 _fresh: dict[str, tuple[float, str | None]] = {}
-_FRESH_TTL = 20 * 60  # les URL d'extrait Deezer sont signées (`hdnea`) et expirent en moins d'une heure
+_FRESH_TTL = 20 * 60  # Deezer preview URLs are signed (`hdnea`) and expire in under an hour
 _dz_client = None
 
 
 def fresh_preview_url(track_id: str, fallback: str | None = None, deezer_id: int | None = None) -> str | None:
-    """URL d'extrait courante : relue via `/track/{deezer_id}` (sans cache) ; mémorisée 20 min.
-    `deezer_id` est l'identifiant **résolu** (colonne `deezer_id` de previews.parquet), qui peut
-    différer de celui du track_id (identifiant WASABI périmé, non lisible). Pour iTunes (URL
-    stables), on renvoie `fallback`."""
+    """Current preview URL: re-read via `/track/{deezer_id}` (no cache); memoised for 20 min.
+    `deezer_id` is the **resolved** id (`deezer_id` column of previews.parquet), which may
+    differ from the track_id's (stale, unreadable WASABI id). For iTunes (stable URLs),
+    `fallback` is returned."""
     global _dz_client
     now = time.time()
     hit = _fresh.get(track_id)
@@ -212,7 +212,7 @@ def fresh_preview_url(track_id: str, fallback: str | None = None, deezer_id: int
         t = _dz_client.get(f"/track/{int(deezer_id)}", use_cache=False)
         url = (t or {}).get("preview") or None
     except (DeezerError, ValueError) as e:
-        logger.warning("rafraîchissement d'extrait %s : %s", track_id, e)
+        logger.warning("preview refresh %s: %s", track_id, e)
         url = None
     _fresh[track_id] = (now, url)
     return url or fallback
@@ -221,9 +221,9 @@ def fresh_preview_url(track_id: str, fallback: str | None = None, deezer_id: int
 @retry(retry=retry_if_exception_type(httpx.TransportError), stop=stop_after_attempt(4),
        wait=wait_exponential(min=1, max=15), reraise=True)
 def fetch_audio(track_id: str, preview_url: str, deezer_id: int | None = None) -> bytes | None:
-    """Octets MP3 de l'extrait. En mode `disk`, cache dans data/previews/<track_id>.mp3.
-    Sur 403/404 (URL signée expirée), l'URL est rafraîchie une fois via l'API Deezer
-    (`deezer_id` = identifiant résolu, colonne de previews.parquet)."""
+    """MP3 bytes of the preview. In `disk` mode, cached in data/previews/<track_id>.mp3.
+    On 403/404 (expired signed URL), the URL is refreshed once via the Deezer API
+    (`deezer_id` = resolved id, column of previews.parquet)."""
     mode = storage_mode()
     path = get_settings().previews_dir / f"{track_id}.mp3"
     if mode == "disk" and path.exists():
@@ -236,13 +236,13 @@ def fetch_audio(track_id: str, preview_url: str, deezer_id: int | None = None) -
         if url2 and url2 != url:
             r = _audio_http.get(url2)
     if r.status_code in (403, 404, 410):
-        logger.warning("extrait indisponible (%s) : %s", r.status_code, track_id)
+        logger.warning("preview unavailable (%s): %s", r.status_code, track_id)
         return None
     r.raise_for_status()
     data = r.content
     ctype = r.headers.get("content-type", "")
     if not data or data[:3] not in (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2", b"RIF") and "audio" not in ctype and b"ftyp" not in data[:16]:
-        logger.warning("extrait non audio (%s, %d octets) : %s", ctype or "?", len(data), track_id)
+        logger.warning("preview is not audio (%s, %d bytes): %s", ctype or "?", len(data), track_id)
         return None
     if mode == "disk":
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,7 +251,7 @@ def fetch_audio(track_id: str, preview_url: str, deezer_id: int | None = None) -
 
 
 def iter_audio(previews: pd.DataFrame, track_ids: list[str] | None = None) -> Iterator[tuple[str, bytes]]:
-    """Itère (track_id, mp3) sur les extraits disponibles, dans l'ordre du DataFrame."""
+    """Iterates (track_id, mp3) over the available previews, in DataFrame order."""
     df = previews[previews.status == "ok"]
     if track_ids is not None:
         df = df[df.track_id.isin(track_ids)]
@@ -259,7 +259,7 @@ def iter_audio(previews: pd.DataFrame, track_ids: list[str] | None = None) -> It
         try:
             data = fetch_audio(r.track_id, r.preview_url, deezer_id=getattr(r, "deezer_id", None))
         except httpx.HTTPError as e:
-            logger.warning("extrait %s : %s", r.track_id, e)
+            logger.warning("preview %s: %s", r.track_id, e)
             continue
         if data:
             yield r.track_id, data

@@ -6,7 +6,7 @@ from core.cache import DiskCache, content_hash
 def test_hash_depends_on_params():
     a = content_hash("hello", model="m", dim=8)
     b = content_hash("hello", model="m", dim=16)
-    c = content_hash("hello", dim=8, model="m")  # ordre des paramètres indifférent
+    c = content_hash("hello", dim=8, model="m")  # parameter order does not matter
     assert a != b and a == c
 
 

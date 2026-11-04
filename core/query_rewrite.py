@@ -1,15 +1,15 @@
-"""🧪 Réécriture de requête par Llama (PLAN.md phase 5).
+"""🧪 Query rewriting by Llama (PLAN.md phase 5).
 
-À partir d'une description floue (FR ou EN), Llama produit en JSON :
-- `captions` : 3 à 5 légendes audio en anglais (instruments, tempo, voix, ambiance,
-  production) pour les index audio (CLAP ne comprend que l'anglais) ;
-- `hints` : indices structurés — décennie, langue des paroles, support (pub, série,
-  film, jeu, radio…), genre, fragments de paroles cités par l'utilisateur ;
-- `query` : requête texte nettoyée (anglais) pour BM25 et les fiches ;
-- `query_fr` : la même en français si la description est en français (fiches FR).
-Interdiction d'inventer des titres ou des artistes : seuls ceux cités par
-l'utilisateur peuvent apparaître (contrôle programmatique : un nom propre absent
-de la description est retiré de `query`). Cache par hash de la description.
+From a vague description (FR or EN), Llama produces as JSON:
+- `captions`: 3 to 5 English audio captions (instruments, tempo, vocals, mood,
+  production) for the audio indexes (CLAP only understands English);
+- `hints`: structured hints — decade, lyrics language, medium (ad, series,
+  film, game, radio...), genre, lyrics fragments quoted by the user;
+- `query`: cleaned text query (English) for BM25 and the cards;
+- `query_fr`: the same in French if the description is in French (FR cards).
+Inventing titles or artists is forbidden: only those quoted by the
+user may appear (programmatic check: a proper noun absent from the
+description is removed from `query`). Cached by description hash.
 """
 
 from __future__ import annotations
@@ -73,9 +73,9 @@ _SYSTEM = (
     "description gets captions that only paraphrase that word, and every hint null except sound_terms."
 )
 
-# ---- Ancrage des indices dans le texte de l'utilisateur (indépendant du modèle) -------------------------
-# Llama 8B « complète » volontiers : « guitare » → genre rock, voix masculine, tempo rapide. Un indice
-# n'est gardé que si le texte en porte la trace (mot du lexique ou valeur citée).
+# ---- Grounding of the hints in the user's text (model-independent) -------------------------
+# Llama 8B readily "completes": "guitar" → rock genre, male vocals, fast tempo. A hint
+# is only kept if the text bears a trace of it (lexicon word or quoted value).
 _LEX = {
     "genre": ("rock", "pop", "rap", "hip", "hop", "jazz", "metal", "électro", "electro", "electronic", "techno", "house", "disco",
               "funk", "soul", "reggae", "blues", "country", "folk", "punk", "classique", "classical", "r&b", "rnb", "variété",
@@ -100,7 +100,7 @@ _LEX = {
 
 
 def _grounded(kind: str, value, description: str) -> bool:
-    """Vrai si la valeur de l'indice est citée telle quelle, ou si un mot du lexique de ce type d'indice apparaît."""
+    """True if the hint value is quoted as is, or if a word from the lexicon of this hint type appears."""
     if value is None or not str(value).strip():
         return False
     d = " " + description.lower() + " "
@@ -111,11 +111,11 @@ def _grounded(kind: str, value, description: str) -> bool:
 
 
 def ground_hints(hints: dict[str, Any], description: str) -> dict[str, Any]:
-    """Annule décennie, langue, support, genre et voix qui n'ont aucune trace dans la description."""
+    """Clear decade, language, medium, genre and vocals that have no trace in the description."""
     out = dict(hints)
     for k in ("decade", "language", "medium", "genre", "vocals"):
         if out.get(k) and not _grounded(k, out[k], description):
-            logger.info("réécriture : indice %s=%r non cité par l'utilisateur, retiré", k, out[k])
+            logger.info("rewrite: hint %s=%r not quoted by the user, removed", k, out[k])
             out[k] = None
     return out
 
@@ -128,8 +128,8 @@ _CAPTION_TRAPS = {
 
 
 def ground_captions(captions: list[str], description: str) -> list[str]:
-    """Écarte les légendes qui ajoutent un genre, un type de voix ou un tempo que le texte ne mentionne pas.
-    Si tout est écarté, on garde la description telle quelle (le modèle texte→audio la comprend)."""
+    """Discard captions that add a genre, a voice type or a tempo that the text does not mention.
+    If everything is discarded, keep the description as is (the text→audio model understands it)."""
     d = " " + description.lower() + " "
     kept = []
     for c in captions:
@@ -141,7 +141,7 @@ def ground_captions(captions: list[str], description: str) -> list[str]:
                 bad = True
                 break
         if bad:
-            logger.info("réécriture : légende non ancrée écartée : %r", c)
+            logger.info("rewrite: ungrounded caption discarded: %r", c)
         else:
             kept.append(c)
     return kept or [description.strip()]
@@ -167,14 +167,14 @@ class Rewrite:
 
     @property
     def sound_query(self) -> str:
-        """Mots-clés anglais sur le son seul ; repli : les sound_terms."""
+        """English keywords about the sound only; fallback: the sound_terms."""
         v = str(self.raw.get("sound_query") or "").strip()
         return v or " ".join(self.sound_terms)
 
     @property
     def context_query(self) -> str:
-        """Mots-clés anglais hors son (histoire, paroles citées, usage, époque, noms) ; vide si l'utilisateur
-        ne décrit que le son. Repli : la requête générale privée des mots sonores."""
+        """English keywords other than the sound (story, quoted lyrics, usage, era, names); empty if the user
+        only describes the sound. Fallback: the general query stripped of the sound words."""
         if "context_query" in self.raw:
             return str(self.raw.get("context_query") or "").strip()
         snd = {w.lower() for t in self.sound_terms for w in re.findall(r"[\wà-ÿ'-]+", t)} | {w.lower() for w in re.findall(r"[\wà-ÿ'-]+", self.sound_query)}
@@ -183,12 +183,12 @@ class Rewrite:
 
     @property
     def sound_only(self) -> bool:
-        """Vrai si la description ne parle que du son : on ne cherche alors pas ces mots dans les titres ni les paroles."""
+        """True if the description only talks about the sound: those words are then not searched in titles or lyrics."""
         return bool(self.sound_query) and not self.context_query
 
     @property
     def describes_sound(self) -> bool:
-        """Vrai si l'utilisateur décrit le son lui-même : seule situation où texte→audio a un sens."""
+        """True if the user describes the sound itself: the only situation where text→audio makes sense."""
         return len(self.sound_terms) > 0
 
     @property
@@ -201,8 +201,8 @@ _CAP_WORD = re.compile(r"\b[A-Z][\w'’-]+(?:\s+[A-Z][\w'’-]+)*")
 
 
 def _strip_unsupported_names(query: str, description: str, allowed: list[str]) -> str:
-    """Retire de la requête les groupes de mots capitalisés absents de la description
-    (titres/artistes devinés), sauf en début de phrase ou s'ils sont dans `allowed`."""
+    """Remove from the query the capitalised word groups absent from the description
+    (guessed titles/artists), except at the start of the sentence or if they are in `allowed`."""
     desc_l = description.lower()
     allowed_l = [a.lower() for a in allowed]
     out = query
@@ -215,14 +215,14 @@ def _strip_unsupported_names(query: str, description: str, allowed: list[str]) -
             continue
         if len(phrase) <= 3:
             continue
-        logger.info("réécriture : nom propre non cité retiré de la requête : %r", phrase)
+        logger.info("rewrite: unquoted proper noun removed from the query: %r", phrase)
         out = out.replace(phrase, "")
     return re.sub(r"\s{2,}", " ", out).strip(" ,;")
 
 
 def _is_named_in(entity: str, description: str) -> bool:
-    """Une entité n'est gardée que si l'utilisateur l'a écrite, avec une majuscule ou un chiffre
-    (nom propre, marque, année) : « voiture » n'est pas une entité, « Citroën » ou « 2008 » oui."""
+    """An entity is only kept if the user wrote it, with a capital letter or a digit
+    (proper noun, brand, year): "voiture" is not an entity, "Citroën" or "2008" is."""
     e = entity.strip()
     if len(e) < 2:
         return False
@@ -251,7 +251,7 @@ def rewrite(description: str, model: str | None = None, use_cache: bool = True) 
 
 
 def translate_to_english(text: str, model: str | None = None) -> str:
-    """Traduction brute (pour CLAP) ; identité si le texte est déjà en anglais selon Llama."""
+    """Raw translation (for CLAP); identity if the text is already English according to Llama."""
     cache = DiskCache("translate_en")
     key = cache.key(text, model=model or get_settings().llm_model, v=1)
     hit = cache.get(key)

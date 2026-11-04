@@ -8,11 +8,11 @@ def test_rrf_basic_and_ties():
     b = [("y", 5.0), ("w", 4.0)]
     out = rrf([a, b], k=60)
     ids = [i for i, _ in out]
-    assert ids[0] == "y"  # présent dans les deux listes
+    assert ids[0] == "y"  # present in both lists
     assert set(ids) == {"x", "y", "z", "w"}
     assert abs(dict(out)["y"] - (1 / 62 + 1 / 61)) < 1e-12
     assert rrf([], k=60) == []
-    assert rrf([[("a", 1), ("a", 0.5)]], k=10) == [("a", 1 / 11)]  # doublon ignoré
+    assert rrf([[("a", 1), ("a", 0.5)]], k=10) == [("a", 1 / 11)]  # duplicate ignored
 
 
 def test_rrf_weights_and_top():
@@ -34,5 +34,5 @@ def test_soft_bonus_never_excludes():
     hits = [("b", 1.0), ("a", 0.9), ("c", 0.8)]
     out = soft_bonus(hits, meta, {"decade": "1980s", "language": "french"})
     assert [i for i, _ in out][0] == "a" and len(out) == 3
-    assert dict(out)["c"] == 0.8  # sans métadonnées : inchangé
+    assert dict(out)["c"] == 0.8  # no metadata: unchanged
     assert soft_bonus(hits, meta, {}) == hits

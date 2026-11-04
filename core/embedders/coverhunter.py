@@ -1,18 +1,18 @@
-"""CoverHunter — identification de reprises (PLAN_COMPLEMENTS.md C2), audio → audio uniquement.
+"""CoverHunter — cover song identification (PLAN_COMPLEMENTS.md C2), audio → audio only.
 
-Code : `alanngnet/CoverHunterMPS` (support MPS), cloné dans `data/raw/coverhunter/CoverHunterMPS`
-(`COVERHUNTER_DIR`) ; poids : checkpoint CoverHunter original (Liu Feng, entraîné sur SHS100K,
-~65 Mo, Google Drive) dans `data/raw/coverhunter/pretrained/pretrain_model`. **Ni le code ni le
-checkpoint n'indiquent de licence** : usage expérimental local, à vérifier avant toute diffusion.
+Code: `alanngnet/CoverHunterMPS` (MPS support), cloned in `data/raw/coverhunter/CoverHunterMPS`
+(`COVERHUNTER_DIR`); weights: original CoverHunter checkpoint (Liu Feng, trained on SHS100K,
+~65 MB, Google Drive) in `data/raw/coverhunter/pretrained/pretrain_model`. **Neither the code nor the
+checkpoint states a licence**: experimental local use, to be checked before any distribution.
 
-Pipeline reproduit depuis `tools/identify.py` et `tools/make_embeds.py` (lus le 28/10/2026) :
-audio mono 16 kHz, normalisation crête, CQT nnAudio (fmin 32 Hz, 96 bins, 12/octave, hop 640 =
-25 trames/s), dB relatifs au max, fenêtre de `chunk_frame[0] × mean_size` = 3 375 trames (135 s)
-rembourrée à −100 dB, moyenne par blocs de 3 trames → (1125, 96) → `Model.inference` → 128 d.
+Pipeline reproduced from `tools/identify.py` and `tools/make_embeds.py` (read on 28/10/2026):
+mono 16 kHz audio, peak normalisation, nnAudio CQT (fmin 32 Hz, 96 bins, 12/octave, hop 640 =
+25 frames/s), dB relative to the max, window of `chunk_frame[0] x mean_size` = 3,375 frames (135 s)
+padded at −100 dB, average over blocks of 3 frames → (1125, 96) → `Model.inference` → 128 d.
 
-Deux stratégies (C2.3) : `window="full"` (un embedding par extrait) ou `window="sliding"`
-(fenêtres de 10 s, pas de 5 s ; l'embedding renvoyé est la moyenne normalisée, et
-`embed_windows` donne toutes les fenêtres pour un score = max des similarités).
+Two strategies (C2.3): `window="full"` (one embedding per preview) or `window="sliding"`
+(10 s windows, 5 s hop; the returned embedding is the normalised mean, and
+`embed_windows` gives all windows for a score = max of similarities).
 """
 
 from __future__ import annotations
@@ -34,7 +34,7 @@ from core.embedders.base import AudioItem, Embedder, l2_normalize
 logger = logging.getLogger(__name__)
 
 SR = 16_000
-FPS = 25  # trames CQT par seconde (hop 640 à 16 kHz)
+FPS = 25  # CQT frames per second (hop 640 at 16 kHz)
 
 
 def coverhunter_dir() -> Path:
@@ -58,14 +58,14 @@ class CoverHunterEmbedder(Embedder):
     def version(self) -> str:
         return f"1-{self.window}-{self.win_s}-{self.hop_s}"
 
-    # ---- chargement ----
+    # ---- loading ----
     def _load(self):
         if self._model is not None:
             return
         root = coverhunter_dir()
         code, ckpt = root / "CoverHunterMPS", root / "pretrained" / "pretrain_model"
         if not (code / "src" / "model.py").exists() or not (ckpt / "config" / "hparams.yaml").exists():
-            raise RuntimeError(f"CoverHunter absent : attendu {code} et {ckpt} (voir PLAN_COMPLEMENTS.md C2)")
+            raise RuntimeError(f"CoverHunter missing: expected {code} and {ckpt} (see PLAN_COMPLEMENTS.md C2)")
         if str(code) not in sys.path:
             sys.path.insert(0, str(code))
         import yaml
@@ -73,7 +73,7 @@ class CoverHunterEmbedder(Embedder):
         from nnAudio.features.cqt import CQT
         self.device = get_device()
         hp = yaml.safe_load((ckpt / "config" / "hparams.yaml").read_text())
-        if "foc" not in hp and "ce" in hp:   # CoverHunterMPS a renommé `ce` en `foc`
+        if "foc" not in hp and "ce" in hp:   # CoverHunterMPS renamed `ce` to `foc`
             hp["foc"] = hp.pop("ce")
         hp["device"] = str(self.device)
         self.hp = hp
@@ -86,9 +86,9 @@ class CoverHunterEmbedder(Embedder):
         self.chunk_frames = (cf[0] if isinstance(cf, list) else cf) * hp["mean_size"]
         self.mean_size = hp["mean_size"]
         self.dim = int(hp["embed_dim"])
-        logger.info("CoverHunter chargé sur %s (%d paramètres)", self.device, model.model_size())
+        logger.info("CoverHunter loaded on %s (%d parameters)", self.device, model.model_size())
 
-    # ---- caractéristiques ----
+    # ---- features ----
     def _to_wave(self, item: AudioItem) -> np.ndarray:
         if isinstance(item, (bytes, bytearray)):
             x, _ = load_audio(bytes(item), sr=SR)
@@ -98,7 +98,7 @@ class CoverHunterEmbedder(Embedder):
 
     @torch.inference_mode()
     def _cqt_db(self, x: np.ndarray) -> np.ndarray:
-        """(trames, 96) en dB relatifs, comme `_make_feat` de tools/identify.py."""
+        """(frames, 96) in relative dB, like `_make_feat` in tools/identify.py."""
         sig = torch.from_numpy(np.ascontiguousarray(x, dtype=np.float32)).unsqueeze(0).to(self.device)
         sig = sig / torch.max(torch.tensor(0.001, device=self.device), sig.abs().max()) * 0.999
         spec = self._cqt(sig) + 1e-9
@@ -121,7 +121,7 @@ class CoverHunterEmbedder(Embedder):
         return emb.float().cpu().numpy()
 
     def embed_windows(self, item: AudioItem) -> np.ndarray:
-        """Embeddings (n_fenêtres, 128) normalisés, fenêtres de `win_s` avec pas `hop_s`."""
+        """Normalised embeddings (n_windows, 128), windows of `win_s` with hop `hop_s`."""
         self._load()
         x = self._to_wave(item)
         cqt = self._cqt_db(x)
@@ -138,4 +138,4 @@ class CoverHunterEmbedder(Embedder):
         return self._embed_feats(feats)
 
     def _embed_text(self, texts: Sequence[str], task: str) -> np.ndarray:
-        raise NotImplementedError("CoverHunter n'encode pas le texte")
+        raise NotImplementedError("CoverHunter does not encode text")

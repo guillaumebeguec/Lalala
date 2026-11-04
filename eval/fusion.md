@@ -1,20 +1,20 @@
-# Fusion apprise contre RRF — T1 test (43 demandes, sous-ensemble dev)
+# Learned fusion vs RRF — T1 test (43 queries, dev subset)
 
-Entraînement : 252 demandes des splits train/val ; 52040 paires, 144 positives. Branches : bm25:brut, bm25:réécrit, gemma:légendes→audio, gemma:texte→fiches, peav:texte→fiches.
+Training: 252 queries from the train/val splits; 52040 pairs, 144 positive. Branches: bm25:brut, bm25:réécrit, gemma:légendes→audio, gemma:texte→fiches, peav:texte→fiches.
 
-| Système | top-1 [IC 95 %] | top-5 | top-10 | MRR |
+| System | top-1 [95 % CI] | top-5 | top-10 | MRR |
 |---|---|---|---|---|
 | RRF k=60 | 0.093 [0.02, 0.19] | 0.209 | 0.279 | 0.151 |
-| fusion apprise (LR) | 0.140 [0.05, 0.26] | 0.302 | 0.302 | 0.206 |
-| seule : bm25:réécrit | 0.070 [0.00, 0.16] | 0.116 | 0.163 | 0.100 |
-| seule : bm25:brut | 0.070 [0.00, 0.16] | 0.093 | 0.093 | 0.080 |
-| seule : gemma:légendes→audio | 0.023 [0.00, 0.07] | 0.023 | 0.047 | 0.029 |
-| seule : peav:texte→fiches | 0.023 [0.00, 0.07] | 0.023 | 0.116 | 0.043 |
-| seule : gemma:texte→fiches | 0.116 [0.02, 0.21] | 0.186 | 0.256 | 0.159 |
+| learned fusion (LR) | 0.140 [0.05, 0.26] | 0.302 | 0.302 | 0.206 |
+| alone: bm25:réécrit | 0.070 [0.00, 0.16] | 0.116 | 0.163 | 0.100 |
+| alone: bm25:brut | 0.070 [0.00, 0.16] | 0.093 | 0.093 | 0.080 |
+| alone: gemma:légendes→audio | 0.023 [0.00, 0.07] | 0.023 | 0.047 | 0.029 |
+| alone: peav:texte→fiches | 0.023 [0.00, 0.07] | 0.023 | 0.116 | 0.043 |
+| alone: gemma:texte→fiches | 0.116 [0.02, 0.21] | 0.186 | 0.256 | 0.159 |
 
-Coefficients (régression logistique, caractéristiques standardisées par construction) :
+Coefficients (logistic regression, features standardised by construction):
 
-| Caractéristique | Coefficient |
+| Feature | Coefficient |
 |---|---|
 | bm25:brut:inv_rank | -2.372999906539917 |
 | bm25:brut:score | 2.2109999656677246 |

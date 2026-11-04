@@ -4,7 +4,7 @@ from core import llm
 from core.llm import parse_json_lenient
 
 
-# ---------------------------------------------------------------- parseur tolérant (sans LLM)
+# ---------------------------------------------------------------- lenient parser (no LLM)
 
 @pytest.mark.parametrize("text,expected", [
     ('{"a": 1}', {"a": 1}),
@@ -24,7 +24,7 @@ def test_parse_json_lenient_fails():
 
 
 def test_json_retry_then_success(monkeypatch):
-    """Première réponse invalide, deuxième valide : une seule relance."""
+    """First answer invalid, second valid: a single retry."""
     calls = []
 
     class _Msg:
@@ -61,7 +61,7 @@ def test_json_gives_up_after_retry(monkeypatch):
         llm.chat([{"role": "user", "content": "x"}], json_schema={"type": "object"})
 
 
-# ---------------------------------------------------------------- avec un vrai Llama (Ollama)
+# ---------------------------------------------------------------- with a real Llama (Ollama)
 
 @pytest.mark.llm
 def test_chat_answers():
@@ -106,6 +106,6 @@ def test_fake_tool_call():
          {"role": "user", "content": "Je cherche une chanson des années 80 avec un gros solo de saxophone."}],
         tools=tools,
     )
-    assert r.tool_calls, f"aucun appel d'outil, contenu : {r.content!r}"
+    assert r.tool_calls, f"no tool call, content: {r.content!r}"
     assert r.tool_calls[0].name == "catalog_search"
     assert "text" in r.tool_calls[0].arguments

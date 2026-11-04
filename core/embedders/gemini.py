@@ -1,16 +1,16 @@
-"""Gemini Embedding 2 (`gemini-embedding-2`) via le SDK google-genai.
+"""Gemini Embedding 2 (`gemini-embedding-2`) via the google-genai SDK.
 
-Doc officielle (ai.google.dev/gemini-api/docs/embeddings, lue le 28/10/2026) :
-- entrées texte, image, vidéo, audio, PDF dans un même espace ; 8 192 tokens max ;
-- audio : 180 s max, MP3 ou WAV, en octets inline (`types.Part.from_bytes`) ;
-- vidéo : 120 s max, MP4/MOV, 32 images max, **la piste audio n'est pas traitée** ;
-- pas de `task_type` pour ce modèle : l'instruction est un préfixe texte
-  (`task: search result | query: …` pour une requête, `title: … | text: …` pour un document) ;
-- `output_dimensionality` 128–3072 (768 / 1536 / 3072 recommandés), renormalisé par le modèle ;
-- API batch à moitié prix pour le catalogue (à utiliser pour l'indexation complète).
+Official docs (ai.google.dev/gemini-api/docs/embeddings, read on 28/10/2026):
+- text, image, video, audio, PDF inputs in the same space; 8,192 tokens max;
+- audio: 180 s max, MP3 or WAV, as inline bytes (`types.Part.from_bytes`);
+- video: 120 s max, MP4/MOV, 32 frames max, **the audio track is not processed**;
+- no `task_type` for this model: the instruction is a text prefix
+  (`task: search result | query: ...` for a query, `title: ... | text: ...` for a document);
+- `output_dimensionality` 128–3072 (768 / 1536 / 3072 recommended), renormalised by the model;
+- batch API at half price for the catalogue (to use for the full indexing).
 
-Tout ce qui est envoyé ici part chez Google (voir README). Désactivé si
-USE_GEMINI=false ou sans clé : `get_embedder("gemini")` lève alors une erreur claire.
+Everything sent here goes to Google (see README). Disabled if
+USE_GEMINI=false or without a key: `get_embedder("gemini")` then raises a clear error.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ class GeminiEmbedder(Embedder):
         if not s.use_gemini:
             raise GeminiDisabled("USE_GEMINI=false")
         if not s.gemini_api_key:
-            raise GeminiDisabled("GEMINI_API_KEY absente")
+            raise GeminiDisabled("GEMINI_API_KEY missing")
         from google import genai
         self._client = genai.Client(api_key=s.gemini_api_key)
         self.model = s.gemini_model
@@ -70,15 +70,15 @@ class GeminiEmbedder(Embedder):
                                                   config=types.EmbedContentConfig(output_dimensionality=self.dim))
         except Exception as e:  # noqa: BLE001
             if _is_retryable(e):
-                logger.warning("Gemini : %s, nouvel essai", str(e)[:120])
+                logger.warning("Gemini: %s, retrying", str(e)[:120])
                 raise
-            raise RuntimeError(f"Gemini : {e}") from e
+            raise RuntimeError(f"Gemini: {e}") from e
         self.n_calls += 1
         return np.asarray([e.values for e in r.embeddings], dtype=np.float32)
 
     def _embed_text(self, texts: Sequence[str], task: str) -> np.ndarray:
         prefixed = [QUERY_PREFIX + t if task == "query" else t for t in texts]
-        # Plusieurs textes par requête sont acceptés (liste de contents).
+        # Several texts per request are accepted (list of contents).
         return self._call(prefixed)
 
     def _embed_audio(self, items: Sequence[AudioItem]) -> np.ndarray:

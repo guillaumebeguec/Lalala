@@ -1,8 +1,8 @@
-"""CLAP (`laion/larger_clap_music`) via transformers, sur MPS.
+"""CLAP (`laion/larger_clap_music`) via transformers, on MPS.
 
-Anglais uniquement : les requêtes en français doivent être traduites par Llama
-en amont (voir core/query_rewrite.py). Audio attendu à 48 kHz mono ; les extraits
-de 30 s sont encodés entiers (le modèle fusionne les fenêtres de 10 s).
+English only: French queries must be translated by Llama upstream
+(see core/query_rewrite.py). Audio expected at 48 kHz mono; the 30 s
+previews are encoded whole (the model fuses the 10 s windows).
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ SR = 48_000
 
 
 def _as_tensor(out) -> torch.Tensor:
-    """transformers ≥ 5 renvoie un ModelOutput (pooler_output = projection) au lieu d'un tenseur."""
+    """transformers >= 5 returns a ModelOutput (pooler_output = projection) instead of a tensor."""
     if isinstance(out, torch.Tensor):
         return out
     for k in ("pooler_output", "audio_embeds", "text_embeds"):
@@ -50,7 +50,7 @@ class ClapEmbedder(Embedder):
         if self._model is None:
             from transformers import ClapModel, ClapProcessor
             self.device = get_device()
-            logger.info("Chargement CLAP %s sur %s", self.model_id, self.device)
+            logger.info("Loading CLAP %s on %s", self.model_id, self.device)
             self._processor = ClapProcessor.from_pretrained(self.model_id)
             self._model = ClapModel.from_pretrained(self.model_id).to(self.device).eval()
             self.dim = int(self._model.config.projection_dim)

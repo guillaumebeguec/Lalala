@@ -1,137 +1,137 @@
-# Lalala — journal du hackathon
+# Lalala — hackathon journal
 
-Meta Global AI Developer Hackathon, 26 octobre – 4 novembre 2026, piste Indie, thème « Build for Your World ».
-Un MacBook M2 24 Go, les modèles ouverts de Meta (Llama 3.1, PE-AV, SAM Audio, FAISS), une semaine.
+Meta Global AI Developer Hackathon, October 26 – November 4, 2026, Indie track, theme "Build for Your World".
+One MacBook M2 24 GB, Meta's open models (Llama 3.1, PE-AV, SAM Audio, FAISS), one week.
 
-## Avant de commencer
+## Before starting
 
-L'idée de départ : un Shazam qui marche quand on n'a pas l'enregistrement. Tout le monde a eu une chanson en tête sans
-retrouver le titre : un air qu'on fredonne, trois mots du refrain, « la pub de voiture avec un sifflement, vers 2008 »,
-une reprise dans un bar, une vidéo bruyante.
+The starting idea: a Shazam that works when you don't have the recording. Everyone has had a song in their head without
+finding the title: a tune you hum, three words of the chorus, "the car ad with the whistling, around 2008",
+a cover in a bar, a noisy video.
 
-Première piste, la veille du kickoff : un RAG sur un catalogue de chansons. On tape le souvenir, un embedding cherche,
-un LLM répond. Abandonnée dans l'heure : le jury ne veut pas de « RAG basique », et un RAG ne fait rien d'un fredonnement.
-Nouvelle idée : un agent qui enquête. Plusieurs façons de chercher (texte, son, mélodie, paroles chantées), un vote,
-une confiance calibrée, et une question à l'utilisateur quand ça hésite. Nom de code SoundTrace, nom du produit Lalala.
+First lead, the day before the kickoff: a RAG over a song catalogue. You type the memory, an embedding searches,
+an LLM answers. Dropped within the hour: the jury doesn't want "basic RAG", and a RAG does nothing with a hum.
+New idea: an agent that investigates. Several ways to search (text, sound, melody, sung lyrics), a vote,
+a calibrated confidence, and a question to the user when it hesitates. The product is called Lalala, because that is what you do when you are looking for a title.
 
-Règles qu'on se donne : modèles Meta au cœur, tout en local, pas d'audio stocké, pas de paroles stockées, et des jeux de
-test que l'agent ne voit jamais. Cette dernière règle a évité plusieurs fausses joies.
+Rules we set ourselves: Meta models at the core, everything local, no audio stored, no lyrics stored, and test
+sets the agent never sees. That last rule spared us several false joys.
 
-## Jeudi 29 octobre
+## Thursday, October 29
 
-Pas de pipeline aujourd'hui, d'abord de quoi mesurer.
+No pipeline today, first something to measure with.
 
-- Catalogue : WASABI 2.0, 24 361 chansons, extrait en flux sans les paroles. Extraits de 30 s via l'API Deezer,
-  iTunes en repli. Les conditions Deezer interdisent de stocker l'audio : les extraits sont lus en mémoire, embarqués,
-  jetés. On ne garde que les vecteurs. Les URL signées expirent en moins d'une heure, rafraîchissement à la demande.
-- Jeux de test, un par situation : souvenirs flous (ToT_Music, vraies demandes Reddit), enregistrements bruités (recette
-  MUSAN rejouable, 0/5/10 dB), reprises → original, 393 fredonnements réels (CHAD). Utilisateur simulé qui ne connaît
-  pas la réponse.
-- Sous-ensemble dev de 2 000 chansons pour itérer, complet pour la fin.
-- Idée notée pour plus tard : des fiches par chanson (résumé Wikipédia + description Llama « ça sonne comment, ça parle
-  de quoi »), pour que la recherche texte ait autre chose que des titres.
+- Catalogue: WASABI 2.0, 24,361 songs, extracted as a stream without the lyrics. 30 s clips via the Deezer API,
+  iTunes as fallback. Deezer's terms forbid storing the audio: clips are read in memory, embedded,
+  discarded. We only keep the vectors. Signed URLs expire in under an hour, refreshed on demand.
+- Test sets, one per situation: fuzzy memories (ToT_Music, real Reddit requests), noisy recordings (replayable
+  MUSAN recipe, 0/5/10 dB), covers → original, 393 real hums (CHAD). Simulated user that doesn't know
+  the answer.
+- Dev subset of 2,000 songs to iterate on, the full set for the end.
+- Idea noted for later: one card per song (Wikipedia summary + Llama description "what it sounds like, what it's
+  about"), so text search has something other than titles.
 
-## Vendredi 30 octobre
+## Friday, October 30
 
-Journée de plomberie, objectif : une chaîne complète même médiocre.
+Plumbing day, goal: a complete chain, even a mediocre one.
 
-- Embedders derrière une interface commune : PE-AV (audio, texte↔audio), EmbeddingGemma (texte↔fiches), CLAP pour
-  comparer, Gemini en option désactivable. FAISS pour les vecteurs, BM25 pour les mots, Chromaprint pour l'empreinte.
-- Llama en trois rôles : réécrire le souvenir en requête propre, reclasser le top 10, poser la question la plus utile
-  (croyance bayésienne, gain d'information).
-- API en SSE pour afficher l'enquête étape par étape avec le modèle qui travaille. Front Lalala : Capture, Searching,
-  Result. Test au téléphone sur le réseau local pour avoir un vrai micro.
-- macOS : faiss et torch embarquent chacun leur OpenMP, l'API plantait sans message. OMP_NUM_THREADS=1, réglé.
-- Le soir, première version du fredonnement avec hum2song (embedder de contour publié). 2 sur 6 dans le top 5. On y croit.
+- Embedders behind a common interface: PE-AV (audio, text↔audio), EmbeddingGemma (text↔cards), CLAP for
+  comparison, Gemini as an option that can be disabled. FAISS for vectors, BM25 for words, Chromaprint for the fingerprint.
+- Llama in three roles: rewrite the memory into a clean query, rerank the top 10, ask the most useful question
+  (Bayesian belief, information gain).
+- SSE API to display the investigation step by step with the model at work. Lalala front: Capture, Searching,
+  Result. Tested on the phone over the local network to get a real microphone.
+- macOS: faiss and torch each ship their own OpenMP, the API crashed with no message. OMP_NUM_THREADS=1, fixed.
+- In the evening, first version of humming with hum2song (published contour embedder). 2 out of 6 in the top 5. We believe in it.
 
-## Samedi 31 octobre
+## Saturday, October 31
 
-Premier rapport d'éval sur le panel dev. Il a réorganisé la semaine.
+First eval report on the dev panel. It reorganized the week.
 
-- Bruit : empreinte 87 % top-1, fusion 97 % top-10. Scène acquise.
-- Reprises : 25 % top-5 au mieux. L'idée « jouer une reprise au piano et battre Shazam » ne tient pas sur des extraits de
-  30 s, la reprise et l'original ne se recouvrent pas sur la même fenêtre. Écrit dans DEMO.md : scène non retenue.
-- Fredonnement : hum2song à 0,5 % top-1 sur les 393 fredonnements réels. Tout le reste à zéro.
+- Noise: fingerprint 87 % top-1, fusion 97 % top-10. Scene secured.
+- Covers: 25 % top-5 at best. The idea of "play a piano cover and beat Shazam" doesn't hold on 30 s clips:
+  the cover and the original don't overlap on the same window. Written in DEMO.md: scene dropped.
+- Humming: hum2song at 0.5 % top-1 on the 393 real hums. Everything else at zero.
 
-Huit idées de la nuit, appliquées dans la journée : routage par type d'entrée (un texte n'interroge l'index audio que
-s'il décrit un son), Llama comme moteur de recherche par connaissance (titres proposés puis résolus dans le catalogue),
-seuils par branche, fusion apprise à la place du RRF à poids égaux, thème des paroles dans les fiches, empreinte
-audfprint plus robuste au micro que Chromaprint.
+Eight ideas from the night, applied during the day: routing by input type (a text only queries the audio index
+if it describes a sound), Llama as a knowledge-based search engine (titles proposed, then resolved in the catalogue),
+per-branch thresholds, learned fusion instead of equal-weight RRF, lyric themes in the cards, audfprint
+fingerprint more robust to the microphone than Chromaprint.
 
-Pivot du jour : quand les gens « fredonnent », ils chantent souvent des mots. Des mots → Whisper. Et on peut chercher
-dans les paroles sans les stocker : hachés non réversibles de 4-grammes, calculés une fois depuis le corpus. 5 top-1 sur
-12 extraits chantés, les échecs sont tous des échecs de transcription. Le fredonnement devient deux problèmes : des mots,
-ou une mélodie.
+Pivot of the day: when people "hum", they often sing words. Words → Whisper. And we can search
+the lyrics without storing them: non-reversible hashes of 4-grams, computed once from the corpus. 5 top-1 on
+12 sung clips, the failures are all transcription failures. Humming becomes two problems: words,
+or a melody.
 
-Fin de journée : fusion apprise entraînée, 28 % top-5 sur les souvenirs flous contre 21 % en RRF. L'agent et ses
-questions sur 15 cas : aucun gain avec un 8B. Fonctionnalité gardée, pas l'argument.
+End of day: learned fusion trained, 28 % top-5 on fuzzy memories against 21 % with RRF. The agent and its
+questions on 15 cases: no gain with an 8B. Feature kept, not the selling point.
 
-## Dimanche 1er novembre
+## Sunday, November 1
 
-Question du matin : hum2song échoue à cause de la voix ou de l'embedder ? Pour trancher, fredonnements synthétiques :
-on extrait la mélodie de l'extrait, on la rend en « mmm » avec transposition, tempo, vibrato. RMVPE la retrouve à 0,2
-demi-ton près, hum2song la rate quand même. C'est l'embedder.
+Morning question: does hum2song fail because of the voice or because of the embedder? To settle it, synthetic hums:
+we extract the melody from the clip, render it as "mmm" with transposition, tempo, vibrato. RMVPE recovers it to within 0.2
+semitones, hum2song still misses it. It's the embedder.
 
-Donc on l'enlève. Alignement direct des contours : la mélodie de la requête glissée sur celle de chaque extrait, tolérance
-à la transposition, au tempo (0,8–1,25) et aux silences. Sur les 393 fredonnements : 16 % top-1, 25 % top-10, trente fois
-mieux. Et un diagnostic clair : par position du passage fredonné, les débuts de morceau sont les moins reconnus parce que
-l'extrait de 30 s démarre souvent au refrain. Le plafond est la fenêtre, pas la méthode.
+So we remove it. Direct contour alignment: the query melody slid over that of each clip, tolerance
+to transposition, tempo (0.8–1.25) and silences. On the 393 hums: 16 % top-1, 25 % top-10, thirty times
+better. And a clear diagnosis: by position of the hummed passage, song intros are the least recognized because
+the 30 s clip often starts at the chorus. The ceiling is the window, not the method.
 
-SAM Audio, accès aux poids reçu. Installation pénible sur Mac (le paquet installe un module `core` comme le nôtre, deux
-dépendances sans roue macOS) : venv séparé, sous-processus, portage MLX trois fois plus rapide. Mesure sur 20 cas
-bruités : la séparation est générative, l'audio isolé dégrade l'empreinte et les embeddings en moyenne, mais sauve un
-cas que rien d'autre n'attrape. Politique : seconde chance pour l'empreinte seulement, jamais à la place de l'audio brut.
+SAM Audio, access to the weights received. Painful install on Mac (the package installs a `core` module like ours, two
+dependencies without a macOS wheel): separate venv, subprocess, MLX port three times faster. Measured on 20 noisy
+cases: the separation is generative, the isolated audio degrades the fingerprint and the embeddings on average, but saves one
+case nothing else catches. Policy: second chance for the fingerprint only, never instead of the raw audio.
 
-Llama 8B : à partir de « guitare ? » il inventait « rock, voix masculine » et cherchait ces mots dans les titres et les
-paroles. Deux corrections : un indice n'est gardé que s'il est dans les mots de l'utilisateur, et les mots qui décrivent
-un son interrogent les descriptions audio et l'index audio, pas les titres ni les paroles.
+Llama 8B: from "guitar?" it made up "rock, male vocals" and searched for those words in titles and
+lyrics. Two fixes: a clue is only kept if it's in the user's words, and words that describe
+a sound query the audio descriptions and the audio index, not the titles or the lyrics.
 
-## Lundi 2 novembre
+## Monday, November 2
 
-Au téléphone, un fredonnement sans mots tombait presque toujours sur « We couldn't pin it down ». Trois causes dans les
-journaux : Whisper hallucine des paroles (« Thank you for watching! ») sur un « mmm », les scores RRF sont toujours
-« bas » parce qu'ils n'ont pas d'échelle, et une branche Llama à 60 s traînait encore dans l'API.
+On the phone, a hum without words almost always landed on "We couldn't pin it down". Three causes in the
+logs: Whisper hallucinates lyrics ("Thank you for watching!") on an "mmm", RRF scores are always
+"low" because they have no scale, and a 60 s Llama branch was still lingering in the API.
 
-- Mots ou mélodie : détection de mots réels (probabilité de langue, qualité de transcription, liste d'hallucinations).
-  Sans mots, la mélodie décide seule.
-- Confiance : le score mélodique ne sépare pas un bon d'un mauvais résultat (0,73 contre 0,72). La marge entre le premier
-  et le deuxième, si. Calibrée sur les 393 fredonnements.
-- Plus d'impasse : en confiance basse, top 10 à écouter au lieu d'un échec.
-- Seconde fenêtre par chanson : l'extrait iTunes tombe souvent sur un autre passage que Deezer. 1 819 morceaux en ont
-  une. Fredonnement : 16 % → 19,6 % top-1, 30 % top-10.
+- Words or melody: detection of real words (language probability, transcription quality, hallucination list).
+  Without words, the melody decides alone.
+- Confidence: the melodic score doesn't separate a good result from a bad one (0.73 against 0.72). The margin between first
+  and second does. Calibrated on the 393 hums.
+- No more dead end: at low confidence, a top 10 to listen to instead of a failure.
+- Second window per song: the iTunes clip often falls on a different passage than Deezer. 1,819 tracks have
+  one. Humming: 16 % → 19.6 % top-1, 30 % top-10.
 
-Nuit de calcul, un modèle à la fois pour ne pas faire chauffer le Mac : 2 000 fiches Llama, index texte et son, éval
-complète, cross-encoder maison, fusion réentraînée.
+Night of computing, one model at a time so the Mac doesn't overheat: 2,000 Llama cards, text and sound indexes, full
+eval, homemade cross-encoder, fusion retrained.
 
-## Mardi 3 novembre
+## Tuesday, November 3
 
-Lecture de la nuit. PE-AV audio avait saturé la mémoire GPU à mi-chemin : libération entre les lots, reprise depuis le
-cache. Cross-encoder maison : dégrade le top-1, écarté. Thèmes de paroles : aucun gain sur les souvenirs flous, gardés
-dans les fiches, pas dans l'argumentaire. PE-AV seul un peu sous Gemma sur l'audio, mais la fusion avec lui monte à 93 %
-top-1 sur le bruit.
+Reading the night's results. PE-AV audio had saturated GPU memory halfway through: freeing between batches, resuming from the
+cache. Homemade cross-encoder: degrades top-1, dropped. Lyric themes: no gain on fuzzy memories, kept
+in the cards, not in the pitch. PE-AV alone slightly below Gemma on audio, but the fusion with it climbs to 93 %
+top-1 on noise.
 
-| Situation | Panel dev | En démo |
+| Situation | Dev panel | In the demo |
 |---|---|---|
-| Souvenir flou | 14 % top-1, 30 % top-5 (fusion apprise) | liste courte, l'agent pose une question |
-| Enregistrement bruité | 93 % top-1, 100 % top-5 | scène forte |
-| Reprise / live | 32 % top-10 | non retenue |
-| Fredonnement | 19,6 % top-1, 30 % top-10 | tient si le passage est dans la fenêtre |
+| Fuzzy memory | 14 % top-1, 30 % top-5 (learned fusion) | short list, the agent asks a question |
+| Noisy recording | 93 % top-1, 100 % top-5 | strong scene |
+| Cover / live | 32 % top-10 | dropped |
+| Humming | 19.6 % top-1, 30 % top-10 | holds if the passage is inside the window |
 
-Nettoyage du dépôt, README pour le jury, publication sur GitHub.
+Repo cleanup, README for the jury, published on GitHub.
 
-## Ce qu'on retient
+## What we take away
 
-- Mesurer d'abord a coûté une journée et en a économisé trois : hum2song, l'audio isolé pour la similarité et le
-  cross-encoder sont partis sur les chiffres.
-- Un petit LLM invente. Il faut l'ancrer dans les mots de l'utilisateur et séparer « ça sonne comment » de « ça parle de quoi ».
-- Quand un modèle appris échoue, fabriquer une entrée idéale dit tout de suite si c'est le modèle ou la donnée.
-- La confiance affichée se calibre sur des cas réels, sinon l'interface ment.
-- Nommer la limite structurelle (la fenêtre de 30 s) dit où est le prochain gain.
+- Measuring first cost a day and saved three: hum2song, isolated audio for similarity and the
+  cross-encoder were dropped on the numbers.
+- A small LLM makes things up. It has to be anchored in the user's words, and "what it sounds like" kept separate from "what it's about".
+- When a learned model fails, building an ideal input tells you right away whether it's the model or the data.
+- The displayed confidence has to be calibrated on real cases, otherwise the interface lies.
+- Naming the structural limit (the 30 s window) says where the next gain is.
 
-## Avec une semaine de plus
+## With one more week
 
-- L'audio complet des 15 morceaux de démo (achat DRM-free) : la fenêtre disparaît. Le code accepte déjà plusieurs
-  fenêtres par morceau.
-- Un Llama 70B par API pour le moteur de recherche par connaissance et le reranking listwise : branché, pas de modèle.
-- Des enregistrements réels au micro à la place du bruit synthétique (l'outil existe).
-- La vidéo avec les images PE-AV, prévue, pas mesurée.
+- Full audio for the 15 demo tracks (DRM-free purchase): the window goes away. The code already accepts several
+  windows per track.
+- A Llama 70B via API for the knowledge-based search engine and listwise reranking: wired up, no model.
+- Real microphone recordings instead of synthetic noise (the tool exists).
+- Video with PE-AV frames, planned, not measured.

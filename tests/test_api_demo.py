@@ -105,7 +105,7 @@ def test_transcript_has_words_rejects_hallucinations():
     from core.asr import Transcript
     assert not Transcript("Thank you for watching!", "en", 0.37, 4, avg_logprob=-0.6, no_speech_prob=0.2).has_words
     assert not Transcript("hmm hmm hmm hmm", "en", 0.9, 4, avg_logprob=-0.3).has_words
-    assert not Transcript("je pense que c'est une chanson", "fr", 0.3, 6, avg_logprob=-0.3).has_words   # langue trop incertaine
+    assert not Transcript("je pense que c'est une chanson", "fr", 0.3, 6, avg_logprob=-0.3).has_words   # language too uncertain
     assert Transcript("je pense que c'est une chanson", "fr", 0.8, 6, avg_logprob=-0.4, no_speech_prob=0.1).has_words
 
 

@@ -1,25 +1,25 @@
-# SAM Audio sur T3 (sous-ensemble dev, moteur mlx)
+# SAM Audio on T3 (dev subset, mlx engine)
 
-20 cas synthétiques (SNR ≤ 5 dB), 10 s. Isolation : 46 s par cas en moyenne (modèle base, Apple Silicon).
+20 synthetic cases (SNR ≤ 5 dB), 10 s. Isolation: 46 s per case on average (base model, Apple Silicon).
 
-| Mesure | Mélange | Musique isolée |
+| Measure | Mixture | Isolated music |
 |---|---|---|
-| SI-SDR moyen vs extrait propre | 2.4 dB | -0.7 dB |
-| Empreinte exacte retrouvée | 80 % | 45 % |
-| Empreinte retrouvée (mélange **ou** isolé) | | 85 % |
+| Mean SI-SDR vs clean preview | 2.4 dB | -0.7 dB |
+| Exact fingerprint found | 80 % | 45 % |
+| Fingerprint found (mixture **or** isolated) | | 85 % |
 | Gemma top-1 | 15 % | 5 % |
 | Gemma top-10 | 20 % | 15 % |
 
-**Lecture.** La séparation est générative (flow matching) : elle produit un audio plausible, pas l'enregistrement
-exact, ce qui déplace les points de repère de l'empreinte (80 % → 45 %) et éloigne l'embedding Gemma (top-1 15 % → 5 %).
-Elle gagne surtout sur les bruits d'ambiance (free-sound) et perd sur la parole (librivox, us-gov), où la voix chantée est
-parfois traitée comme de la parole à retirer ; un cas s'effondre (−57 dB). Le gain net existe en « brut **ou** isolé »
-(+1 cas, 85 %), donc l'isolation reste une **seconde chance pour l'empreinte** et ne remplace jamais l'audio brut pour la
-similarité. Comparaison moteur sur un cas : officiel PyTorch/MPS 145 s, MLX 38 s, même qualité (5,2 vs 5,3 dB).
+**Reading.** The separation is generative (flow matching): it produces plausible audio, not the exact recording,
+which shifts the fingerprint landmarks (80 % → 45 %) and pushes the Gemma embedding away (top-1 15 % → 5 %).
+It mainly gains on ambient noise (free-sound) and loses on speech (librivox, us-gov), where the singing voice is
+sometimes treated as speech to be removed; one case collapses (−57 dB). The net gain exists for "raw **or** isolated"
+(+1 case, 85 %), so isolation remains a **second chance for the fingerprint** and never replaces the raw audio for
+similarity. Engine comparison on one case: official PyTorch/MPS 145 s, MLX 38 s, same quality (5,2 vs 5,3 dB).
 
-Politique de l'app : l'isolation n'est lancée que si l'enregistrement est détecté bruité et sans empreinte exacte ; l'audio isolé donne une seconde chance à l'empreinte puis sert à la similarité.
+App policy: isolation only runs when the recording is detected as noisy and has no exact fingerprint match; the isolated audio gives the fingerprint a second chance, then feeds the similarity search.
 
-| Cas | SNR | Bruit | SI-SDR mél. | SI-SDR iso | Empr. mél. | Empr. iso | Gemma mél. | Gemma iso |
+| Case | SNR | Noise | SI-SDR mix | SI-SDR iso | FP mix | FP iso | Gemma mix | Gemma iso |
 |---|---|---|---|---|---|---|---|---|
 | t3_dz818256_0 | 0 | free-sound | -0.1 | 8.1 | ✓ | ✓ | 1 | 1 |
 | t3_dz818256_5 | 5 | free-sound | 4.9 | 0.8 | ✓ | – | 1 | – |

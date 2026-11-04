@@ -1,13 +1,13 @@
-"""T4 — Reprises → original (PLAN.md phase 2.4).
+"""T4 — Covers → original (PLAN.md phase 2.4).
 
-Pour N tubes du catalogue (meilleur `rank`, hors ToT pour ne pas biaiser T1), on
-cherche sur Deezer « titre piano », « titre acoustic cover », « titre live »,
-« titre karaoke ». On garde les résultats dont le titre normalisé correspond à
-l'original (similarité ≥ 0,85) et dont l'artiste **diffère** (ou dont le titre
-mentionne « live »), avec un extrait. Métadonnées seulement ; l'audio est lu
-en mémoire au moment de l'évaluation (voir catalog/previews.py).
+For N catalog hits (best `rank`, excluding ToT answers so as not to bias T1), we
+search Deezer for "title piano", "title acoustic cover", "title live",
+"title karaoke". We keep results whose normalised title matches the original
+(similarity ≥ 0.85) and whose artist **differs** (or whose title mentions
+"live"), with a preview. Metadata only; the audio is read into memory at
+evaluation time (see catalog/previews.py).
 
-Sortie : data/testsets/t4_covers.jsonl — champs : id, cover_deezer_id,
+Output: data/testsets/t4_covers.jsonl — fields: id, cover_deezer_id,
 cover_title, cover_artist, cover_preview_url, kind, reponse_id (original).
 """
 
@@ -69,10 +69,10 @@ def build_t4(catalog: pd.DataFrame, previews: pd.DataFrame | None, n_hits: int =
             rows.append({"id": f"t4_{len(rows) + 1:04d}", **c, "reponse_id": r.track_id,
                          "original_title": r.title, "original_artist": r.artist})
         if i % 50 == 0:
-            logger.info("T4 : %d tubes explorés, %d reprises", i, len(rows))
+            logger.info("T4: %d hits explored, %d covers", i, len(rows))
     rng = random.Random(seed)
     rng.shuffle(rows)
-    # au plus 2 reprises par original pour la diversité, puis cible
+    # at most 2 covers per original for diversity, then the target size
     per: dict[str, int] = {}
     kept = []
     for r in rows:
@@ -81,7 +81,7 @@ def build_t4(catalog: pd.DataFrame, previews: pd.DataFrame | None, n_hits: int =
         per[r["reponse_id"]] = per.get(r["reponse_id"], 0) + 1
         kept.append(r)
     kept = kept[:target]
-    logger.info("T4 : %d paires reprise → original (%d originaux) ; requêtes Deezer %d", len(kept), len(per), dz.n_requests)
+    logger.info("T4: %d cover → original pairs (%d originals); Deezer requests %d", len(kept), len(per), dz.n_requests)
     return kept
 
 

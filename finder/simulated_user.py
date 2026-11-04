@@ -1,16 +1,16 @@
-"""Utilisateur simulé pour évaluer l'agent sans humain (DEMO.md § 3.3, PLAN.md phase 2.6).
+"""Simulated user to evaluate the agent without a human (DEMO.md § 3.3, PLAN.md phase 2.6).
 
-Un Llama distinct de l'agent joue la personne qui cherche le morceau. Il ne
-connaît **que le texte d'origine de la demande** (titre + corps du post pour
-ToT_Music, la description pour T2). Il répond aux questions fermées de l'agent
-à partir de ce texte seulement, et « je ne sais pas » sinon.
+A Llama distinct from the agent plays the person looking for the track. It knows
+**only the original text of the request** (title + post body for ToT_Music, the
+description for T2). It answers the agent's closed questions from that text
+alone, and "I don't know" otherwise.
 
-Variante « informé » (`informed=True`) : il connaît en plus l'année et la langue
-du vrai morceau (borne haute). Rien d'autre : jamais le titre ni l'artiste.
+"Informed" variant (`informed=True`): it additionally knows the year and language
+of the true track (upper bound). Nothing else: never the title nor the artist.
 
-Garantie anti-fuite : `SimulatedUser.prompt_messages()` est la seule façon de
-construire le prompt, et `tests/test_simulated_user.py` vérifie que la réponse
-attendue n'y apparaît jamais.
+Anti-leak guarantee: `SimulatedUser.prompt_messages()` is the only way to build
+the prompt, and `tests/test_simulated_user.py` checks that the expected answer
+never appears in it.
 """
 
 from __future__ import annotations
@@ -52,20 +52,20 @@ _ANSWER_SCHEMA = {
 
 @dataclass
 class SimulatedUser:
-    description: str                      # texte d'origine (seule connaissance)
+    description: str                      # original text (sole knowledge)
     informed: bool = False
-    known_year: int | None = None         # uniquement si informed
-    known_language: str | None = None     # uniquement si informed
+    known_year: int | None = None         # only if informed
+    known_language: str | None = None     # only if informed
     model: str | None = None
     history: list[dict[str, str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if not self.informed:
-            # Un utilisateur non informé ne porte aucune information externe, même par erreur.
+            # An uninformed user carries no external information, not even by mistake.
             self.known_year = None
             self.known_language = None
 
-    # ---- construction du prompt : point unique ----
+    # ---- prompt construction: single entry point ----
     def prompt_messages(self, question: str, options: list[str]) -> list[dict[str, str]]:
         known = ""
         if self.informed:
@@ -96,7 +96,7 @@ class SimulatedUser:
         return ev in fold(known)
 
     def opening_message(self) -> str:
-        """Le premier message envoyé à l'agent : la description telle quelle."""
+        """The first message sent to the agent: the description as is."""
         return self.description
 
     def answer(self, question: str, options: list[str]) -> str:
@@ -106,11 +106,11 @@ class SimulatedUser:
             choice = str((r.json or {}).get("choice", DONT_KNOW)).strip()
             evidence = str((r.json or {}).get("evidence") or "").strip()
         except llm.LLMError as e:
-            logger.warning("utilisateur simulé : %s ; réponse « %s »", e, DONT_KNOW)
+            logger.warning("simulated user: %s; answering \"%s\"", e, DONT_KNOW)
             choice, evidence = DONT_KNOW, ""
         choice = _snap(choice, options)
-        # Garde-fou : une réponse doit être étayée par un passage réel de ce que l'utilisateur sait.
-        # Le 8B oublie souvent de citer : on lui redemande une fois la citation exacte.
+        # Guard rail: an answer must be backed by a real passage of what the user knows.
+        # The 8B often forgets to quote: ask it once more for the exact quote.
         if choice != DONT_KNOW and not self._grounded(evidence):
             follow = msgs + [
                 {"role": "assistant", "content": json.dumps({"evidence": evidence, "choice": choice}, ensure_ascii=False)},
@@ -125,13 +125,13 @@ class SimulatedUser:
             except llm.LLMError:
                 choice = DONT_KNOW
             if choice == DONT_KNOW:
-                logger.debug("réponse non étayée (citation : %r) → %s", evidence, DONT_KNOW)
+                logger.debug("unsupported answer (quote: %r) → %s", evidence, DONT_KNOW)
         self.history.append({"q": question, "a": choice})
         return choice
 
 
 def _snap(choice: str, options: list[str]) -> str:
-    """Ramène la réponse sur une option exacte (ou « je ne sais pas »)."""
+    """Snaps the answer onto an exact option (or `DONT_KNOW`)."""
     c = choice.strip().lower()
     if not c or DONT_KNOW in c or c in {"i don't know", "unknown", "?"}:
         return DONT_KNOW
@@ -147,6 +147,6 @@ def _snap(choice: str, options: list[str]) -> str:
 
 
 def from_tot(query: Any, informed: bool = False, year: int | None = None, language: str | None = None) -> SimulatedUser:
-    """Construit l'utilisateur depuis une demande ToT_Music sans jamais lire ses champs `answer_*`."""
+    """Builds the user from a ToT_Music request without ever reading its `answer_*` fields."""
     return SimulatedUser(description=query.visible_text, informed=informed,
                          known_year=year if informed else None, known_language=language if informed else None)

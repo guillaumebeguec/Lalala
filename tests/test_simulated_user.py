@@ -1,4 +1,4 @@
-"""Test anti-fuite : la réponse attendue n'apparaît jamais dans le prompt de l'utilisateur simulé."""
+"""Anti-leak test: the expected answer never appears in the simulated user's prompt."""
 import pytest
 
 from finder.simulated_user import DONT_KNOW, SimulatedUser, _snap, from_tot

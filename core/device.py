@@ -1,7 +1,7 @@
-"""Sélection du device PyTorch : MPS (Apple Silicon) en priorité, CPU en repli.
+"""PyTorch device selection: MPS (Apple Silicon) first, CPU as fallback.
 
-Tout le code qui place un tenseur ou un modèle sur un device passe par ici,
-pour que le repli soit cohérent dans tout le projet.
+All code that places a tensor or a model on a device goes through here,
+so that the fallback is consistent across the whole project.
 """
 
 from __future__ import annotations
@@ -14,27 +14,27 @@ logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
-def get_device() -> "torch.device":  # noqa: F821 — import différé pour garder le module léger
-    """Renvoie le device à utiliser : `mps` si disponible, sinon `cpu`.
+def get_device() -> "torch.device":  # noqa: F821 — deferred import to keep the module lightweight
+    """Return the device to use: `mps` if available, otherwise `cpu`.
 
-    La variable d'environnement `SOUNDTRACE_DEVICE` force un device (utile pour
-    les tests ou pour comparer MPS et CPU).
+    The `LALALA_DEVICE` environment variable forces a device (useful for
+    tests or to compare MPS and CPU).
     """
     import torch
 
-    forced = os.environ.get("SOUNDTRACE_DEVICE")
+    forced = os.environ.get("LALALA_DEVICE")
     if forced:
-        logger.info("Device forcé par SOUNDTRACE_DEVICE=%s", forced)
+        logger.info("Device forced by LALALA_DEVICE=%s", forced)
         return torch.device(forced)
 
     if torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        logger.info("Device : mps (Apple Silicon)")
+        logger.info("Device: mps (Apple Silicon)")
         return torch.device("mps")
 
-    logger.warning("MPS indisponible, repli sur le CPU")
+    logger.warning("MPS unavailable, falling back to CPU")
     return torch.device("cpu")
 
 
 def device_name() -> str:
-    """Nom court du device, pour les logs et les rapports."""
+    """Short device name, for logs and reports."""
     return str(get_device())

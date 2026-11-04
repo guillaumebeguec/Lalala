@@ -1,4 +1,4 @@
-# Données locales (extraits audio, caches, index, jeux de test) : jamais commitées
+# Local data (audio previews, caches, indexes, test sets): never committed
 data/
 .env
 .env.*
@@ -14,7 +14,7 @@ __pycache__/
 build/
 dist/
 
-# Caches de modèles et artefacts
+# Model caches and artefacts
 .cache/
 *.faiss
 *.npy
@@ -22,10 +22,10 @@ dist/
 *.pt
 *.safetensors
 
-# Éditeurs / OS
+# Editors / OS
 .DS_Store
 .vscode/
 .idea/
 
-# Instructions locales de l'assistant de code (hors dépôt)
+# Local coding-assistant instructions (kept out of the repo)
 CLAUDE.md

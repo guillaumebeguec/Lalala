@@ -1,9 +1,9 @@
-"""Appariement d'un fragment de paroles (transcription chantée) aux empreintes de paroles du
-catalogue (hachés de n-grammes, scripts/build_lyrics_hashes.py). Aucun texte de paroles côté index.
+"""Matching of a lyrics fragment (sung transcription) against the catalogue's lyrics
+fingerprints (n-gram hashes, scripts/build_lyrics_hashes.py). No lyrics text on the index side.
 
-Score d'un morceau = nombre de n-grammes du fragment présents dans son empreinte ; renvoyé
-avec la part de n-grammes couverts. Une transcription Whisper approximative tombe souvent
-juste sur quelques n-grammes de 4 mots : seuil minimal `min_hits`.
+Score of a track = number of n-grams of the fragment present in its fingerprint; returned
+together with the share of covered n-grams. An approximate Whisper transcription often
+lands exactly on a few 4-word n-grams: minimum threshold `min_hits`.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def path() -> Path:
 class LyricsHashIndex:
     def __init__(self, n: int = 4):
         import pyarrow.parquet as pq
-        from scripts.build_lyrics_hashes import ngram_hashes, normalize_words  # réutilise la même normalisation
+        from scripts.build_lyrics_hashes import ngram_hashes, normalize_words  # reuses the same normalisation
         self._ngram_hashes, self._normalize = ngram_hashes, normalize_words
         self.n = n
         t = pq.read_table(path())
@@ -37,7 +37,7 @@ class LyricsHashIndex:
             for h in hs:
                 self.inverted[h].append(tid)
         self._mtime = path().stat().st_mtime
-        logger.info("empreintes de paroles : %d morceaux, %d n-grammes distincts", len(self.sizes), len(self.inverted))
+        logger.info("lyrics fingerprints: %d tracks, %d distinct n-grams", len(self.sizes), len(self.inverted))
 
     @classmethod
     def exists(cls) -> bool:

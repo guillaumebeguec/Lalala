@@ -1,15 +1,15 @@
-"""Boucle de l'agent SoundTrace (PLAN.md phase 6.2) — baseline : Llama choisit librement
-chercher / demander / proposer, via des appels d'outils OpenAI.
+"""Lalala agent loop (PLAN.md phase 6.2) — baseline: Llama freely chooses
+search / ask / propose, through OpenAI tool calls.
 
-État explicite (`SessionState`) : entrée, indices, candidats, requêtes faites,
-questions posées. Garde-fous : `max_questions` (3), `max_tool_calls` (8), pas de
-requête répétée, pas de titre sans source. Événements émis pour le front :
+Explicit state (`SessionState`): input, clues, candidates, queries made,
+questions asked. Guard rails: `max_questions` (3), `max_tool_calls` (8), no
+repeated query, no title without a source. Events emitted for the front:
 `clue`, `search`, `candidates`, `question`, `proposal`, `message`, `error`.
 
-L'agent est **synchrone par tour** : `step(user_message)` consomme un message de
-l'utilisateur (description, réponse à une question, ou « non ») et avance jusqu'à
-la prochaine question ou proposition. La phase 7 remplace le choix des questions
-par le gain d'information (`finder/belief.py`) via `question_policy`.
+The agent is **synchronous per turn**: `step(user_message)` consumes one message
+from the user (description, answer to a question, or "no") and advances until
+the next question or proposal. Phase 7 replaces the choice of questions with
+information gain (`finder/belief.py`) via `question_policy`.
 """
 
 from __future__ import annotations
@@ -60,7 +60,7 @@ class SessionState:
     questions: list[dict[str, Any]] = field(default_factory=list)
     tool_calls: int = 0
     proposals: list[list[dict]] = field(default_factory=list)
-    messages: list[dict[str, Any]] = field(default_factory=list)   # historique LLM
+    messages: list[dict[str, Any]] = field(default_factory=list)   # LLM history
     pending_question: dict[str, Any] | None = None
     done: bool = False
 
@@ -72,16 +72,16 @@ class Agent:
         self.max_questions = max_questions
         self.max_tool_calls = max_tool_calls
         self.model = model
-        self.question_policy = question_policy   # phase 7 : gain d'information
+        self.question_policy = question_policy   # phase 7: information gain
         self.state = SessionState(language=language)
         try:
             n_catalog = len(self.tools.catalog)
-        except Exception:  # noqa: BLE001 — outils factices ou catalogue absent
+        except Exception:  # noqa: BLE001 — fake tools or missing catalogue
             n_catalog = 0
         self.state.messages.append({"role": "system", "content": AGENT_SYSTEM.format(
             n_catalog=n_catalog, max_questions=max_questions, language=language)})
 
-    # ---- entrée utilisateur ----
+    # ---- user input ----
     def step(self, user_message: str | None = None, audio: bytes | None = None) -> Iterator[Event]:
         st = self.state
         if st.pending_question is not None and user_message is not None:
@@ -99,7 +99,7 @@ class Agent:
                     st.rejected.add(c["track_id"])
                     st.candidates.pop(c["track_id"], None)
                 st.messages.append({"role": "user", "content": "No, none of these. Keep investigating with the remaining clues."})
-                yield Event("message", {"text": "D'accord, j'écarte ces candidats et je continue l'enquête."})
+                yield Event("message", {"text": "All right, I am dropping those candidates and continuing the investigation."})
             else:
                 st.clues.append(user_message.strip())
                 st.messages.append({"role": "user", "content": user_message.strip()})
@@ -116,19 +116,19 @@ class Agent:
         yield Event("search", {"tool": "audio_match", "n": len(res["candidates"]), "exact": bool(res["exact"])})
         yield Event("candidates", {"candidates": [c.to_dict() for c in self._top(10)]})
         if res["exact"]:
-            yield from self._propose([{"track_id": res["exact"].track_id, "confidence": 0.98, "reason": "Empreinte audio identique : c'est cet enregistrement."}])
+            yield from self._propose([{"track_id": res["exact"].track_id, "confidence": 0.98, "reason": "Identical audio fingerprint: this is that very recording."}])
             return
         summary = [{"track_id": c.track_id, "title": c.title, "artist": c.artist, "year": c.year, "score": round(c.score, 3)} for c in res["candidates"][:10]]
         st.messages.append({"role": "user", "content": "The user sent an audio recording. audio_match results (best first): " + json.dumps(summary, ensure_ascii=False)})
 
-    # ---- boucle ----
+    # ---- loop ----
     def _run(self) -> Iterator[Event]:
         st = self.state
         while not st.done and st.pending_question is None:
             if st.tool_calls >= self.max_tool_calls:
                 yield from self._propose(self._auto_proposal())
                 return
-            # phase 7 : politique de question externe (gain d'information) prioritaire
+            # phase 7: the external question policy (information gain) takes precedence
             if self.question_policy and st.candidates and len(st.questions) < self.max_questions:
                 q = self.question_policy(self, st)
                 if q:
@@ -142,7 +142,7 @@ class Agent:
                 return
             st.messages.append(r.message)
             if not r.tool_calls:
-                # Pas d'appel d'outil : on force une proposition si on a des candidats, sinon une recherche.
+                # No tool call: force a proposal if we have candidates, otherwise a search.
                 if st.candidates:
                     yield from self._propose(self._auto_proposal())
                     return
@@ -150,7 +150,7 @@ class Agent:
                 st.tool_calls += 1
                 continue
             tc = r.tool_calls[0]
-            for extra in r.tool_calls[1:]:   # un seul outil par tour ; les autres reçoivent une réponse vide
+            for extra in r.tool_calls[1:]:   # one tool per turn; the others get an empty reply
                 st.messages.append({"role": "tool", "tool_call_id": extra.id, "name": extra.name, "content": "ignored: one tool per turn"})
             st.tool_calls += 1
             yield from self._dispatch(tc)
@@ -229,7 +229,7 @@ class Agent:
             d["raison"] = str(c.get("reason") or cand.reason)
             out.append(d)
         if not out:
-            yield Event("message", {"text": "Je n'ai pas trouvé de candidat convaincant. Pouvez-vous me donner un autre détail ?"})
+            yield Event("message", {"text": "I could not find a convincing candidate. Can you give me another detail?"})
             st.done = True
             return
         st.proposals.append(out)
@@ -237,7 +237,7 @@ class Agent:
         yield Event("proposal", {"candidates": out})
 
     def _auto_proposal(self) -> list[dict]:
-        return [{"track_id": c.track_id, "confidence": c.score, "reason": c.reason or "meilleur score de recherche"} for c in self._top(3)]
+        return [{"track_id": c.track_id, "confidence": c.score, "reason": c.reason or "best search score"} for c in self._top(3)]
 
     def _absorb(self, cands: list[Candidate]) -> None:
         st = self.state

@@ -1,13 +1,13 @@
-# Jeux de test — rapport de phase 2
+# Test sets — phase 2 report
 
-Catalogue : 24361 morceaux, 23659 avec extrait.
+Catalogue: 24361 tracks, 23659 with a preview.
 
 ## T1 — ToT_Music
 
-200 demandes d'évaluation, 2006 en réserve (réponse dans le catalogue avec extrait).
-Split de l'article dans l'échantillon d'éval : {'test': 200} (C1 : tiré du split `test`). 0 demandes ont plusieurs enregistrements acceptables (ISRC multiples).
+200 evaluation queries, 2006 in reserve (answer in the catalogue with a preview).
+Paper split within the eval sample: {'test': 200} (C1: drawn from the `test` split). 0 queries have several acceptable recordings (multiple ISRCs).
 
-| Décennie | Éval |
+| Decade | Eval |
 |---|---|
 | 1960s | 5 |
 | 1970s | 9 |
@@ -16,19 +16,19 @@ Split de l'article dans l'échantillon d'éval : {'test': 200} (C1 : tiré du sp
 | 2000s | 77 |
 | 2010s | 43 |
 
-Types de demande (éval) : descriptive 200
+Query types (eval): descriptive 200
 
-`user_created` (C1) : 514 demandes dans tout ToT_Music ; 418 contiennent encore un lien vers un média de l'utilisateur (vocaroo…), dont l'accessibilité n'a pas été vérifiée (pas de téléchargement).
+`user_created` (C1): 514 queries across all of ToT_Music; 418 still contain a link to a user media file (vocaroo…), whose accessibility was not checked (no download).
 
-## T2 — Souvenirs FR
+## T2 — FR memories
 
-0 descriptions appariées au catalogue (fichier `data/manual/fr_memories.csv`).
+0 descriptions matched to the catalogue (file `data/manual/fr_memories.csv`).
 
-## T3 — Bruit
+## T3 — Noise
 
-300 cas (recette rejouable, audio mixé à la volée).
+300 cases (replayable recipe, audio mixed on the fly).
 
-| Type | SNR | Cas |
+| Type | SNR | Cases |
 |---|---|---|
 | babble | 0 | 50 |
 | babble | 10 | 50 |
@@ -37,27 +37,27 @@ Types de demande (éval) : descriptive 200
 | noise | 10 | 50 |
 | noise | 5 | 50 |
 
-## T4 — Reprises
+## T4 — Covers
 
-200 paires reprise → original (146 originaux).
+200 cover → original pairs (146 originals).
 
-| Type | Paires |
+| Type | Pairs |
 |---|---|
 | live | 65 |
 | karaoke | 56 |
 | piano | 51 |
 | acoustic | 28 |
 
-Contrôle manuel de 20 paires : à faire (voir `scripts/review_pairs.py`).
+Manual check of 20 pairs: to do (see `scripts/review_pairs.py`).
 
-## T6a — Fredonnements CHAD
+## T6a — CHAD hums
 
-393 fredonnements → original du catalogue ; groupes CHAD 311, titre YouTube lu 294, titre/artiste parsés 268, dans le catalogue 131, avec extrait 131. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).
+393 hums → original in the catalogue; CHAD groups 311, YouTube title read 294, title/artist parsed 268, in the catalogue 131, with a preview 131. Limitation: position of the fragment in the track ≠ position of the Deezer preview (30 s).
 
-## T6b — Fredonnements maison
+## T6b — Home hums
 
-6 fredonnements (`data/manual/hums/` réels, `data/manual/hums_synth/` synthétiques) : synth 6.
+6 hums (`data/manual/hums/` real, `data/manual/hums_synth/` synthetic): synth 6.
 
-## T5 — Vidéo
+## T5 — Video
 
-0 extraits dans `data/manual/video/`.
+0 clips in `data/manual/video/`.

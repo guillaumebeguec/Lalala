@@ -1,20 +1,20 @@
-"""Chargement et filtrage du WASABI Song Corpus 2.0.
+"""Loading and filtering of the WASABI Song Corpus 2.0.
 
-Source : Zenodo, DOI 10.5281/zenodo.5603369, fichier `wasabi-2-0.tar` (2,7 Go),
-licence CC BY-NC 4.0 (usage non commercial, citer Buffa et al., ESWC 2021).
-Le dump JSON (`json/json.zip`) contient `song.json` (13 Go, tableau JSON
-indenté, 2,1 M chansons), `album.json`, `artist-without-members.json`,
-`artist-members.json`, plus tags LastFM et émotions.
+Source: Zenodo, DOI 10.5281/zenodo.5603369, file `wasabi-2-0.tar` (2.7 GB),
+licence CC BY-NC 4.0 (non-commercial use, cite Buffa et al., ESWC 2021).
+The JSON dump (`json/json.zip`) contains `song.json` (13 GB, indented JSON
+array, 2.1 M songs), `album.json`, `artist-without-members.json`,
+`artist-members.json`, plus LastFM tags and emotions.
 
-Ce module **streame** ces fichiers (ijson, backend C) et n'en garde que les
-métadonnées utiles dans des Parquet sous `data/catalog/wasabi/`. Les paroles
-(`lyrics`) et le champ `summary` (lignes extraites des paroles) ne sont jamais
-conservés, conformément aux règles du projet (pas de paroles stockées).
+This module **streams** these files (ijson, C backend) and keeps only the
+useful metadata in Parquet files under `data/catalog/wasabi/`. The lyrics
+(`lyrics`) and the `summary` field (lines extracted from the lyrics) are never
+kept, in line with the project rules (no stored lyrics).
 
-Constat (vérifié sur le dump) : les identifiants Deezer sont présents
-(`id_song_deezer`, `urlDeezer`, `preview`) sur la grande majorité des chansons,
-ainsi que `isrc`, `id_song_musicbrainz`, `rank` (popularité Deezer) et
-`language_detect`. La recherche Deezer ne servira qu'en repli.
+Finding (checked on the dump): Deezer ids are present
+(`id_song_deezer`, `urlDeezer`, `preview`) on the vast majority of songs,
+as well as `isrc`, `id_song_musicbrainz`, `rank` (Deezer popularity) and
+`language_detect`. Deezer search will only be used as a fallback.
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def out_dir() -> Path:
     return d
 
 
-# --------------------------------------------------------------------------- utilitaires
+# --------------------------------------------------------------------------- utilities
 
 def _oid(v: Any) -> str | None:
     if isinstance(v, dict):
@@ -84,7 +84,7 @@ def _float(v: Any) -> float | None:
 
 
 def _text(v: Any, max_chars: int = 1000) -> str | None:
-    """Champ texte éventuellement fourni comme liste de phrases (ex. `summary`)."""
+    """Text field possibly given as a list of sentences (e.g. `summary`)."""
     if v in (None, "", []):
         return None
     if isinstance(v, list):
@@ -94,7 +94,7 @@ def _text(v: Any, max_chars: int = 1000) -> str | None:
 
 
 def _abstract(rdf: str | None, max_chars: int = 600) -> str | None:
-    """Résumé DBpedia (anglais) embarqué dans le champ `rdf`, nettoyé et tronqué."""
+    """DBpedia abstract (English) embedded in the `rdf` field, cleaned and truncated."""
     if not rdf:
         return None
     m = _ABSTRACT_RE.search(rdf)
@@ -106,17 +106,17 @@ def _abstract(rdf: str | None, max_chars: int = 600) -> str | None:
 
 
 def _stream(path: Path, tolerate_truncated: bool = False) -> Iterator[dict]:
-    """Itère sur les objets d'un tableau JSON, sans charger le fichier."""
+    """Iterates over the objects of a JSON array without loading the file."""
     with path.open("rb") as f:
         try:
             yield from ijson.items(f, "item", use_float=True)
         except ijson.common.IncompleteJSONError:
             if not tolerate_truncated:
                 raise
-            logger.warning("JSON tronqué (échantillon ?) : %s", path.name)
+            logger.warning("truncated JSON (sample?): %s", path.name)
 
 
-# --------------------------------------------------------------------------- projection des documents
+# --------------------------------------------------------------------------- document projection
 
 SONG_SCHEMA = pa.schema([
     ("wasabi_id", pa.string()),
@@ -156,8 +156,8 @@ def project_song(d: dict) -> dict:
         "artist": d.get("name") or None,
         "album_title": d.get("albumTitle") or None,
         "album_id": _oid(d.get("id_album")),
-        # `publicationDateAlbum` = année de sortie originale (LyricsWikia) ; `publicationDate` =
-        # date de l'édition Deezer (souvent une réédition/remaster), gardée à part.
+        # `publicationDateAlbum` = original release year (LyricsWikia); `publicationDate` =
+        # date of the Deezer edition (often a reissue/remaster), kept separately.
         "year": _year(d.get("publicationDateAlbum"), d.get("publicationDate")),
         "deezer_year": _year(d.get("publicationDate")),
         "album_genre": d.get("album_genre") or None,
@@ -244,19 +244,19 @@ def _write_parquet(rows: Iterator[dict], schema: pa.Schema, out: Path, label: st
                 w.write_table(pa.Table.from_pylist(batch, schema=schema))
                 n += len(batch)
                 batch = []
-                logger.info("%s : %d documents", label, n)
+                logger.info("%s: %d documents", label, n)
         if batch:
             w.write_table(pa.Table.from_pylist(batch, schema=schema))
             n += len(batch)
     tmp.replace(out)
-    logger.info("%s : %d documents écrits dans %s", label, n, out)
+    logger.info("%s: %d documents written to %s", label, n, out)
     return n
 
 
 def extract(src: Path | None = None, dst: Path | None = None, tolerate_truncated: bool = False,
             force: bool = False) -> dict[str, int]:
-    """Projette song/album/artist du dump JSON vers trois Parquet. Reprise : un
-    fichier déjà présent n'est pas recalculé (sauf `force`)."""
+    """Projects song/album/artist from the JSON dump to three Parquet files. Resumable: an
+    existing file is not recomputed (unless `force`)."""
     src = src or (raw_dir() / "json")
     dst = dst or out_dir()
     dst.mkdir(parents=True, exist_ok=True)
@@ -272,11 +272,11 @@ def extract(src: Path | None = None, dst: Path | None = None, tolerate_truncated
         out = dst / f"{name}.parquet"
         if out.exists() and not force:
             counts[name] = pq.read_metadata(out).num_rows
-            logger.info("%s déjà extrait (%d lignes), passé", name, counts[name])
+            logger.info("%s already extracted (%d rows), skipped", name, counts[name])
             continue
         missing = [f for f, _ in sources if not (src / f).exists()]
         if missing:
-            raise FileNotFoundError(f"fichiers manquants dans {src} : {missing}")
+            raise FileNotFoundError(f"missing files in {src}: {missing}")
 
         def rows() -> Iterator[dict]:
             for fname, proj in sources:
@@ -287,7 +287,7 @@ def extract(src: Path | None = None, dst: Path | None = None, tolerate_truncated
     return counts
 
 
-# --------------------------------------------------------------------------- lecture
+# --------------------------------------------------------------------------- reading
 
 def load_songs(columns: list[str] | None = None) -> pd.DataFrame:
     return pd.read_parquet(out_dir() / "songs.parquet", columns=columns)

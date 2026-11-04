@@ -1,18 +1,18 @@
-"""🎶 Fredonnements synthétiques : mélodie dominante de l'extrait → voix fermée « mmm » imparfaite.
+"""🎶 Synthetic hums: dominant melody of the preview → imperfect closed-mouth "mmm" voice.
 
-Pour N morceaux du sous-ensemble : suivi de hauteur RMVPE sur le mixage (même traceur que la
-branche hum2song), choix de la fenêtre la plus « chantée » (saillance moyenne la plus haute),
-puis resynthèse d'un fredonnement humanisé : transposition aléatoire (±3 demi-tons, la voix ne
-chante pas dans la tonalité d'origine), tempo ±10 %, dérive lente de justesse (±30 cents), vibrato
-(5,5 Hz, ±20 cents), attaques/relâchements de 40 ms, un peu de souffle. Sortie 16 kHz mono :
-`data/manual/hums_synth/<track_id>_<k>.wav` (lu par T6b, voir `testsets/hums.py`).
+For N tracks of the subset: RMVPE pitch tracking on the mix (same tracker as the
+hum2song branch), choice of the most "sung" window (highest mean salience),
+then resynthesis of a humanised hum: random transposition (±3 semitones, the voice does
+not sing in the original key), tempo ±10 %, slow pitch drift (±30 cents), vibrato
+(5.5 Hz, ±20 cents), 40 ms attacks/releases, a bit of breath. Output 16 kHz mono:
+`data/manual/hums_synth/<track_id>_<k>.wav` (read by T6b, see `testsets/hums.py`).
 
     uv run python scripts/synth_hums.py --n 40 [--seconds 10] [--per-track 2] [--subset dev] [--seed 0]
 
-Limites : la mélodie extraite d'un mixage est celle de la source la plus saillante (souvent la
-voix, parfois un instrument) ; ce jeu mesure la robustesse de la chaîne mélodique aux déformations
-humaines (justesse, tempo, tonalité), pas la mémoire mélodique d'un humain. CHAD (T6a) reste la
-référence réelle.
+Limitations: the melody extracted from a mix is that of the most salient source (often the
+voice, sometimes an instrument); this set measures the robustness of the melodic chain to human
+deformations (pitch, tempo, key), not a human's melodic memory. CHAD (T6a) remains the
+real reference.
 """
 
 from __future__ import annotations
@@ -35,11 +35,11 @@ from core.config import get_settings  # noqa: E402
 
 log = logging.getLogger("synth_hums")
 SR = 16_000
-HOP_S = 0.01   # trames RMVPE
+HOP_S = 0.01   # RMVPE frames
 
 
 def best_window(conf: np.ndarray, f0: np.ndarray, frames: int, min_conf: float) -> int:
-    """Début (trame) de la fenêtre où la hauteur est la plus souvent sûre et dans la tessiture d'une voix."""
+    """Start (frame) of the window where the pitch is most often confident and within a voice's range."""
     voiced = ((conf > min_conf) & (f0 > 80) & (f0 < 1000)).astype(np.float32)
     if len(voiced) <= frames:
         return 0
@@ -50,13 +50,13 @@ def best_window(conf: np.ndarray, f0: np.ndarray, frames: int, min_conf: float) 
 
 def humanize(f0: np.ndarray, voiced: np.ndarray, rng: np.random.Generator, tempo: float, semitones: float,
              drift_cents: float = 30.0, vibrato_hz: float = 5.5, vibrato_cents: float = 20.0) -> tuple[np.ndarray, np.ndarray]:
-    """Transpose, change le tempo (rééchantillonnage des trames) et ajoute dérive + vibrato."""
+    """Transposes, changes the tempo (frame resampling) and adds drift + vibrato."""
     n = len(f0)
     t_src = np.arange(n) * HOP_S
     t_dst = np.arange(0, t_src[-1] / tempo, HOP_S)
     f0_r = np.interp(t_dst * tempo, t_src, f0)
     v_r = np.interp(t_dst * tempo, t_src, voiced.astype(np.float32)) > 0.5
-    # dérive lente : marche aléatoire lissée
+    # slow drift: smoothed random walk
     drift = np.cumsum(rng.normal(0, 1, len(t_dst)))
     drift = drift / (np.abs(drift).max() + 1e-6) * drift_cents
     vib = vibrato_cents * np.sin(2 * np.pi * vibrato_hz * t_dst + rng.uniform(0, 2 * np.pi))
@@ -65,12 +65,12 @@ def humanize(f0: np.ndarray, voiced: np.ndarray, rng: np.random.Generator, tempo
 
 
 def render(f0: np.ndarray, voiced: np.ndarray, rng: np.random.Generator, sr: int = SR, attack_s: float = 0.04) -> np.ndarray:
-    """Synthèse « mmm » : harmoniques décroissantes (bouche fermée), enveloppe de voisement lissée, souffle léger."""
+    """Closed-mouth "mmm" synthesis: decaying harmonics, smoothed voicing envelope, light breath."""
     n = int(len(f0) * HOP_S * sr)
     t = np.arange(n) / sr
     f0_s = np.interp(t, np.arange(len(f0)) * HOP_S, np.where(voiced, f0, np.nan))
     f0_s = np.nan_to_num(f0_s, nan=0.0)
-    # on prolonge la dernière hauteur dans les trous pour éviter les glissements vers 0 pendant le relâchement
+    # hold the last pitch through the gaps to avoid glides towards 0 during the release
     last = 0.0
     for i in range(n):
         if f0_s[i] > 0:
@@ -92,10 +92,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
     ap.add_argument("--n", type=int, default=40)
-    ap.add_argument("--per-track", type=int, default=1, help="variantes (transposition/tempo différents) par morceau")
+    ap.add_argument("--per-track", type=int, default=1, help="variants (different transposition/tempo) per track")
     ap.add_argument("--seconds", type=float, default=10.0)
-    ap.add_argument("--min-conf", type=float, default=0.3, help="saillance RMVPE minimale pour considérer une trame chantée")
-    ap.add_argument("--min-voiced", type=float, default=0.5, help="part minimale de trames voisées dans la fenêtre, sinon morceau écarté")
+    ap.add_argument("--min-conf", type=float, default=0.3, help="minimum RMVPE salience to consider a frame sung")
+    ap.add_argument("--min-voiced", type=float, default=0.5, help="minimum share of voiced frames in the window, otherwise the track is dropped")
     ap.add_argument("--ids", default=None)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
@@ -126,14 +126,14 @@ def main() -> int:
         try:
             track = emb.pitch_track(data)
         except Exception as e:  # noqa: BLE001
-            log.warning("%s : suivi de hauteur impossible (%s)", r["track_id"], e)
+            log.warning("%s: pitch tracking failed (%s)", r["track_id"], e)
             continue
         f0, conf = track[0], track[1]
         s = best_window(conf, f0, frames, args.min_conf)
         f0w, cw = f0[s : s + frames], conf[s : s + frames]
         voiced = (cw > args.min_conf) & (f0w > 80) & (f0w < 1000)
         if voiced.mean() < args.min_voiced:
-            log.info("%s écarté : %.0f %% de trames chantées dans la meilleure fenêtre", r["track_id"], 100 * voiced.mean())
+            log.info("%s dropped: %.0f %% of sung frames in the best window", r["track_id"], 100 * voiced.mean())
             continue
         for k in range(1, args.per_track + 1):
             tempo = float(rng.uniform(0.9, 1.1))
@@ -142,9 +142,9 @@ def main() -> int:
             y = render(f0h, vh, rng)
             (out_dir / f"{r['track_id']}_{k}.wav").write_bytes(to_wav_bytes(y, SR))
         made += 1
-        log.info("%d/%d  %s — %s : fenêtre %.1f s, %.0f %% chanté, %d variante(s)", made, args.n, r["title"], r["artist"],
+        log.info("%d/%d  %s — %s: window %.1f s, %.0f %% sung, %d variant(s)", made, args.n, r["title"], r["artist"],
                  s * HOP_S, 100 * voiced.mean(), args.per_track)
-    log.info("%d morceaux rendus (%d essayés) en %.0f s → %s", made, tried, time.time() - t0, out_dir)
+    log.info("%d tracks rendered (%d tried) in %.0f s → %s", made, tried, time.time() - t0, out_dir)
     return 0
 
 

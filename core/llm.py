@@ -1,17 +1,17 @@
-"""Client LLM OpenAI-compatible vers Llama (Ollama en local, ou API hébergée).
+"""OpenAI-compatible LLM client for Llama (local Ollama, or hosted API).
 
-Point d'entrée : `chat(messages, tools=None, json_schema=None)`.
+Entry point: `chat(messages, tools=None, json_schema=None)`.
 
-- `tools`       : liste d'outils au format OpenAI (`{"type": "function", "function": {...}}`).
-                  Le résultat expose `tool_calls` (nom + arguments déjà parsés).
-- `json_schema` : schéma JSON attendu. On demande une sortie structurée au serveur
-                  (`response_format`), on parse de façon tolérante (blocs ```json,
-                  texte autour, virgules finales…) et on **relance une fois** avec
-                  le message d'erreur si le JSON est invalide ou ne respecte pas les
-                  clés requises du schéma. Le résultat expose `json`.
+- `tools`       : list of tools in the OpenAI format (`{"type": "function", "function": {...}}`).
+                  The result exposes `tool_calls` (name + already parsed arguments).
+- `json_schema` : expected JSON schema. We ask the server for structured output
+                  (`response_format`), parse leniently (```json blocks,
+                  surrounding text, trailing commas...) and **retry once** with
+                  the error message if the JSON is invalid or does not respect the
+                  required keys of the schema. The result exposes `json`.
 
-Le modèle Llama 8B est faible en JSON strict : le parseur tolérant et la relance
-sont la parade prévue dans PLAN.md.
+The Llama 8B model is weak at strict JSON: the lenient parser and the retry
+are the countermeasure planned in PLAN.md.
 """
 
 from __future__ import annotations
@@ -36,11 +36,11 @@ class LLMError(RuntimeError):
 
 
 class LLMUnavailable(LLMError):
-    """Le serveur LLM n'est pas joignable (Ollama éteint, mauvaise URL)."""
+    """The LLM server is unreachable (Ollama off, wrong URL)."""
 
 
 class InvalidJSONOutput(LLMError):
-    """Le modèle n'a pas produit de JSON exploitable après relance."""
+    """The model did not produce usable JSON after the retry."""
 
 
 @dataclass
@@ -60,7 +60,7 @@ class ChatResult:
 
     @property
     def message(self) -> dict[str, Any]:
-        """Le message assistant à réinjecter dans l'historique (format OpenAI)."""
+        """The assistant message to feed back into the history (OpenAI format)."""
         msg: dict[str, Any] = {"role": "assistant", "content": self.content or None}
         if self.tool_calls:
             msg["tool_calls"] = [
@@ -81,7 +81,7 @@ def get_client() -> OpenAI:
 
 
 def is_available(timeout: float = 2.0) -> bool:
-    """Vrai si le serveur LLM répond (utilisé pour ignorer les tests `llm`)."""
+    """True if the LLM server answers (used to skip the `llm` tests)."""
     try:
         get_client().with_options(timeout=timeout).models.list()
         return True
@@ -89,14 +89,14 @@ def is_available(timeout: float = 2.0) -> bool:
         return False
 
 
-# --------------------------------------------------------------------------- JSON tolérant
+# --------------------------------------------------------------------------- lenient JSON
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL | re.IGNORECASE)
 _TRAILING_COMMA_RE = re.compile(r",\s*([}\]])")
 
 
 def _balanced_slice(text: str, open_ch: str, close_ch: str) -> str | None:
-    """Extrait la première sous-chaîne équilibrée commençant par `open_ch`."""
+    """Extract the first balanced substring starting with `open_ch`."""
     start = text.find(open_ch)
     if start < 0:
         return None
@@ -125,10 +125,10 @@ def _balanced_slice(text: str, open_ch: str, close_ch: str) -> str | None:
 
 
 def parse_json_lenient(text: str) -> Any:
-    """Parse un JSON « sale » : blocs ```json, texte avant/après, virgules finales,
-    guillemets typographiques. Lève `ValueError` si rien n'est exploitable."""
+    """Parse "dirty" JSON: ```json blocks, text before/after, trailing commas,
+    typographic quotes. Raises `ValueError` if nothing is usable."""
     if text is None:
-        raise ValueError("texte vide")
+        raise ValueError("empty text")
     candidates: list[str] = []
     stripped = text.strip()
     candidates.append(stripped)
@@ -148,23 +148,23 @@ def parse_json_lenient(text: str) -> Any:
                 return json.loads(variant)
             except json.JSONDecodeError as e:
                 last_err = e
-    raise ValueError(f"JSON invalide : {last_err}")
+    raise ValueError(f"invalid JSON: {last_err}")
 
 
 def _missing_required(obj: Any, schema: dict[str, Any] | None) -> list[str]:
-    """Vérification minimale : type objet + clés `required` du premier niveau."""
+    """Minimal check: object type + top-level `required` keys."""
     if not schema:
         return []
     if schema.get("type") == "object" or "properties" in schema:
         if not isinstance(obj, dict):
-            return ["<objet attendu>"]
+            return ["<object expected>"]
         return [k for k in schema.get("required", []) if k not in obj]
     if schema.get("type") == "array" and not isinstance(obj, list):
-        return ["<liste attendue>"]
+        return ["<list expected>"]
     return []
 
 
-# --------------------------------------------------------------------------- appel
+# --------------------------------------------------------------------------- call
 
 def _to_tool_calls(message: Any) -> list[ToolCall]:
     out: list[ToolCall] = []
@@ -177,7 +177,7 @@ def _to_tool_calls(message: Any) -> list[ToolCall]:
             try:
                 args = parse_json_lenient(raw_args) if raw_args.strip() else {}
             except ValueError:
-                logger.warning("Arguments d'outil non parsables pour %s : %r", fn.name, raw_args[:200])
+                logger.warning("Unparsable tool arguments for %s: %r", fn.name, raw_args[:200])
                 args = {"_raw": raw_args}
         else:
             args = dict(raw_args or {})
@@ -215,16 +215,16 @@ def _call(messages: list[dict[str, Any]], tools: list[dict[str, Any]] | None,
     try:
         return _create(**kwargs)
     except BadRequestError as e:
-        # Certains serveurs n'acceptent pas `json_schema` : repli sur `json_object`.
+        # Some servers do not accept `json_schema`: fall back on `json_object`.
         if response_format and response_format.get("type") == "json_schema":
-            logger.info("response_format json_schema refusé (%s), repli sur json_object", e)
+            logger.info("response_format json_schema refused (%s), falling back on json_object", e)
             kwargs["response_format"] = {"type": "json_object"}
             return _create(**kwargs)
         raise LLMError(str(e)) from e
     except APIConnectionError as e:
-        raise LLMUnavailable(f"LLM injoignable sur {s.llm_base_url} : {e}") from e
+        raise LLMUnavailable(f"LLM unreachable at {s.llm_base_url}: {e}") from e
     except APIStatusError as e:
-        raise LLMError(f"Erreur LLM {e.status_code} : {e}") from e
+        raise LLMError(f"LLM error {e.status_code}: {e}") from e
 
 
 def chat(
@@ -237,11 +237,11 @@ def chat(
     model: str | None = None,
     json_retries: int = 1,
 ) -> ChatResult:
-    """Un tour de conversation.
+    """One conversation turn.
 
-    - Avec `json_schema`, `result.json` contient l'objet parsé ; une relance est
-      faite si le JSON est invalide (`json_retries`, 1 par défaut).
-    - Avec `tools`, `result.tool_calls` contient les appels demandés.
+    - With `json_schema`, `result.json` holds the parsed object; a retry is
+      made if the JSON is invalid (`json_retries`, 1 by default).
+    - With `tools`, `result.tool_calls` holds the requested calls.
     """
     messages = [dict(m) for m in messages]
     response_format: dict[str, Any] | None = None
@@ -250,7 +250,7 @@ def chat(
             "type": "json_schema",
             "json_schema": {"name": json_schema.get("title", "output"), "schema": json_schema},
         }
-        # Rappel explicite dans le prompt : les petits modèles en ont besoin même avec response_format.
+        # Explicit reminder in the prompt: small models need it even with response_format.
         hint = ("Réponds uniquement avec un objet JSON valide, sans texte autour, respectant ce schéma :\n"
                 + json.dumps(json_schema, ensure_ascii=False))
         if messages and messages[0].get("role") == "system":
@@ -276,14 +276,14 @@ def chat(
             parsed = parse_json_lenient(content)
             missing = _missing_required(parsed, json_schema)
             if missing:
-                raise ValueError(f"clés manquantes : {missing}")
+                raise ValueError(f"missing keys: {missing}")
             result.json = parsed
             return result
         except ValueError as e:
             if attempt >= json_retries:
-                raise InvalidJSONOutput(f"{e} ; sortie : {content[:500]!r}") from e
+                raise InvalidJSONOutput(f"{e}; output: {content[:500]!r}") from e
             attempt += 1
-            logger.warning("JSON invalide (%s), relance %d/%d", e, attempt, json_retries)
+            logger.warning("invalid JSON (%s), retry %d/%d", e, attempt, json_retries)
             messages.append({"role": "assistant", "content": content})
             messages.append({
                 "role": "user",

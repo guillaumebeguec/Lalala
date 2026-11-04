@@ -1,4 +1,4 @@
-"""Boucle de l'agent avec outils et LLM simulés : garde-fous, événements, pas de boucle infinie."""
+"""Agent loop with fake tools and LLM: guard rails, events, no infinite loop."""
 import json
 
 from finder import agent as ag
@@ -36,7 +36,7 @@ def test_search_then_ask_then_propose(monkeypatch):
     script = [
         _resp([_tc("catalog_search", {"text": "80s song female voice"})]),
         _resp([_tc("ask_user", {"question": "Voix ?", "options": ["féminine", "masculine"]}, 2)]),
-        _resp([_tc("propose", {"candidates": [{"track_id": "dz1", "confidence": 0.8, "reason": "ça colle"}, {"track_id": "zzz", "confidence": 0.5, "reason": "inventé"}]}, 3)]),
+        _resp([_tc("propose", {"candidates": [{"track_id": "dz1", "confidence": 0.8, "reason": "it fits"}, {"track_id": "zzz", "confidence": 0.5, "reason": "made up"}]}, 3)]),
     ]
     monkeypatch.setattr(ag.llm, "chat", lambda *a, **k: script.pop(0))
     a = ag.Agent(FakeTools(), max_questions=3, max_tool_calls=8)
@@ -47,7 +47,7 @@ def test_search_then_ask_then_propose(monkeypatch):
     ev2 = list(a.step("féminine"))
     assert ev2[0].type == "clue" and ev2[-1].type == "proposal"
     props = ev2[-1].data["candidates"]
-    assert [p["track_id"] for p in props] == ["dz1"]  # « zzz » rejeté : pas issu d'une recherche
+    assert [p["track_id"] for p in props] == ["dz1"]  # "zzz" rejected: not returned by a search
     assert a.state.done and a.state.tool_calls == 3
 
 
@@ -57,7 +57,7 @@ def test_tool_call_budget_forces_proposal(monkeypatch):
     a = ag.Agent(tools, max_tool_calls=4)
     ev = list(a.step("x"))
     assert ev[-1].type == "proposal" and a.state.tool_calls <= 4
-    assert len([c for c in tools.calls if c[0] == "catalog"]) == 1  # requête répétée refusée
+    assert len([c for c in tools.calls if c[0] == "catalog"]) == 1  # repeated query refused
 
 
 def test_llm_down_still_proposes(monkeypatch):

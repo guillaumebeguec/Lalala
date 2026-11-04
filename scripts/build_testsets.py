@@ -1,9 +1,9 @@
-"""Fige les jeux de test T1–T4 dans data/testsets/*.jsonl et écrit eval/testsets.md.
+"""Freezes the T1–T4 test sets into data/testsets/*.jsonl and writes eval/testsets.md.
 
     uv run python scripts/build_testsets.py [--sets t1,t2,t3,t4,t6a,t6b] [--t4-hits 300]
 
-Prérequis : catalogue construit et extraits résolus (scripts/resolve_previews.py).
-T5 (vidéo) est fourni à la main dans data/manual/video/<track_id>.mp4.
+Prerequisites: catalogue built and previews resolved (scripts/resolve_previews.py).
+T5 (video) is provided by hand in data/manual/video/<track_id>.mp4.
 """
 
 from __future__ import annotations
@@ -25,8 +25,8 @@ from testsets.common import read_jsonl, testsets_dir, write_jsonl  # noqa: E402
 
 
 def merge_report(path: Path, new: str) -> str:
-    """Fusionne le rapport : les sections régénérées (`--sets`) remplacent les anciennes, les autres sont conservées
-    (un lancement partiel n'efface plus le rapport des autres jeux)."""
+    """Merges the report: regenerated sections (`--sets`) replace the old ones, the others are kept
+    (a partial run no longer wipes the report of the other sets)."""
     order = ["T1", "T2", "T3", "T4", "T6a", "T6b", "T5"]
 
     def split(text: str) -> tuple[str, dict[str, str]]:
@@ -40,7 +40,7 @@ def merge_report(path: Path, new: str) -> str:
     if path.exists():
         _, old = split(path.read_text(encoding="utf-8"))
         for k, v in old.items():
-            secs.setdefault(k, v)   # sections non régénérées : on garde l'ancienne
+            secs.setdefault(k, v)   # sections not regenerated: keep the old one
     keys = [k for k in order if k in secs] + sorted(k for k in secs if k not in order)
     return head + "\n".join(secs[k] for k in keys)
 
@@ -56,7 +56,7 @@ def main() -> int:
     cat = cb.load("full")
     prev = load_previews()
     d = testsets_dir()
-    report = ["# Jeux de test — rapport de phase 2", "", f"Catalogue : {len(cat)} morceaux, {int(prev.status.eq('ok').sum())} avec extrait.", ""]
+    report = ["# Test sets — phase 2 report", "", f"Catalogue: {len(cat)} tracks, {int(prev.status.eq('ok').sum())} with a preview.", ""]
 
     if "t1" in sets:
         ev, res = tot_music.build_t1(cat, prev)
@@ -66,54 +66,54 @@ def main() -> int:
         qt = collections.Counter(t for r in ev for t in r["query_types"])
         splits = collections.Counter(r["split_article"] for r in ev)
         multi = sum(1 for r in ev if len(r.get("reponse_ids", [])) > 1)
-        # C1 : `user_created` = demandes accompagnées d'un enregistrement de l'utilisateur (étiquette
-        # « Recording » de l'article : vocaroo, etc.). On compte celles dont le texte contient encore un lien.
+        # C1: `user_created` = queries that come with a user recording (the paper's
+        # "Recording" label: vocaroo, etc.). We count those whose text still contains a link.
         from testsets import tot_music as tm
         all_q = tm.load(download_if_missing=False)
         uc = [q for q in all_q if "user_created" in q.query_types]
         uc_links = sum(1 for q in uc if "http" in (q.text or "").lower())
-        report += ["## T1 — ToT_Music", "", f"{len(ev)} demandes d'évaluation, {len(res)} en réserve (réponse dans le catalogue avec extrait).",
-                   f"Split de l'article dans l'échantillon d'éval : {dict(splits)} (C1 : tiré du split `test`). "
-                   f"{multi} demandes ont plusieurs enregistrements acceptables (ISRC multiples).", "",
-                   "| Décennie | Éval |", "|---|---|", *[f"| {k} | {v} |" for k, v in sorted(dec.items())], "",
-                   "Types de demande (éval) : " + ", ".join(f"{k} {v}" for k, v in qt.most_common()), "",
-                   f"`user_created` (C1) : {len(uc)} demandes dans tout ToT_Music ; {uc_links} contiennent encore un lien vers un média "
-                   "de l'utilisateur (vocaroo…), dont l'accessibilité n'a pas été vérifiée (pas de téléchargement).", ""]
+        report += ["## T1 — ToT_Music", "", f"{len(ev)} evaluation queries, {len(res)} in reserve (answer in the catalogue with a preview).",
+                   f"Paper split within the eval sample: {dict(splits)} (C1: drawn from the `test` split). "
+                   f"{multi} queries have several acceptable recordings (multiple ISRCs).", "",
+                   "| Decade | Eval |", "|---|---|", *[f"| {k} | {v} |" for k, v in sorted(dec.items())], "",
+                   "Query types (eval): " + ", ".join(f"{k} {v}" for k, v in qt.most_common()), "",
+                   f"`user_created` (C1): {len(uc)} queries across all of ToT_Music; {uc_links} still contain a link to a user media file "
+                   "(vocaroo…), whose accessibility was not checked (no download).", ""]
     if "t2" in sets:
         out = fr_memories.write_t2(cat)
         rows = read_jsonl(out)
-        report += ["## T2 — Souvenirs FR", "", f"{len(rows)} descriptions appariées au catalogue (fichier `data/manual/fr_memories.csv`).", ""]
+        report += ["## T2 — FR memories", "", f"{len(rows)} descriptions matched to the catalogue (file `data/manual/fr_memories.csv`).", ""]
     if "t3" in sets:
         out = noisy.write_t3(cat, prev)
         rows = read_jsonl(out)
         kinds = collections.Counter((r["kind"], r["snr_db"]) for r in rows)
-        report += ["## T3 — Bruit", "", f"{len(rows)} cas (recette rejouable, audio mixé à la volée).", "",
-                   "| Type | SNR | Cas |", "|---|---|---|", *[f"| {k[0]} | {k[1]} | {v} |" for k, v in sorted(kinds.items(), key=str)], ""]
+        report += ["## T3 — Noise", "", f"{len(rows)} cases (replayable recipe, audio mixed on the fly).", "",
+                   "| Type | SNR | Cases |", "|---|---|---|", *[f"| {k[0]} | {k[1]} | {v} |" for k, v in sorted(kinds.items(), key=str)], ""]
     if "t4" in sets:
         out = covers.write_t4(cat, prev, n_hits=args.t4_hits)
         rows = read_jsonl(out)
         kinds = collections.Counter(r["kind"] for r in rows)
-        report += ["## T4 — Reprises", "", f"{len(rows)} paires reprise → original ({len({r['reponse_id'] for r in rows})} originaux).", "",
-                   "| Type | Paires |", "|---|---|", *[f"| {k} | {v} |" for k, v in kinds.most_common()], "",
-                   "Contrôle manuel de 20 paires : à faire (voir `scripts/review_pairs.py`).", ""]
+        report += ["## T4 — Covers", "", f"{len(rows)} cover → original pairs ({len({r['reponse_id'] for r in rows})} originals).", "",
+                   "| Type | Pairs |", "|---|---|", *[f"| {k} | {v} |" for k, v in kinds.most_common()], "",
+                   "Manual check of 20 pairs: to do (see `scripts/review_pairs.py`).", ""]
     if "t6a" in sets:
         from testsets import chad
         out, stats = chad.write_t6a(cat, prev)
-        report += ["## T6a — Fredonnements CHAD", "", f"{stats['cases']} fredonnements → original du catalogue ; groupes CHAD {stats['groups']}, "
-                   f"titre YouTube lu {stats['with_title']}, titre/artiste parsés {stats['parsed']}, dans le catalogue {stats['in_catalog']}, "
-                   f"avec extrait {stats['with_preview']}. Limite : position du fragment dans le morceau ≠ position de l'extrait Deezer (30 s).", ""]
+        report += ["## T6a — CHAD hums", "", f"{stats['cases']} hums → original in the catalogue; CHAD groups {stats['groups']}, "
+                   f"YouTube title read {stats['with_title']}, title/artist parsed {stats['parsed']}, in the catalogue {stats['in_catalog']}, "
+                   f"with a preview {stats['with_preview']}. Limitation: position of the fragment in the track ≠ position of the Deezer preview (30 s).", ""]
     if "t6b" in sets:
         from testsets import hums
         out = hums.write_t6b(cat)
         rows = read_jsonl(out)
         kinds = collections.Counter(r["kind"] for r in rows)
-        report += ["## T6b — Fredonnements maison", "", f"{len(rows)} fredonnements (`data/manual/hums/` réels, `data/manual/hums_synth/` synthétiques) : "
+        report += ["## T6b — Home hums", "", f"{len(rows)} hums (`data/manual/hums/` real, `data/manual/hums_synth/` synthetic): "
                    + ", ".join(f"{k} {v}" for k, v in kinds.most_common()) + ".", ""]
     vids = sorted((get_settings().manual_dir / "video").glob("*.mp4"))
-    report += ["## T5 — Vidéo", "", f"{len(vids)} extraits dans `data/manual/video/`.", ""]
+    report += ["## T5 — Video", "", f"{len(vids)} clips in `data/manual/video/`.", ""]
     path = PROJECT_ROOT / "eval" / "testsets.md"
     path.write_text(merge_report(path, "\n".join(report)), encoding="utf-8")
-    print(f"\nRapport : {path}")
+    print(f"\nReport: {path}")
     return 0
 
 

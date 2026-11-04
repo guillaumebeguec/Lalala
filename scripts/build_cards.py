@@ -1,9 +1,9 @@
-"""Génère les fiches morceaux (Wikipédia FR/EN + description audio Llama) pour un sous-ensemble.
+"""Builds the track cards (FR/EN Wikipedia + Llama audio description) for a subset.
 
     uv run python scripts/build_cards.py --subset dev [--no-wiki] [--no-llm] [--limit N]
 
-Rejouable : Wikipédia et Llama sont en cache disque (data/cache/wikipedia, llama_audio_desc).
-Sortie : data/catalog/cards_<subset>.parquet.
+Replayable: Wikipedia and Llama are cached on disk (data/cache/wikipedia, llama_audio_desc).
+Output: data/catalog/cards_<subset>.parquet.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def main() -> int:
     t0 = time.time()
     df = build_cards(cat, with_wiki=not args.no_wiki, with_llm=not args.no_llm, out=out, log_every=50)
     dt = time.time() - t0
-    print(f"\n{len(df)} fiches en {dt:.0f} s ({dt / max(len(df), 1):.2f} s/fiche) → {out}")
+    print(f"\n{len(df)} cards in {dt:.0f} s ({dt / max(len(df), 1):.2f} s/card) → {out}")
     return 0
 
 

@@ -1,11 +1,11 @@
-"""Entraîne la fusion apprise (recommandation 4) sur des demandes ToT_Music des splits train/val
-(réserve T1), évalue contre RRF sur l'échantillon d'évaluation T1 (split test), écrit eval/fusion.md.
+"""Trains the learned fusion (recommendation 4) on ToT_Music queries from the train/val splits
+(T1 reserve), evaluates against RRF on the T1 evaluation sample (test split), writes eval/fusion.md.
 
     uv run python scripts/train_fusion.py --subset dev [--n-train 300] [--no-rewrite] [--llm]
 
-Les listes par branche viennent de `Toolbox.retrieve` ; par défaut sans Llama-retriever (60 s par
-demande sur un 8B) et avec la réécriture (cache). Rien de l'échantillon d'évaluation n'est vu à
-l'entraînement.
+The per-branch lists come from `Toolbox.retrieve`; by default without the Llama retriever (60 s per
+query on an 8B) and with rewriting (cached). Nothing from the evaluation sample is seen during
+training.
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ log = logging.getLogger("train_fusion")
 
 
 def branch_lists(tb: Toolbox, text: str, use_rewrite: bool) -> tuple[dict, dict]:
-    """Rejoue `retrieve` en conservant les listes par branche (sans seuils ni fusion)."""
+    """Replays `retrieve` keeping the per-branch lists (no thresholds, no fusion)."""
     rw = tb.rewrite_query(text) if use_rewrite else None
     lists: dict[str, list] = {}
     bm = tb.bm25()
@@ -68,7 +68,7 @@ def main() -> int:
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
     ap.add_argument("--n-train", type=int, default=300)
     ap.add_argument("--no-rewrite", action="store_true")
-    ap.add_argument("--llm", action="store_true", help="inclure la branche Llama-retriever (lent sur un 8B)")
+    ap.add_argument("--llm", action="store_true", help="include the Llama-retriever branch (slow on an 8B)")
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -85,7 +85,7 @@ def main() -> int:
     rng = random.Random(args.seed)
     rng.shuffle(reserve)
     train = reserve[: args.n_train]
-    log.info("entraînement : %d demandes (train/val de l'article) ; test : %d", len(train), len(test))
+    log.info("training: %d queries (paper's train/val); test: %d", len(train), len(test))
     t0 = time.time()
     samples, branches = [], set()
     for i, c in enumerate(train, 1):
@@ -93,12 +93,12 @@ def main() -> int:
         branches |= set(lists)
         samples.append((lists, hints, meta, "text", set(c.get("reponse_ids") or [c["reponse_id"]])))
         if i % 25 == 0:
-            log.info("caractéristiques : %d / %d (%.1f s/demande)", i, len(train), (time.time() - t0) / i)
+            log.info("features: %d / %d (%.1f s/query)", i, len(train), (time.time() - t0) / i)
     lf = LearnedFusion(branches=sorted(branches))
     info = lf.fit(samples)
     lf.save()
-    log.info("modèle : %s", info)
-    # évaluation : RRF contre fusion apprise sur T1 test
+    log.info("model: %s", info)
+    # evaluation: RRF vs learned fusion on T1 test
     ranks_rrf, ranks_lf, ranks_best = [], [], []
     best_single: dict[str, list] = {b: [] for b in branches}
     for c in test:
@@ -113,17 +113,17 @@ def main() -> int:
         ranks_lf.append(rank_of(lf.rank(lists, hints, meta)))
         for b in branches:
             best_single[b].append(rank_of(lists.get(b, [])))
-    lines = [f"# Fusion apprise contre RRF — T1 test ({len(test)} demandes, sous-ensemble {args.subset})", "",
-             f"Entraînement : {len(train)} demandes des splits train/val ; {info['n_pairs']} paires, {info['n_pos']} positives. Branches : {', '.join(sorted(branches))}.", "",
-             "| Système | top-1 [IC 95 %] | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
-    for name, rk in [("RRF k=60", ranks_rrf), ("fusion apprise (LR)", ranks_lf)] + [(f"seule : {b}", r) for b, r in best_single.items()]:
+    lines = [f"# Learned fusion vs RRF — T1 test ({len(test)} queries, {args.subset} subset)", "",
+             f"Training: {len(train)} queries from the train/val splits; {info['n_pairs']} pairs, {info['n_pos']} positive. Branches: {', '.join(sorted(branches))}.", "",
+             "| System | top-1 [95 % CI] | top-5 | top-10 | MRR |", "|---|---|---|---|---|"]
+    for name, rk in [("RRF k=60", ranks_rrf), ("learned fusion (LR)", ranks_lf)] + [(f"alone: {b}", r) for b, r in best_single.items()]:
         m = summarize(rk); lo, hi = bootstrap_ci(rk, 1)
         lines.append(f"| {name} | {m['top1']:.3f} [{lo:.2f}, {hi:.2f}] | {m['top5']:.3f} | {m['top10']:.3f} | {m['mrr']:.3f} |")
-    lines += ["", "Coefficients (régression logistique, caractéristiques standardisées par construction) :", "",
-              "| Caractéristique | Coefficient |", "|---|---|", *[f"| {k} | {v} |" for k, v in sorted(info["coef"].items(), key=lambda kv: -abs(kv[1]))[:20]], ""]
+    lines += ["", "Coefficients (logistic regression, features standardised by construction):", "",
+              "| Feature | Coefficient |", "|---|---|", *[f"| {k} | {v} |" for k, v in sorted(info["coef"].items(), key=lambda kv: -abs(kv[1]))[:20]], ""]
     out = PROJECT_ROOT / "eval" / "fusion.md"
     out.write_text("\n".join(lines), encoding="utf-8")
-    print(f"\nRapport : {out}")
+    print(f"\nReport: {out}")
     return 0
 
 

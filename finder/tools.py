@@ -1,9 +1,9 @@
-"""Outils de l'agent (PLAN.md phase 6.1) : recherche catalogue hybride, appariement audio,
-recherche web, question à l'utilisateur, proposition.
+"""Agent tools (PLAN.md phase 6.1): hybrid catalogue search, audio matching,
+web search, question to the user, proposal.
 
-`Toolbox` charge paresseusement index et embedders d'un sous-ensemble (`dev` / `full`).
-Chaque outil renvoie des données sérialisables (pour Llama) et des candidats
-`Candidate` (pour l'état de l'agent et le front).
+`Toolbox` lazily loads the indexes and embedders of a subset (`dev` / `full`).
+Each tool returns serialisable data (for Llama) and `Candidate` objects
+(for the agent state and the front).
 """
 
 from __future__ import annotations
@@ -56,20 +56,20 @@ class Toolbox:
     subset: str = "dev"
     embedders: list[str] | None = None
     use_rewrite: bool = True
-    use_rerank: bool = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_RERANK", "1") != "0")
+    use_rerank: bool = field(default_factory=lambda: __import__("os").environ.get("LALALA_RERANK", "1") != "0")
     rerank_alpha: float = 0.5
-    rerank_top: int = 10            # candidats notés par Llama (2 lots de 5 : ≈ 30 s sur M2) ; 20 pour l'évaluation
+    rerank_top: int = 10            # candidates scored by Llama (2 batches of 5: ≈ 30 s on M2); 20 for evaluation
     rrf_k: int = 60
     top_k: int = 20
-    # Routage et seuils (recommandations 1–3) : texte→audio seulement si description sonore ;
-    # Llama comme moteur de recherche ; une branche ne vote que si son top-1 passe un seuil ou si
-    # l'écart top-1/top-2 est net (valeurs par défaut prudentes, à régler sur la validation).
-    use_llm_retriever: bool = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_LLM_RETRIEVER", "1") != "0")
-    llm_min_confidence: float = field(default_factory=lambda: float(__import__("os").environ.get("SOUNDTRACE_LLM_MIN_CONF", "0.6")))
-    text_to_audio: str = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_TEXT_TO_AUDIO", "auto"))  # auto|always|never
+    # Routing and thresholds (recommendations 1–3): text→audio only for a sound description;
+    # Llama as a search engine; a branch only votes if its top-1 passes a threshold or if the
+    # top-1/top-2 gap is clear (conservative defaults, to be tuned on the validation set).
+    use_llm_retriever: bool = field(default_factory=lambda: __import__("os").environ.get("LALALA_LLM_RETRIEVER", "1") != "0")
+    llm_min_confidence: float = field(default_factory=lambda: float(__import__("os").environ.get("LALALA_LLM_MIN_CONF", "0.6")))
+    text_to_audio: str = field(default_factory=lambda: __import__("os").environ.get("LALALA_TEXT_TO_AUDIO", "auto"))  # auto|always|never
     gate_min_top1: dict = field(default_factory=lambda: {"clap:légendes→audio": 0.15, "gemma:légendes→audio": 0.35})
     gate_min_margin: float = 0.0
-    fusion_mode: str = field(default_factory=lambda: __import__("os").environ.get("SOUNDTRACE_FUSION", "rrf"))  # rrf | learned
+    fusion_mode: str = field(default_factory=lambda: __import__("os").environ.get("LALALA_FUSION", "rrf"))  # rrf | learned
     _catalog: pd.DataFrame | None = None
     _cards: dict[str, str] | None = None
     _bm25: BM25Index | None = None
@@ -82,7 +82,7 @@ class Toolbox:
     _web: Any = None
     queries_done: list[str] = field(default_factory=list)
 
-    # ---- chargement paresseux ----
+    # ---- lazy loading ----
     @property
     def catalog(self) -> pd.DataFrame:
         if self._catalog is None:
@@ -113,7 +113,7 @@ class Toolbox:
         return self._bm25
 
     def bm25_sound(self) -> BM25Index | None:
-        """BM25 sur les descriptions audio générées seules (mots sonores de l'utilisateur)."""
+        """BM25 over the generated audio descriptions alone (the user's sound words)."""
         p = get_settings().index_dir / f"bm25_sound_{self.subset}.pkl"
         if not p.exists():
             return None
@@ -126,9 +126,9 @@ class Toolbox:
         return self.embedders if self.embedders is not None else get_settings().active_embedders
 
     def vec(self, embedder: str, modality: str) -> VectorIndex | None:
-        """Index FAISS (embedder × modalité), chargé à la demande. Un index absent est re-testé à
-        chaque appel (bon marché) pour que l'API en cours d'exécution voie les index construits
-        après son démarrage ; un index mis à jour sur disque est rechargé (mtime)."""
+        """FAISS index (embedder × modality), loaded on demand. A missing index is re-checked on
+        every call (cheap) so that a running API sees indexes built after it started; an index
+        updated on disk is reloaded (mtime)."""
         key = (embedder, modality)
         d = get_settings().index_dir / f"{embedder}_{modality}"
         p = d / "vectors.npy"
@@ -146,7 +146,7 @@ class Toolbox:
     def emb(self, name: str):
         if name not in self._emb:
             from core.embedders.base import get_embedder
-            if name == "hum2song":   # côté requête : contour rogné à 20 s (fredonnement)
+            if name == "hum2song":   # query side: contour cropped to 20 s (humming)
                 from core.embedders.hum2song import Hum2SongEmbedder
                 self._emb[name] = Hum2SongEmbedder(role="query")
             else:
@@ -154,7 +154,7 @@ class Toolbox:
         return self._emb[name]
 
     def contours(self):
-        """Magasin de contours mélodiques (`core.melody.ContourStore`), rechargé si le fichier change."""
+        """Melodic contour store (`core.melody.ContourStore`), reloaded if the file changes."""
         from core.melody import ContourStore
         if not ContourStore.exists(self.subset):
             self._contours = None
@@ -162,12 +162,12 @@ class Toolbox:
         mtime = ContourStore.mtime(self.subset)
         if self._contours is None or self._contours[0] != mtime:
             self._contours = (mtime, ContourStore.load(self.subset))
-            logger.info("contours mélodiques chargés : %d morceaux", len(self._contours[1]))
+            logger.info("melodic contours loaded: %d tracks", len(self._contours[1]))
         return self._contours[1]
 
     def melody_match(self, audio: bytes | tuple[np.ndarray, int], top: int = 20) -> list[tuple[str, float, float]]:
-        """Branche « mélodie » : contour RMVPE de la requête aligné sur les contours du catalogue
-        (transposition et tempo tolérés, voir core.melody). [(track_id, score, position s)]."""
+        """"Melody" branch: the query's RMVPE contour aligned against the catalogue contours
+        (transposition and tempo tolerated, see core.melody). [(track_id, score, position s)]."""
         store = self.contours()
         if store is None:
             return []
@@ -177,8 +177,8 @@ class Toolbox:
         return match(q, store, top=top)
 
     def is_humming(self, audio: bytes | tuple[np.ndarray, int]) -> bool:
-        """Heuristique « voix seule monophonique » (C4.3) : part de trames voisées à forte saillance
-        RMVPE élevée et spectre pauvre en hautes fréquences. Vrai → entrée `humming`, poids hum2song ×3."""
+        """"Monophonic lone voice" heuristic (C4.3): high share of voiced frames with strong RMVPE
+        salience and a spectrum poor in high frequencies. True → `humming` input, hum2song weight ×3."""
         try:
             from core.audio_io import load_audio
             x, sr = (load_audio(bytes(audio), sr=16_000) if isinstance(audio, (bytes, bytearray)) else
@@ -192,10 +192,10 @@ class Toolbox:
             freqs = np.fft.rfftfreq(min(len(x), sr * 10), 1 / sr)
             hf = float(spec[freqs > 2500].sum() / (spec.sum() + 1e-9))
             lf = float(spec[freqs < 1000].sum() / (spec.sum() + 1e-9))
-            # Calibré le 29/10 sur 60 fredonnements CHAD / 60 extraits : rappel 0,93, faux positifs 0,13
+            # Calibrated on 29/10 on 60 CHAD hums / 60 previews: recall 0.93, false positives 0.13
             return (voiced > 0.45 and hf < 0.25) or (voiced > 0.5 and lf > 0.7)
         except Exception as e:  # noqa: BLE001
-            logger.debug("détection fredonnement impossible : %s", e)
+            logger.debug("humming detection failed: %s", e)
             return False
 
     def fingerprints(self) -> FingerprintIndex | None:
@@ -204,7 +204,7 @@ class Toolbox:
         return self._fp
 
     def lyrics_index(self):
-        """Empreintes de paroles (hachés de n-grammes, scripts/build_lyrics_hashes.py), chargées à chaud."""
+        """Lyrics fingerprints (n-gram hashes, scripts/build_lyrics_hashes.py), hot-loaded."""
         from core.lyrics_match import LyricsHashIndex, path as lyrics_path
         if not lyrics_path().exists():
             return None
@@ -214,13 +214,13 @@ class Toolbox:
         return self._lyr
 
     def sung_lyrics_search(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
-        """Voix chantée : transcription Whisper → empreintes de paroles + Llama-retriever + fiches (BM25).
-        Renvoie {transcript, fused, lists, candidates}."""
+        """Sung voice: Whisper transcription → lyrics fingerprints + Llama-retriever + cards (BM25).
+        Returns {transcript, fused, lists, candidates}."""
         from core.asr import transcribe
         t = transcribe(audio)
         out: dict[str, Any] = {"transcript": t, "fused": [], "lists": {}, "candidates": []}
         if not t.has_words:
-            logger.info("paroles chantées : rien d'exploitable (%r, langue %.2f, logprob %.2f)", t.text[:60], t.language_probability, t.avg_logprob)
+            logger.info("sung lyrics: nothing usable (%r, language %.2f, logprob %.2f)", t.text[:60], t.language_probability, t.avg_logprob)
             return out
         lists, names, weights = [], [], []
         idx = self.lyrics_index()
@@ -252,7 +252,7 @@ class Toolbox:
         return out
 
     def learned_fusion(self):
-        """Modèle de fusion apprise (scripts/train_fusion.py) s'il existe ; rechargé si le fichier change."""
+        """Learned fusion model (scripts/train_fusion.py) if it exists; reloaded if the file changes."""
         from core.fusion_learned import LearnedFusion
         p = LearnedFusion.path()
         if not p.exists():
@@ -263,13 +263,13 @@ class Toolbox:
         return self._lf
 
     def audfprint(self):
-        """Base audfprint (empreinte robuste au micro, recommandation 8) si elle existe."""
+        """audfprint database (microphone-robust fingerprint, recommendation 8) if it exists."""
         from core.fingerprint_audfprint import AudfprintIndex
         if getattr(self, "_afp", None) is None and AudfprintIndex.path().exists():
-            self._afp = AudfprintIndex.load()   # base apparue après le démarrage : prise en compte à chaud
+            self._afp = AudfprintIndex.load()   # database that appeared after startup: picked up hot
         return getattr(self, "_afp", None)
 
-    # ---- candidats ----
+    # ---- candidates ----
     def _candidate(self, track_id: str, score: float, source: str, reason: str = "") -> Candidate | None:
         if track_id not in self.catalog.index:
             return None
@@ -280,8 +280,8 @@ class Toolbox:
                          reason=reason, preview_url=prev if isinstance(prev, str) else None)
 
     def meta_for_belief(self, track_id: str) -> dict:
-        """Métadonnées lues par le modèle d'observation (phase 7) : année, langue, genre, bpm,
-        usage, et les champs générés des fiches (tempo, voix) quand ils existent."""
+        """Metadata read by the observation model (phase 7): year, language, genre, bpm,
+        usage, and the generated card fields (tempo, vocals) when they exist."""
         if track_id not in self.catalog.index:
             return {}
         r = self.catalog.loc[track_id]
@@ -314,20 +314,20 @@ class Toolbox:
                 out[i] = {"year": int(r.year) if pd.notna(r.year) else None, "language": r.language}
         return out
 
-    # ---- outils ----
+    # ---- tools ----
     def rewrite_query(self, text: str):
-        """Étape 1 : réécriture Llama (légendes, indices, requête) ; None si indisponible."""
+        """Step 1: Llama rewrite (captions, hints, query); None if unavailable."""
         if not self.use_rewrite:
             return None
         try:
             return query_rewrite.rewrite(text)
         except Exception as e:  # noqa: BLE001
-            logger.warning("réécriture impossible : %s", e)
+            logger.warning("rewrite failed: %s", e)
             return None
 
     def llm_retrieve(self, text: str) -> tuple[list[tuple[str, float]], list[dict]]:
-        """Branche Llama : titres proposés par le modèle, résolus dans le catalogue.
-        Renvoie (liste (track_id, confiance) pour la fusion, propositions non résolues)."""
+        """Llama branch: titles proposed by the model, resolved in the catalogue.
+        Returns (list of (track_id, confidence) for fusion, unresolved proposals)."""
         from core.llm_retriever import propose
         hits, unresolved = [], []
         for c in propose(text):
@@ -342,8 +342,8 @@ class Toolbox:
         return hits, unresolved
 
     def _gate(self, name: str, hits: list[tuple[str, float]]) -> bool:
-        """Seuil par branche : vote seulement si le top-1 dépasse le seuil de la branche (quand il
-        est défini) ou si l'écart top-1/top-2 est net."""
+        """Per-branch threshold: vote only if the top-1 exceeds the branch threshold (when it is
+        defined) or if the top-1/top-2 gap is clear."""
         if not hits:
             return False
         thr = self.gate_min_top1.get(name)
@@ -354,9 +354,9 @@ class Toolbox:
         return top1 >= thr or margin >= max(self.gate_min_margin, 1e-9)
 
     def retrieve(self, text: str, rw=None, hints: dict | None = None) -> dict[str, Any]:
-        """Étape 2 : BM25 (brut + réécrit) + Llama-retriever + texte→fiches (+ légendes→audio si le
-        texte décrit le son), seuils par branche, RRF, filtres doux.
-        Renvoie {fused: [(id, score)], lists: {nom: n}, hints, llm_unresolved}."""
+        """Step 2: BM25 (raw + rewritten) + Llama-retriever + text→cards (+ captions→audio if the
+        text describes the sound), per-branch thresholds, RRF, soft filters.
+        Returns {fused: [(id, score)], lists: {name: n}, hints, llm_unresolved}."""
         lists: list[list[tuple[str, float]]] = []
         names: list[str] = []
         weights: list[float] = []
@@ -368,8 +368,8 @@ class Toolbox:
             else:
                 skipped.append(name)
 
-        # Routage son / contexte : les mots sur le son (instruments, voix, tempo) n'interrogent jamais les
-        # titres, résumés ou thèmes de paroles ; ils vont vers l'index « son » et les légendes→audio.
+        # Sound / context routing: words about the sound (instruments, vocals, tempo) never query the
+        # titles, summaries or lyrics themes; they go to the "sound" index and captions→audio.
         sound_only = bool(rw and rw.sound_only)
         ctx_query = rw.context_query if rw else ""
         bm = self.bm25()
@@ -425,7 +425,7 @@ class Toolbox:
                 "skipped": skipped, "llm_unresolved": llm_unresolved}
 
     def rerank_candidates(self, text: str, fused: list[tuple[str, float]], hints: dict | None = None) -> tuple[list[tuple[str, float]], dict[str, str]]:
-        """Étape 3 : reranking Llama du top `rerank_top` ; les autres gardent l'ordre de fusion."""
+        """Step 3: Llama reranking of the top `rerank_top`; the rest keep the fusion order."""
         if not (self.use_rerank and fused and self.cards):
             return fused, {}
         h = {k: v for k, v in (hints or {}).items() if v}
@@ -440,7 +440,7 @@ class Toolbox:
         return [c for c in (self._candidate(i, s, source, reasons.get(i, "")) for i, s in fused) if c]
 
     def catalog_search(self, text: str, hints: dict | None = None) -> dict[str, Any]:
-        """Recherche hybride complète (réécriture → recherche → reranking). Renvoie {candidates, rewrite, lists}."""
+        """Full hybrid search (rewrite → retrieve → rerank). Returns {candidates, rewrite, lists}."""
         self.queries_done.append(text)
         rw = self.rewrite_query(text)
         ret = self.retrieve(text, rw, hints)
@@ -448,8 +448,8 @@ class Toolbox:
         return {"candidates": self.to_candidates(fused, reasons), "rewrite": rw, "lists": ret["lists"]}
 
     def fingerprint_match(self, audio: bytes | tuple[np.ndarray, int]) -> Candidate | None:
-        """Étape empreinte : audfprint (landmarks, robuste au micro) puis Chromaprint ; un candidat
-        `fingerprint` si le même enregistrement est trouvé."""
+        """Fingerprint step: audfprint (landmarks, microphone-robust) then Chromaprint; a
+        `fingerprint` candidate if the same recording is found."""
         afp = self.audfprint()
         if afp is not None:
             try:
@@ -457,25 +457,25 @@ class Toolbox:
                 hits = afp.search(audio, k=3)
                 if hits and hits[0][1] >= MIN_ALIGNED:
                     return self._candidate(hits[0][0], min(1.0, hits[0][1] / 50.0), "fingerprint",
-                                           f"empreinte audio identique (même enregistrement, {int(hits[0][1])} repères alignés)")
+                                           f"identical audio fingerprint (same recording, {int(hits[0][1])} aligned landmarks)")
             except Exception as e:  # noqa: BLE001
-                logger.warning("audfprint : %s", e)
+                logger.warning("audfprint: %s", e)
         fp = self.fingerprints()
         if fp is None:
             return None
         try:
             hits = fp.search(fpcalc_raw(audio), k=3)
             if hits and hits[0][1] >= FINGERPRINT_EXACT:
-                return self._candidate(hits[0][0], hits[0][1], "fingerprint", "empreinte audio identique (même enregistrement)")
+                return self._candidate(hits[0][0], hits[0][1], "fingerprint", "identical audio fingerprint (same recording)")
         except Exception as e:  # noqa: BLE001
-            logger.warning("chromaprint : %s", e)
+            logger.warning("chromaprint: %s", e)
         return None
 
     def audio_similarity(self, audio: bytes | tuple[np.ndarray, int], exact: Candidate | None = None,
                          embedders: list[str] | None = None, humming: bool = False) -> dict[str, Any]:
-        """Étape similarité : audio → audio pour les embedders demandés (par défaut tous les actifs),
-        fusion RRF pondérée (CoverHunter ×2 sans empreinte exacte ; hum2song ×3 si fredonnement,
-        généralistes ×0,5 dans ce cas). Renvoie {candidates, lists}."""
+        """Similarity step: audio → audio for the requested embedders (all active ones by default),
+        weighted RRF fusion (CoverHunter ×2 without an exact fingerprint; hum2song ×3 for humming,
+        generalists ×0.5 in that case). Returns {candidates, lists}."""
         lists, weights, names = [], [], []
         melody_raw: list[tuple[str, float, float]] = []
         wanted = list(embedders or self.active_embedders())
@@ -487,12 +487,12 @@ class Toolbox:
             if name == "coverhunter":
                 w = 0.25 if humming else (2.0 if exact is None else 1.0)
             elif name == "hum2song":
-                w = 0.5   # vote secondaire : 0,5 % de top-1 sur CHAD, l'alignement de contours (melody) fait 16 %
+                w = 0.5   # secondary vote: 0.5 % top-1 on CHAD, contour alignment (melody) reaches 16 %
             else:
                 w = 0.5 if humming else 1.0
             weights.append(w)
             names.append(name)
-        # alignement direct des contours (core.melody) : la branche mélodique principale pour un fredonnement
+        # direct contour alignment (core.melody): the main melodic branch for humming
         if "hum2song" in wanted and self.contours() is not None:
             try:
                 mel = self.melody_match(audio, top=50)
@@ -501,7 +501,7 @@ class Toolbox:
                 weights.append(3.0 if humming else 0.5)
                 names.append("melody")
             except Exception as e:  # noqa: BLE001
-                logger.warning("mélodie : %s", e)
+                logger.warning("melody: %s", e)
         fused = rrf(lists, k=self.rrf_k, weights=weights, top=self.top_k) if lists else []
         cover_top = {i for i, _ in lists[names.index("coverhunter")][:5]} if "coverhunter" in names else set()
         mel_name = "melody" if "melody" in names else ("hum2song" if "hum2song" in names else None)
@@ -520,7 +520,7 @@ class Toolbox:
         return {"candidates": cands, "lists": dict(zip(names, [len(l) for l in lists])), "melody": melody_raw}
 
     def audio_match(self, audio: bytes | tuple[np.ndarray, int]) -> dict[str, Any]:
-        """Empreinte puis similarité (agent conversationnel et évaluation)."""
+        """Fingerprint then similarity (conversational agent and evaluation)."""
         exact = self.fingerprint_match(audio)
         res = self.audio_similarity(audio, exact)
         cands = res["candidates"]
@@ -535,14 +535,14 @@ class Toolbox:
             try:
                 self._web = WebSearch()
             except WebSearchDisabled as e:
-                logger.info("recherche web désactivée : %s", e)
+                logger.info("web search disabled: %s", e)
                 self._web = False
         if not self._web:
             return []
         return self._web.search(query, k=k)
 
     def lookup_in_catalog(self, title: str, artist: str) -> Candidate | None:
-        """Pour un titre trouvé sur le web : le retrouver dans le catalogue (sinon candidat « hors catalogue »)."""
+        """For a title found on the web: find it in the catalogue (otherwise an "off-catalogue" candidate)."""
         from catalog.normalize import dedup_key, norm_artist, norm_title, similarity
         key = dedup_key(title, artist)
         df = self.catalog
@@ -550,7 +550,7 @@ class Toolbox:
             df["_key"] = [dedup_key(t, a) for t, a in zip(df.title, df.artist)]
         hit = df[df["_key"] == key]
         if len(hit):
-            return self._candidate(hit.iloc[0].track_id, 1.0, "web", "trouvé sur le web, présent dans le catalogue")
+            return self._candidate(hit.iloc[0].track_id, 1.0, "web", "found on the web, present in the catalogue")
         na = norm_artist(artist)
         cand = df[df.artist.map(norm_artist) == na]
         best, best_s = None, 0.0
@@ -559,8 +559,8 @@ class Toolbox:
             if s > best_s:
                 best, best_s = r.track_id, s
         if best and best_s >= 0.85:
-            return self._candidate(best, best_s, "web", "trouvé sur le web, présent dans le catalogue")
+            return self._candidate(best, best_s, "web", "found on the web, present in the catalogue")
         q = f"{title} {artist}".strip()
         return Candidate(track_id=f"web:{key}", title=title, artist=artist, year=None, score=0.5, source="web",
-                         reason="trouvé sur le web, absent du catalogue (pas d'extrait)", in_catalog=False,
+                         reason="found on the web, not in the catalogue (no preview)", in_catalog=False,
                          search_url="https://www.deezer.com/search/" + q.replace(" ", "%20"))

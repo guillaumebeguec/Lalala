@@ -1,15 +1,15 @@
-"""🧪 Questions par gain d'information (PLAN.md phase 7).
+"""🧪 Information-gain questions (PLAN.md phase 7).
 
-Croyance P(h) sur les candidats (top-N après reranking) + hypothèse « autre ».
-Prior = softmax(score / température). Répertoire fixe de questions dont la réponse
-se lit dans les métadonnées (décennie, langue, voix, genre, tempo, support), avec
-un modèle d'observation P(r | h) exact depuis la fiche, lissé par ε (faux
-souvenirs). « je ne sais pas » est peu informatif (probabilité fixe, indépendante
-de h). Choix : argmax IG(q) = H(P) − Σ_r P(r) H(P | r). Mise à jour bayésienne.
-Arrêt : max P(h) > `stop_prob` ou budget de questions.
+Belief P(h) over the candidates (top-N after reranking) + an "other" hypothesis.
+Prior = softmax(score / temperature). Fixed repertoire of questions whose answer
+can be read from the metadata (decade, language, vocals, genre, tempo, medium), with
+an exact observation model P(r | h) from the card, smoothed by ε (false
+memories). "I don't know" is weakly informative (fixed probability, independent
+of h). Choice: argmax IG(q) = H(P) − Σ_r P(r) H(P | r). Bayesian update.
+Stop: max P(h) > `stop_prob` or the question budget.
 
-Tout est exposé à chaque tour (entropie, distribution, question, gain attendu)
-pour le panneau « enquête » du front.
+Everything is exposed at each turn (entropy, distribution, question, expected gain)
+for the front's "investigation" panel.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from typing import Any, Callable, Mapping, Sequence
 OTHER = "__other__"
 DONT_KNOW = "je ne sais pas"
 
-# --------------------------------------------------------------------------- répertoire de questions
+# --------------------------------------------------------------------------- question repertoire
 
 GENRE_FAMILIES = {
     "pop": ["pop", "dance", "synth", "disco", "electro", "house", "techno"],
@@ -114,7 +114,7 @@ REPERTOIRE: list[Question] = [
 ]
 
 
-# --------------------------------------------------------------------------- croyance
+# --------------------------------------------------------------------------- belief
 
 def entropy(p: Sequence[float]) -> float:
     return -sum(x * math.log2(x) for x in p if x > 0)
@@ -131,11 +131,11 @@ def softmax(scores: Sequence[float], temperature: float) -> list[float]:
 
 @dataclass
 class Belief:
-    ids: list[str]                     # candidats + OTHER en dernier
+    ids: list[str]                     # candidates + OTHER last
     probs: list[float]
     meta: dict[str, Mapping]
-    epsilon: float = 0.15              # erreur de mémoire : masse hors de la valeur de la fiche
-    p_dont_know: float = 0.2           # probabilité de « je ne sais pas », indépendante de h
+    epsilon: float = 0.15              # memory error: mass away from the card's value
+    p_dont_know: float = 0.2           # probability of "I don't know", independent of h
     history: list[dict[str, Any]] = field(default_factory=list)
     asked: set[str] = field(default_factory=set)
 
@@ -147,9 +147,9 @@ class Belief:
         probs = [x * (1 - p_other) for x in p] + [p_other]
         return cls(ids=ids + [OTHER], probs=probs, meta={i: dict(meta.get(i, {})) for i in ids}, **kw)
 
-    # ---- modèle d'observation ----
+    # ---- observation model ----
     def likelihood(self, q: Question, response: str, options: list[str], h: str) -> float:
-        """P(réponse | h). Pour OTHER ou fiche sans valeur : uniforme sur les options."""
+        """P(response | h). For OTHER or a card without a value: uniform over the options."""
         if response == DONT_KNOW:
             return self.p_dont_know
         rest = 1.0 - self.p_dont_know
@@ -205,7 +205,7 @@ class Belief:
         self.history.append(rec)
         return rec
 
-    # ---- lecture ----
+    # ---- read-out ----
     @property
     def top(self) -> tuple[str, float]:
         i = max(range(len(self.probs)), key=lambda j: self.probs[j])
@@ -220,8 +220,8 @@ class Belief:
         return [{"id": self.ids[j], "p": round(self.probs[j], 4)} for j in order[:n]]
 
     def merge_candidates(self, scored: Sequence[tuple[str, float]], meta: Mapping[str, Mapping], temperature: float = 0.15) -> None:
-        """Réinjecte de nouveaux candidats (après une recherche relancée) : la masse de OTHER
-        est redistribuée sur les nouveaux selon leurs scores ; les anciens gardent leur probabilité."""
+        """Re-injects new candidates (after a re-run search): OTHER's mass is redistributed
+        over the new ones according to their scores; the old ones keep their probability."""
         new = [(i, s) for i, s in scored if i not in self.ids]
         if not new:
             return
@@ -236,12 +236,12 @@ class Belief:
 
 
 def ig_policy(stop_prob: float = 0.7, temperature: float = 0.15, epsilon: float = 0.15, p_other: float = 0.15):
-    """Fabrique une `question_policy` pour `finder.agent.Agent` : maintient une croyance sur
-    `agent.state.candidates`, choisit la question au meilleur gain, s'arrête quand la croyance
-    est concentrée. La croyance est stockée sur l'état (`state.belief`)."""
+    """Builds a `question_policy` for `finder.agent.Agent`: maintains a belief over
+    `agent.state.candidates`, picks the question with the best gain, stops when the belief
+    is concentrated. The belief is stored on the state (`state.belief`)."""
 
     def policy(agent, state):
-        from finder.agent import SessionState  # noqa: F401 — typage souple
+        from finder.agent import SessionState  # noqa: F401 — loose typing
         meta = {c.track_id: agent.tools.meta_for_belief(c.track_id) for c in state.candidates.values()} if hasattr(agent.tools, "meta_for_belief") else \
             {c.track_id: {"year": c.year} for c in state.candidates.values()}
         scored = sorted(((c.track_id, c.score) for c in state.candidates.values()), key=lambda x: -x[1])[:20]
@@ -251,7 +251,7 @@ def ig_policy(stop_prob: float = 0.7, temperature: float = 0.15, epsilon: float 
             state.belief = b
         else:
             b.merge_candidates(scored, meta, temperature)
-        # réponse à la question précédente
+        # answer to the previous question
         if state.questions and state.questions[-1].get("key") and "answer" in state.questions[-1] and state.questions[-1].get("key") not in b.asked:
             q = state.questions[-1]
             b.update(q["key"], q["answer"], [o for o in q["options"] if o != DONT_KNOW])

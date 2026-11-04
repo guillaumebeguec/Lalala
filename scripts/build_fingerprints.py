@@ -1,8 +1,8 @@
-"""Empreintes Chromaprint des extraits du catalogue (baseline type Shazam), audio lu en mémoire.
+"""Chromaprint fingerprints of the catalogue previews (Shazam-like baseline), audio read in memory.
 
     uv run python scripts/build_fingerprints.py --subset dev|full [--limit N]
 
-Reprise : les empreintes déjà présentes dans data/index/fingerprints.npz sont gardées.
+Resumable: fingerprints already present in data/index/fingerprints.npz are kept.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ log = logging.getLogger("build_fingerprints")
 
 
 def main_audfprint(cat, prev, args) -> int:
-    """Base audfprint (landmarks) : rebâtie entièrement (pas de reprise fine : ~0,3 s par extrait)."""
+    """audfprint database (landmarks): rebuilt from scratch (no fine-grained resume: ~0.3 s per preview)."""
     from core.fingerprint_audfprint import AudfprintIndex
     idx = AudfprintIndex()
     ids = [t for t in cat.track_id if t in prev.index and prev.at[t, "status"] == "ok"]
@@ -44,9 +44,9 @@ def main_audfprint(cat, prev, args) -> int:
             log.warning("%s : %s", tid, e)
         if i % 200 == 0:
             idx.save()
-            log.info("audfprint %d / %d (%.2f s/extrait, échecs %d)", i, len(ids), (time.time() - t0) / i, n_fail)
+            log.info("audfprint %d / %d (%.2f s/preview, %d failures)", i, len(ids), (time.time() - t0) / i, n_fail)
     idx.save()
-    print(f"audfprint : {n_ok} extraits ({n_fail} échecs) en {time.time() - t0:.0f} s → {idx.path()}")
+    print(f"audfprint: {n_ok} previews ({n_fail} failures) in {time.time() - t0:.0f} s → {idx.path()}")
     return 0
 
 
@@ -80,9 +80,9 @@ def main() -> int:
             log.warning("%s : %s", tid, e)
         if i % 200 == 0:
             FingerprintIndex(fps).save()
-            log.info("%d / %d (%.2f s/extrait, échecs %d)", i, len(ids), (time.time() - t0) / i, n_fail)
+            log.info("%d / %d (%.2f s/preview, %d failures)", i, len(ids), (time.time() - t0) / i, n_fail)
     FingerprintIndex(fps).save()
-    print(f"{len(fps)} empreintes ({n_fail} échecs) en {time.time() - t0:.0f} s")
+    print(f"{len(fps)} fingerprints ({n_fail} failures) in {time.time() - t0:.0f} s")
     return 0
 
 

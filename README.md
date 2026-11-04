@@ -9,7 +9,7 @@ calibrated confidence decides between one answer and a top-10 to listen to, and 
 reduces uncertainty the most when it hesitates.
 
 Everything runs **locally on a laptop** (Apple Silicon M2, 24 GB) on **Meta open-weights models**: Llama 3.1, PE-AV,
-SAM Audio and FAISS. Code name in the sources: *SoundTrace*. Day-by-day journal: [`RAPPORT.md`](RAPPORT.md) (French).
+SAM Audio and FAISS. Day-by-day journal: [`RAPPORT.md`](RAPPORT.md).
 
 ## Meta models at the core
 
@@ -130,7 +130,7 @@ uv run python scripts/build_contours.py --subset dev && uv run python scripts/bu
 uv run python scripts/build_lyrics_hashes.py
 
 # Run
-SOUNDTRACE_SUBSET=dev SOUNDTRACE_FUSION=learned uv run uvicorn api.main:app --port 8000
+LALALA_SUBSET=dev LALALA_FUSION=learned uv run uvicorn api.main:app --port 8000
 cd web && pnpm install && VITE_API_MODE=live pnpm dev             # http://localhost:5173 ; pnpm dev:lan for a phone
 ```
 
@@ -147,11 +147,11 @@ Front options: `?replay=memory|cover|noisy` (fallback scenes), `?scale=1.25` (pr
 | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | Ollama, `llama3.1:8b` | OpenAI-compatible client; point it at any hosted Llama |
 | `EMBEDDERS` | `gemma,peav,gemini,coverhunter,hum2song` | active embedders (a missing index is ignored) |
 | `USE_GEMINI` | `true` | optional Gemini Embedding 2; `false` works without changes |
-| `SOUNDTRACE_TEXT_TO_AUDIO` | `auto` | text→audio only when the rewrite detects a sound description |
-| `SOUNDTRACE_LLM_RETRIEVER`, `LLM_RETRIEVER_MODEL`, `SOUNDTRACE_LLM_MIN_CONF` | `1`, `LLM_MODEL`, `0.6` | Llama knowledge retriever (a bigger Llama changes everything here) |
-| `SOUNDTRACE_RERANK`, `RERANK_MODE` | `1`, `pointwise` | Llama rerank; `listwise` for bigger models |
-| `SOUNDTRACE_FUSION` | `rrf` | `learned` uses `data/index/fusion_lr.pkl` |
-| `SOUNDTRACE_ASR_MODEL` | `small` | faster-whisper size for sung words |
+| `LALALA_TEXT_TO_AUDIO` | `auto` | text→audio only when the rewrite detects a sound description |
+| `LALALA_LLM_RETRIEVER`, `LLM_RETRIEVER_MODEL`, `LALALA_LLM_MIN_CONF` | `1`, `LLM_MODEL`, `0.6` | Llama knowledge retriever (a bigger Llama changes everything here) |
+| `LALALA_RERANK`, `RERANK_MODE` | `1`, `pointwise` | Llama rerank; `listwise` for bigger models |
+| `LALALA_FUSION` | `rrf` | `learned` uses `data/index/fusion_lr.pkl` |
+| `LALALA_ASR_MODEL` | `small` | faster-whisper size for sung words |
 | `SAM_AUDIO_ENGINE` | `auto` | `mlx`, `torch`, `off` |
 | `HF_TOKEN` | | gated SAM Audio weights (never committed) |
 | `PREVIEW_STORAGE` | `memory` | no audio on disk; `disk` only if the provider's terms allow it |

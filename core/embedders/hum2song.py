@@ -1,18 +1,18 @@
-"""hum2song — recherche par fredonnement (PLAN_COMPLEMENTS.md C4, remplace la phase 9.5).
+"""hum2song — query by humming (PLAN_COMPLEMENTS.md C4, replaces phase 9.5).
 
-Modèle `luigir5/hum2song` (checkpoint `e2b`, poids CC BY 4.0, ~5,2 M paramètres) : encodeur de
-contour mélodique, une seule tour pour requêtes et morceaux, embeddings 256 d normalisés.
-Code `luiginotmario/hum2song` cloné dans `data/raw/hum2song/repo` (`HUM2SONG_DIR`) ; le
-suivi de hauteur est RMVPE (build RVC vendorisé `docs/paper/scripts/rmvpe_rvc.py`, poids
-`rmvpe.pt` de `lj1995/VoiceConversionWebUI`), à 16 kHz, 10 ms par trame.
+Model `luigir5/hum2song` (checkpoint `e2b`, CC BY 4.0 weights, ~5.2M parameters): melodic
+contour encoder, a single tower for queries and tracks, normalised 256 d embeddings.
+Code `luiginotmario/hum2song` cloned in `data/raw/hum2song/repo` (`HUM2SONG_DIR`); the
+pitch tracker is RMVPE (vendored RVC build `docs/paper/scripts/rmvpe_rvc.py`, weights
+`rmvpe.pt` from `lj1995/VoiceConversionWebUI`), at 16 kHz, 10 ms per frame.
 
-Pipeline lu dans la fiche HF et `training/src/hum2song/contour/` (28/10/2026) :
-audio 16 kHz mono → `trackers.rmvpe_track` (2, trames) [F0 Hz, saillance] →
-`features.rmvpe_contour` (contour normalisé en tonalité, 20 ms) → requêtes : `evaluate.query_contour`
-(≤ 20 s, silences rognés) ; morceaux : contour entier de l'extrait de 30 s → `evaluate.embed_contours`.
+Pipeline read from the HF card and `training/src/hum2song/contour/` (28/10/2026):
+16 kHz mono audio → `trackers.rmvpe_track` (2, frames) [F0 Hz, salience] →
+`features.rmvpe_contour` (key-normalised contour, 20 ms) → queries: `evaluate.query_contour`
+(<= 20 s, silences trimmed); tracks: full contour of the 30 s preview → `evaluate.embed_contours`.
 
-Ne se sert ni du timbre ni des paroles ; côté catalogue, le contour est extrait du mixage complet
-(sans séparation Demucs dans un premier temps, cf. C4.2 : à comparer).
+Uses neither timbre nor lyrics; on the catalogue side, the contour is extracted from the full mix
+(without Demucs separation at first, see C4.2: to be compared).
 """
 
 from __future__ import annotations
@@ -48,11 +48,11 @@ class Hum2SongEmbedder(Embedder):
     def __init__(self, role: str = "song", checkpoint: str = "e2b", device: str | None = None,
                  separate_vocals: bool | None = None, windows: bool | None = None, win_s: float = 12.0, hop_s: float = 3.0):
         super().__init__()
-        self.role = role          # "song" : contour de l'extrait ; "query" : rogné à 20 s (fredonnement)
+        self.role = role          # "song": contour of the preview; "query": trimmed to 20 s (humming)
         self.checkpoint = checkpoint
-        self._device_name = device or "cpu"   # RMVPE (RVC) et l'encodeur sont légers : CPU par défaut, stable
+        self._device_name = device or "cpu"   # RMVPE (RVC) and the encoder are lightweight: CPU by default, stable
         env = os.environ
-        # C4.2 : côté morceau, voix séparée par Demucs (htdemucs) et/ou fenêtres glissantes (score = max)
+        # C4.2: on the track side, vocals separated by Demucs (htdemucs) and/or sliding windows (score = max)
         self.separate_vocals = (env.get("HUM2SONG_DEMUCS", "0") == "1") if separate_vocals is None else separate_vocals
         self.windows = (env.get("HUM2SONG_WINDOWS", "0") == "1") if windows is None else windows
         self.win_s, self.hop_s = win_s, hop_s
@@ -69,7 +69,7 @@ class Hum2SongEmbedder(Embedder):
         root = hum2song_dir()
         src = root / "training" / "src"
         if not (src / "hum2song").exists():
-            raise RuntimeError(f"hum2song absent : {src} (voir PLAN_COMPLEMENTS.md C4)")
+            raise RuntimeError(f"hum2song missing: {src} (see PLAN_COMPLEMENTS.md C4)")
         for p in (str(src), str(root / "docs" / "paper" / "scripts")):
             if p not in sys.path:
                 sys.path.insert(0, p)
@@ -82,7 +82,7 @@ class Hum2SongEmbedder(Embedder):
         weights = Path(hf_hub_download("lj1995/VoiceConversionWebUI", "rmvpe.pt"))
         self._rmvpe = trackers.load_rmvpe(weights, self.device)
         self._trackers = trackers
-        logger.info("hum2song %s chargé (pas %d) sur %s", self.checkpoint, step, self.device)
+        logger.info("hum2song %s loaded (step %d) on %s", self.checkpoint, step, self.device)
 
     def _to_wave(self, item: AudioItem) -> np.ndarray:
         if isinstance(item, (bytes, bytearray)):
@@ -92,7 +92,7 @@ class Hum2SongEmbedder(Embedder):
         return resample(to_mono(np.asarray(x)), sr, SR)
 
     def _vocals(self, item: AudioItem) -> np.ndarray:
-        """Voix séparée par Demucs (htdemucs, 44,1 kHz stéréo) puis ramenée à 16 kHz mono."""
+        """Vocals separated by Demucs (htdemucs, 44.1 kHz stereo) then brought back to 16 kHz mono."""
         if self._demucs is None:
             from demucs.pretrained import get_model
             self._demucs = get_model("htdemucs").eval()
@@ -111,12 +111,12 @@ class Hum2SongEmbedder(Embedder):
         return resample(v.astype(np.float32), 44_100, SR)
 
     def pitch_track(self, item: AudioItem) -> np.ndarray:
-        """Suivi de hauteur RMVPE du mixage : (2, trames de 10 ms) = [F0 Hz, saillance 0–1]."""
+        """RMVPE pitch track of the mix: (2, 10 ms frames) = [F0 Hz, salience 0–1]."""
         self._load()
         return self._trackers.rmvpe_track(self._rmvpe, self._to_wave(item).astype(np.float32))
 
     def contour(self, item: AudioItem) -> np.ndarray:
-        """Contour mélodique normalisé (trames de 20 ms) d'un audio, via RMVPE."""
+        """Normalised melodic contour (20 ms frames) of an audio, via RMVPE."""
         self._load()
         from hum2song.contour.features import rmvpe_contour  # type: ignore
         from hum2song.contour.evaluate import query_contour  # type: ignore
@@ -133,7 +133,7 @@ class Hum2SongEmbedder(Embedder):
         return [query_contour(c[s : s + win]) for s in range(0, len(c) - win + 1, hop)]
 
     def embed_windows(self, item: AudioItem) -> np.ndarray:
-        """Embeddings (n_fenêtres, 256) d'un morceau ; score requête→morceau = max des similarités."""
+        """Embeddings (n_windows, 256) of a track; query→track score = max of similarities."""
         self._load()
         from hum2song.contour.evaluate import embed_contours  # type: ignore
         c = self.contour(item)
@@ -147,8 +147,8 @@ class Hum2SongEmbedder(Embedder):
         from hum2song.contour.evaluate import embed_contours  # type: ignore
         out = np.zeros((len(items), self.dim), np.float32)
         if self.role == "song" and self.windows:
-            # un seul vecteur par morceau dans l'index FAISS : moyenne normalisée des fenêtres
-            # (les fenêtres elles-mêmes servent au score max via `embed_windows`)
+            # a single vector per track in the FAISS index: normalised mean of the windows
+            # (the windows themselves are used for the max score via `embed_windows`)
             for i, it in enumerate(items):
                 W = self.embed_windows(it)
                 if len(W):
@@ -163,4 +163,4 @@ class Hum2SongEmbedder(Embedder):
         return out
 
     def _embed_text(self, texts: Sequence[str], task: str) -> np.ndarray:
-        raise NotImplementedError("hum2song n'encode pas le texte")
+        raise NotImplementedError("hum2song does not encode text")

@@ -1,12 +1,12 @@
-"""🔇 SAM Audio (Meta) via le portage MLX (`mlx-audio`, poids `mlx-community/sam-audio-base`), Apple Silicon natif.
+"""🔇 SAM Audio (Meta) through the MLX port (`mlx-audio`, weights `mlx-community/sam-audio-base`), native Apple Silicon.
 
-Même contrat que `scripts/sam_runner.py` (venv `data/raw/sam_audio/venv_mlx`, lancé en sous-processus
-par `core/isolate.py`) :
+Same contract as `scripts/sam_runner.py` (venv `data/raw/sam_audio/venv_mlx`, launched as a subprocess
+by `core/isolate.py`):
 
     data/raw/sam_audio/venv_mlx/bin/python scripts/sam_runner_mlx.py --in mixed.wav --out target.wav [--prompt music]
         [--model mlx-community/sam-audio-base] [--residual residual.wav] [--chunk 50]
 
-Écrit une ligne JSON sur stdout : {"sr": ..., "seconds": ..., "load_seconds": ..., "model": ..., "peak_memory_gb": ...}.
+Writes a one-line JSON to stdout: {"sr": ..., "seconds": ..., "load_seconds": ..., "model": ..., "peak_memory_gb": ...}.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def main() -> int:
     ap.add_argument("--residual", default=None)
     ap.add_argument("--prompt", default="music")
     ap.add_argument("--model", default="mlx-community/sam-audio-base")
-    ap.add_argument("--chunk", type=int, default=50, help="ode_decode_chunk_size (50 = moins de mémoire)")
+    ap.add_argument("--chunk", type=int, default=50, help="ode_decode_chunk_size (50 = less memory)")
     args = ap.parse_args()
     warnings.filterwarnings("ignore")
 

@@ -1,4 +1,4 @@
-// Contrat d'API (FRONT_PLAN.md § 4).
+// API contract (FRONT_PLAN.md § 4).
 export type Source = "catalog" | "web" | "fingerprint";
 export type Confidence = "high" | "medium" | "low";
 export type InputKind = "audio" | "video" | "text" | "mixed" | "humming";
@@ -70,7 +70,7 @@ export interface SearchInput {
 }
 
 export interface SearchApi {
-  /** Lance une recherche ; `onEvent` reçoit le flux ; la promesse se résout à la fin du flux. */
+  /** Starts a search; `onEvent` receives the stream; the promise resolves when the stream ends. */
   search(input: SearchInput, onEvent: (e: SearchEvent) => void, signal?: AbortSignal): Promise<void>;
   replay(scene: string, onEvent: (e: SearchEvent) => void, signal?: AbortSignal): Promise<void>;
   feedback(payload: { query_id: string; track_id: string | null; verdict: "match" | "reject" }): Promise<void>;

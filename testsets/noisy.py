@@ -1,15 +1,14 @@
-"""T3 — Extraits bruités (PLAN.md phase 2.3).
+"""T3 — Noisy excerpts (PLAN.md phase 2.3).
 
-100 extraits du catalogue (avec extrait disponible, hors ToT) mixés avec du bruit
-MUSAN (`noise/`) et du brouhaha (somme de 3 à 5 voix de `speech/`) à SNR 0, 5 et
-10 dB, fenêtres de 10 s à position aléatoire → 300 cas + les vrais
-enregistrements de `data/manual/real_recordings/<track_id>.m4a`.
+100 catalog previews (with a preview available, excluding ToT answers) mixed with
+MUSAN noise (`noise/`) and babble (sum of 3 to 5 voices from `speech/`) at SNR 0, 5
+and 10 dB, 10 s windows at a random position → 300 cases + the real recordings
+from `data/manual/real_recordings/<track_id>.m4a`.
 
-Comme l'audio du catalogue n'est pas conservé sur disque (PREVIEW_STORAGE=memory),
-le jeu est figé sous forme de **recette** (data/testsets/t3_noisy.jsonl) :
-track_id, début de fenêtre, fichiers MUSAN et décalages, SNR, graine. `render`
-reconstruit le mélange à l'identique à l'évaluation. Les bruits MUSAN sont
-CC BY / domaine public (citer Snyder et al., 2015).
+Since catalog audio is not kept on disk (PREVIEW_STORAGE=memory), the set is
+frozen as a **recipe** (data/testsets/t3_noisy.jsonl): track_id, window start,
+MUSAN files and offsets, SNR, seed. `render` rebuilds the identical mix at
+evaluation time. MUSAN noises are CC BY / public domain (cite Snyder et al., 2015).
 """
 
 from __future__ import annotations
@@ -57,7 +56,7 @@ def build_t3_recipe(catalog: pd.DataFrame, previews: pd.DataFrame, n_tracks: int
     noises = _list_wavs("noise")
     speeches = _list_wavs("speech")
     if not noises or not speeches:
-        raise FileNotFoundError(f"MUSAN introuvable ou vide dans {musan_dir()}")
+        raise FileNotFoundError(f"MUSAN not found or empty in {musan_dir()}")
     rows = []
     for i, r in enumerate(tracks.itertuples(index=False)):
         kind = "noise" if i % 2 == 0 else "babble"
@@ -70,21 +69,21 @@ def build_t3_recipe(catalog: pd.DataFrame, previews: pd.DataFrame, n_tracks: int
         for snr in SNRS:
             rows.append({"id": f"t3_{r.track_id}_{snr}", "reponse_id": r.track_id, "kind": kind, "snr_db": snr,
                          "window_start_s": window_start, "noise_parts": parts, "seed": seed + len(rows)})
-    logger.info("T3 : %d cas synthétiques (%d morceaux × %d SNR)", len(rows), len(tracks), len(SNRS))
+    logger.info("T3: %d synthetic cases (%d tracks × %d SNRs)", len(rows), len(tracks), len(SNRS))
     return rows
 
 
 def _load_part(part: dict, duration_s: float, sr: int) -> np.ndarray:
     x, _ = load_audio(musan_dir() / part["file"], sr=sr)
     seg = crop(x, sr, part["offset_s"], duration_s, pad=False)
-    if len(seg) < int(duration_s * sr):  # fichier trop court après l'offset : on boucle depuis le début
+    if len(seg) < int(duration_s * sr):  # file too short after the offset: loop from the beginning
         reps = int(np.ceil(duration_s * sr / max(len(x), 1))) + 1
         seg = crop(np.tile(x, reps), sr, part["offset_s"] % (len(x) / sr), duration_s)
     return seg
 
 
 def render(case: dict, clean_mp3: bytes, sr: int = SR) -> tuple[np.ndarray, np.ndarray]:
-    """Reconstruit (mélange, signal propre) pour un cas de la recette."""
+    """Rebuilds (mix, clean signal) for one recipe case."""
     x, _ = load_audio(clean_mp3, sr=sr)
     clean = crop(x, sr, case["window_start_s"], WINDOW_S)
     parts = [_load_part(p, WINDOW_S, sr) for p in case["noise_parts"]]

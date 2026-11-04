@@ -1,4 +1,4 @@
-"""Appariement mélodique (core.melody) sur des contours synthétiques : transposition, tempo, trous."""
+"""Melody matching (core.melody) on synthetic contours: transposition, tempo, gaps."""
 
 import numpy as np
 import pytest
@@ -7,7 +7,7 @@ from core.melody import ContourStore, _resample_tempo, contour_from_track, match
 
 
 def _melody(rng, n_notes=12, note_len=25):
-    """Contour en demi-tons MIDI : notes tenues (trames de 20 ms), petites pauses non voisées."""
+    """Contour in MIDI semitones: held notes (20 ms frames), short unvoiced pauses."""
     notes = 60 + rng.integers(-7, 8, size=n_notes)
     parts = []
     for v in notes:
@@ -34,9 +34,9 @@ def test_contour_from_track_voicing_and_frames():
     conf = np.array([0.9, 0.9, 0.0, 0.0, 0.8, 0.1], np.float32)
     c = contour_from_track(np.stack([f0, conf]))
     assert len(c) == 3
-    assert c[0] == pytest.approx(69.0)          # la 440 Hz = MIDI 69
-    assert np.isnan(c[1])                        # non voisé
-    assert c[2] == pytest.approx(57.0)           # une trame voisée sur deux suffit
+    assert c[0] == pytest.approx(69.0)          # A 440 Hz = MIDI 69
+    assert np.isnan(c[1])                        # unvoiced
+    assert c[2] == pytest.approx(57.0)           # one voiced frame out of two is enough
 
 
 def test_resample_tempo_lengths():
@@ -53,14 +53,14 @@ def test_match_finds_transposed_and_slowed_fragment():
     src = store.data[17]
     start = 400
     frag = src[start : start + 500].copy()
-    # la personne chante 3 demi-tons plus bas, 10 % plus lentement, avec un peu de flou et des trous
+    # the person sings 3 semitones lower, 10% slower, with some blur and gaps
     q = _resample_tempo(frag - 3.0, 1.1)
     q = q + rng.normal(0, 0.3, len(q)).astype(np.float32)
     q[100:130] = np.nan
     res = match(q, store, top=5)
     assert res and res[0][0] == target
     assert res[0][1] > 0.7
-    assert abs(res[0][2] - start * 0.02) < 1.0   # position retrouvée à ± 1 s
+    assert abs(res[0][2] - start * 0.02) < 1.0   # position recovered within ± 1 s
 
 
 def test_match_rejects_unvoiced_query():
@@ -87,7 +87,7 @@ def test_merged_store_keeps_best_window_per_track(tmp_path, monkeypatch):
     rng = np.random.default_rng(3)
     st = _store(rng, n=10, length=600)
     st.save("y")
-    # fenêtre iTunes : le morceau t3 avec un autre passage, qui contient la requête
+    # iTunes window: track t3 with another passage, which contains the query
     extra = {"t3": st.data[7].copy()}
     np.savez_compressed(melody.ContourStore.path("y", "itunes"), ids=np.asarray(list(extra)), data=np.stack(list(extra.values())))
     merged = melody.ContourStore.load("y")
@@ -95,5 +95,5 @@ def test_merged_store_keeps_best_window_per_track(tmp_path, monkeypatch):
     q = st.data[7][100:400].copy() + 2.0
     res = match(q, merged, top=5)
     ids = [r[0] for r in res]
-    assert len(ids) == len(set(ids))            # un seul résultat par morceau
-    assert set(ids[:2]) == {"t3", "t7"}         # les deux fenêtres identiques arrivent en tête
+    assert len(ids) == len(set(ids))            # a single result per track
+    assert set(ids[:2]) == {"t3", "t7"}         # the two identical windows come first

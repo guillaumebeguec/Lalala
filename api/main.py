@@ -1,17 +1,17 @@
-"""API SoundTrace (PLAN.md phase 8).
+"""Lalala API (PLAN.md phase 8).
 
 - POST /session                      → {session_id}
-- POST /session/{id}/message         (texte ou réponse à une question) → SSE d'événements
-- POST /session/{id}/audio           (enregistrement micro, multipart) → SSE
-- POST /session/{id}/video           (fichier vidéo) → SSE (audio extrait, puis embedding vidéo si dispo)
-- GET  /session/{id}/state           → état (indices, candidats, croyance)
-- GET  /preview/{track_id}           → redirection vers l'URL d'extrait officielle (rien en cache local)
-- POST /session/{id}/save/{name}     → enregistre la session (événements) pour le replay
-- POST /replay/{name}                → rejoue une session enregistrée en SSE (plan B de démo)
+- POST /session/{id}/message         (text or answer to a question) → SSE of events
+- POST /session/{id}/audio           (microphone recording, multipart) → SSE
+- POST /session/{id}/video           (video file) → SSE (audio extracted, then video embedding if available)
+- GET  /session/{id}/state           → state (clues, candidates, belief)
+- GET  /preview/{track_id}           → redirect to the official preview URL (nothing cached locally)
+- POST /session/{id}/save/{name}     → saves the session (events) for replay
+- POST /replay/{name}                → replays a recorded session over SSE (demo plan B)
 - GET  /                             → web/index.html
 
-Lancement : `uv run uvicorn api.main:app --reload`. Variables : SOUNDTRACE_SUBSET=dev|full,
-SOUNDTRACE_POLICY=baseline|ig.
+Run: `uv run uvicorn api.main:app --reload`. Variables: LALALA_SUBSET=dev|full,
+LALALA_POLICY=baseline|ig.
 """
 
 from __future__ import annotations
@@ -32,17 +32,17 @@ from core.config import PROJECT_ROOT, get_settings
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="SoundTrace", version="0.1")
+app = FastAPI(title="Lalala", version="0.1")
 
-from api.demo import router as demo_router  # noqa: E402 — routes /api/* du front « Lalala » (FRONT_PLAN.md)
+from api.demo import router as demo_router  # noqa: E402 — /api/* routes of the "Lalala" front (FRONT_PLAN.md)
 app.include_router(demo_router)
 
 
 @app.on_event("startup")
 def _warmup() -> None:
-    """Préchauffe catalogue, index et embedders dans un thread (SOUNDTRACE_WARMUP=0 pour désactiver),
-    pour que la première requête de la démo ne paie pas 30 s de chargement."""
-    if os.environ.get("SOUNDTRACE_WARMUP", "1") == "0":
+    """Warms up the catalogue, indexes and embedders in a thread (LALALA_WARMUP=0 to disable),
+    so that the demo's first request does not pay 30 s of loading."""
+    if os.environ.get("LALALA_WARMUP", "1") == "0":
         return
     import threading
 
@@ -57,9 +57,9 @@ def _warmup() -> None:
                     load = getattr(emb, "_load", None)
                     if load:
                         load()
-            logger.info("préchauffage terminé")
+            logger.info("warm-up complete")
         except Exception as e:  # noqa: BLE001
-            logger.warning("préchauffage : %s", e)
+            logger.warning("warm-up: %s", e)
 
     threading.Thread(target=run, name="warmup", daemon=True).start()
 
@@ -71,14 +71,14 @@ def toolbox():
     global _TOOLBOX
     if _TOOLBOX is None:
         from finder.tools import Toolbox
-        _TOOLBOX = Toolbox(subset=os.environ.get("SOUNDTRACE_SUBSET", "dev"))
+        _TOOLBOX = Toolbox(subset=os.environ.get("LALALA_SUBSET", "dev"))
     return _TOOLBOX
 
 
 def new_agent():
     from finder.agent import Agent
     from finder.belief import ig_policy
-    policy = ig_policy() if os.environ.get("SOUNDTRACE_POLICY", "ig") == "ig" else None
+    policy = ig_policy() if os.environ.get("LALALA_POLICY", "ig") == "ig" else None
     return Agent(toolbox(), question_policy=policy)
 
 
@@ -110,7 +110,7 @@ def _belief_snapshot(agent) -> dict[str, Any] | None:
 
 
 def _with_belief(agent, events: Iterator[Any]) -> Iterator[Any]:
-    """Ajoute un événement `belief` après chaque question / proposition pour la courbe d'entropie."""
+    """Adds a `belief` event after each question / proposal, for the entropy curve."""
     from finder.agent import Event
     for ev in events:
         yield ev
@@ -129,7 +129,7 @@ def create_session():
 
 def _get(sid: str) -> dict[str, Any]:
     if sid not in SESSIONS:
-        raise HTTPException(404, "session inconnue")
+        raise HTTPException(404, "unknown session")
     return SESSIONS[sid]
 
 
@@ -138,7 +138,7 @@ async def message(sid: str, text: str = Form(...)):
     s = _get(sid)
     agent = s["agent"]
     if agent.state.done and agent.state.pending_question is None:
-        agent.state.done = False  # « non » ou nouvel indice : on relance l'enquête
+        agent.state.done = False  # "no" or a new clue: restart the investigation
     return _sse(_with_belief(agent, agent.step(text)), s)
 
 
@@ -164,7 +164,7 @@ async def video(sid: str, file: UploadFile = File(...)):
         x, sr = load_audio(p, sr=48_000)
         wav = to_wav_bytes(x, sr)
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(400, f"vidéo illisible : {e}")
+        raise HTTPException(400, f"unreadable video: {e}")
     agent = s["agent"]
     agent.state.done = False
     return _sse(_with_belief(agent, agent.step(None, audio=wav)), s)
@@ -188,7 +188,7 @@ def preview(track_id: str):
         url = fresh_preview_url(track_id, url if isinstance(url, str) else None, deezer_id=tb.previews.at[track_id, "deezer_id"])
         if isinstance(url, str) and url:
             return RedirectResponse(url)
-    raise HTTPException(404, "pas d'extrait pour ce morceau")
+    raise HTTPException(404, "no preview for this track")
 
 
 @app.post("/session/{sid}/save/{name}")
@@ -204,7 +204,7 @@ def save(sid: str, name: str):
 def replay(name: str, delay: float = 0.6):
     p = replays_dir() / f"{name}.json"
     if not p.exists():
-        raise HTTPException(404, "replay inconnu")
+        raise HTTPException(404, "unknown replay")
     events = json.loads(p.read_text(encoding="utf-8"))["events"]
 
     def gen():
@@ -228,7 +228,7 @@ if _DIST.exists():
 
 @app.get("/")
 def index():
-    """Build Vite du front (web/dist) en démo ; sinon l'ancien front vanilla (web_legacy)."""
+    """Vite build of the front (web/dist) in demo; otherwise the old vanilla front (web_legacy)."""
     if (_DIST / "index.html").exists():
         return FileResponse(_DIST / "index.html")
     return FileResponse(PROJECT_ROOT / "web_legacy" / "index.html")
@@ -236,4 +236,4 @@ def index():
 
 @app.get("/health")
 def health():
-    return {"ok": True, "subset": os.environ.get("SOUNDTRACE_SUBSET", "dev")}
+    return {"ok": True, "subset": os.environ.get("LALALA_SUBSET", "dev")}

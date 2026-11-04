@@ -1,18 +1,18 @@
-"""Client métadonnées de l'API Deezer publique (sans authentification).
+"""Metadata client for the public Deezer API (no authentication).
 
-Usages ici : résolution d'un morceau (ISRC, identifiant, recherche
-`artist:"…" track:"…"`), playlists éditoriales et charts pour les tubes par
-année, et l'URL de l'extrait de 30 s (`preview`). **Ce module ne télécharge
-pas d'audio** : ce qui est fait de l'URL `preview` est décidé dans
-`catalog/previews.py` selon les conditions d'utilisation Deezer (voir README).
+Uses here: resolving a track (ISRC, id, `artist:"…" track:"…"` search),
+editorial playlists and charts for the hits per year, and the 30 s preview
+URL (`preview`). **This module downloads no audio**: what is done with the
+`preview` URL is decided in `catalog/previews.py` according to the Deezer
+terms of use (see README).
 
-Conditions (developers.deezer.com/termsofuse, consultées le 28/10/2026) :
-usage non commercial, privé ; pas de contournement pour télécharger le
-contenu ; les guidelines interdisent le stockage local/hors-ligne de l'audio.
+Terms (developers.deezer.com/termsofuse, consulted on 28/10/2026):
+non-commercial, private use; no circumvention to download the content;
+the guidelines forbid local/offline storage of the audio.
 
-Débit : limite constatée par les clients tiers ≈ 50 requêtes / 5 s. On se
-place sous (10 req/s max, backoff sur les erreurs « Quota limit exceeded »).
-Toutes les réponses sont mises en cache sur disque (clé = endpoint + params).
+Rate: limit observed by third-party clients ≈ 50 requests / 5 s. We stay
+below it (10 req/s max, backoff on "Quota limit exceeded" errors).
+All responses are cached on disk (key = endpoint + params).
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from core.cache import DiskCache
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.deezer.com"
-_MIN_INTERVAL = 0.12  # s entre deux requêtes (≈ 8 req/s)
+_MIN_INTERVAL = 0.12  # s between two requests (≈ 8 req/s)
 
 
 class DeezerError(RuntimeError):
@@ -38,7 +38,7 @@ class DeezerError(RuntimeError):
 
 
 class DeezerQuota(DeezerError):
-    """Quota dépassé : on attend et on réessaie."""
+    """Quota exceeded: wait and retry."""
 
 
 class DeezerNotFound(DeezerError):
@@ -47,14 +47,14 @@ class DeezerNotFound(DeezerError):
 
 class DeezerClient:
     def __init__(self, cache_namespace: str = "deezer_api", timeout: float = 20.0):
-        self._http = httpx.Client(base_url=BASE_URL, timeout=timeout, headers={"User-Agent": "SoundTrace/0.1 (recherche, usage local)"})
+        self._http = httpx.Client(base_url=BASE_URL, timeout=timeout, headers={"User-Agent": "Lalala/0.1 (research, local use)"})
         self._cache = DiskCache(cache_namespace)
         self._lock = threading.Lock()
         self._last = 0.0
         self.n_requests = 0
         self.n_cached = 0
 
-    # ---- bas niveau ----
+    # ---- low level ----
     def _throttle(self) -> None:
         with self._lock:
             now = time.monotonic()
@@ -70,7 +70,7 @@ class DeezerClient:
         r = self._http.get(path, params=params)
         self.n_requests += 1
         if r.status_code == 429:
-            raise DeezerQuota(f"HTTP 429 sur {path}")
+            raise DeezerQuota(f"HTTP 429 on {path}")
         r.raise_for_status()
         data = r.json()
         if isinstance(data, dict) and data.get("error"):
@@ -84,7 +84,7 @@ class DeezerClient:
         return data
 
     def get(self, path: str, use_cache: bool = True, **params: Any) -> Any:
-        """GET avec cache disque. Les « not found » sont aussi mis en cache (valeur `None`)."""
+        """GET with disk cache. "Not found" results are cached too (value `None`)."""
         key = self._cache.key(path, **{k: str(v) for k, v in sorted(params.items())})
         if use_cache:
             hit = self._cache.get(key)
@@ -95,7 +95,7 @@ class DeezerClient:
             data = self._fetch(path, params)
         except DeezerNotFound:
             data = None
-        self._cache.put(key, {"v": data})  # enveloppe : un « not found » (None) est aussi un hit
+        self._cache.put(key, {"v": data})  # envelope: a "not found" (None) is also a hit
         return data
 
     def paginate(self, path: str, limit: int = 100, max_items: int | None = None, **params: Any) -> Iterator[dict]:
@@ -114,7 +114,7 @@ class DeezerClient:
                 return
             index += limit
 
-    # ---- morceaux ----
+    # ---- tracks ----
     def track(self, track_id: int) -> dict | None:
         return self.get(f"/track/{int(track_id)}")
 
@@ -126,7 +126,7 @@ class DeezerClient:
         return list((data or {}).get("data") or [])
 
     def search_track(self, artist: str, title: str, limit: int = 10) -> list[dict]:
-        """Recherche avancée `artist:"…" track:"…"` ; repli sur la recherche libre si vide."""
+        """Advanced search `artist:"…" track:"…"`; falls back to free search if empty."""
         a = artist.replace('"', " ").strip()
         t = title.replace('"', " ").strip()
         res = self.search_tracks(f'artist:"{a}" track:"{t}"', limit=limit)
@@ -134,7 +134,7 @@ class DeezerClient:
             res = self.search_tracks(f"{a} {t}", limit=limit)
         return res
 
-    # ---- listes ----
+    # ---- lists ----
     def chart_tracks(self, genre_id: int = 0, limit: int = 100) -> list[dict]:
         data = self.get(f"/chart/{genre_id}/tracks", limit=limit)
         return list((data or {}).get("data") or [])
@@ -157,7 +157,7 @@ class DeezerClient:
 
 
 def track_summary(t: dict) -> dict:
-    """Projection stable d'un objet track Deezer (search, playlist, chart ou /track)."""
+    """Stable projection of a Deezer track object (search, playlist, chart or /track)."""
     return {
         "deezer_id": t.get("id"),
         "title": t.get("title"),

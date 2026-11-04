@@ -1,23 +1,23 @@
-"""🎙️ Fabrique des requêtes audio réelles avec le micro du Mac (jamais commitées).
+"""🎙️ Makes real audio queries with the Mac's microphone (never committed).
 
-Deux modes :
+Two modes:
 
-- `rerecord` : joue un extrait de catalogue dans les haut-parleurs et enregistre en même temps avec
-  le micro → `data/manual/real_recordings/<track_id>.m4a` (T3 « réel » : vraie chaîne acoustique
-  enceinte → pièce → micro, bien plus réaliste que du bruit ajouté numériquement). Pièce calme,
-  volume moyen, ne rien faire d'autre pendant la prise.
+- `rerecord`: plays a catalogue preview through the speakers and records at the same time with
+  the microphone → `data/manual/real_recordings/<track_id>.m4a` ("real" T3: a true acoustic chain
+  speaker → room → microphone, far more realistic than digitally added noise). Quiet room,
+  medium volume, do nothing else during the take.
 
       uv run python scripts/record_queries.py --mode rerecord --n 20 --seconds 10 [--offset 8] [--subset dev]
 
-- `hum` : affiche titre + artiste, puis enregistre votre fredonnement → `data/manual/hums/<track_id>_<k>.m4a`
-  (T6b). Entrée = enregistrer, `s` = passer, `r` = refaire la dernière prise, `q` = quitter.
+- `hum`: shows title + artist, then records your humming → `data/manual/hums/<track_id>_<k>.m4a`
+  (T6b). Enter = record, `s` = skip, `r` = redo the last take, `q` = quit.
 
       uv run python scripts/record_queries.py --mode hum --n 20 --seconds 12 [--ids dz123,dz456] [--known]
 
-  `--known` ne propose que des morceaux à gros succès (rang Deezer), plus faciles à fredonner.
+  `--known` only offers big-hit tracks (Deezer rank), easier to hum.
 
-Prérequis : ffmpeg avec AVFoundation (brew), autorisation micro accordée au terminal (macOS la
-demande à la première prise). Ensuite : `scripts/build_testsets.py --sets t3,t6b` puis
+Prerequisites: ffmpeg with AVFoundation (brew), microphone permission granted to the terminal (macOS
+asks on the first take). Then: `scripts/build_testsets.py --sets t3,t6b` then
 `scripts/eval_retrieval.py --sets t3,t6b`.
 """
 
@@ -45,7 +45,7 @@ log = logging.getLogger("record")
 
 
 def ffmpeg_record(out: Path, seconds: float, device: int) -> subprocess.Popen:
-    """Lance l'enregistrement micro (AVFoundation) en arrière-plan ; AAC mono 44,1 kHz."""
+    """Starts the microphone recording (AVFoundation) in the background; AAC mono 44.1 kHz."""
     out.parent.mkdir(parents=True, exist_ok=True)
     cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-f", "avfoundation", "-i", f":{device}",
            "-t", f"{seconds:.1f}", "-ac", "1", "-ar", "44100", "-c:a", "aac", "-b:a", "96k", str(out)]
@@ -56,7 +56,7 @@ def countdown(n: int = 3) -> None:
     for i in range(n, 0, -1):
         print(f"  {i}…", end=" ", flush=True)
         time.sleep(1)
-    print("🔴 enregistrement", flush=True)
+    print("🔴 recording", flush=True)
 
 
 def pick_tracks(subset: str, n: int, seed: int, ids: list[str] | None, known: bool) -> list[dict]:
@@ -80,17 +80,17 @@ def pick_tracks(subset: str, n: int, seed: int, ids: list[str] | None, known: bo
 def mode_rerecord(args: argparse.Namespace) -> int:
     out_dir = get_settings().manual_dir / "real_recordings"
     rows = pick_tracks(args.subset, args.n, args.seed, args.ids, args.known)
-    print(f"{len(rows)} extraits à rejouer ({args.seconds} s chacun, décalage {args.offset} s). Pièce calme, volume moyen.")
-    input("Entrée pour commencer (Ctrl-C pour annuler) ")
+    print(f"{len(rows)} previews to replay ({args.seconds} s each, offset {args.offset} s). Quiet room, medium volume.")
+    input("Enter to start (Ctrl-C to cancel) ")
     done = 0
     for i, r in enumerate(rows, 1):
         target = out_dir / f"{r['track_id']}.m4a"
         if target.exists() and not args.overwrite:
-            print(f"[{i}/{len(rows)}] {r['title']} — {r['artist']} : déjà enregistré, passé")
+            print(f"[{i}/{len(rows)}] {r['title']} — {r['artist']}: already recorded, skipped")
             continue
         data = fetch_audio(r["track_id"], r["preview_url"], deezer_id=r["deezer_id"])
         if not data:
-            print(f"[{i}/{len(rows)}] {r['title']} : extrait indisponible, passé")
+            print(f"[{i}/{len(rows)}] {r['title']}: preview unavailable, skipped")
             continue
         x, sr = load_audio(data, sr=44_100)
         seg = crop(x, sr, args.offset, args.seconds)
@@ -99,28 +99,28 @@ def mode_rerecord(args: argparse.Namespace) -> int:
             tmp_path = Path(tmp.name)
         print(f"[{i}/{len(rows)}] {r['title']} — {r['artist']}")
         rec = ffmpeg_record(target, args.seconds + 1.0, args.device)
-        time.sleep(0.6)                                    # laisse le micro s'ouvrir avant la lecture
+        time.sleep(0.6)                                    # let the microphone open before playback
         subprocess.run(["afplay", str(tmp_path)], check=False)
         rec.wait()
         tmp_path.unlink(missing_ok=True)
         if rec.returncode != 0 or not target.exists():
-            print("  ⚠️ échec ffmpeg (autorisation micro ? périphérique ?) — voir --device")
+            print("  ⚠️ ffmpeg failed (microphone permission? device?) — see --device")
             return 1
         done += 1
         time.sleep(0.5)
-    print(f"{done} enregistrements dans {out_dir}")
+    print(f"{done} recordings in {out_dir}")
     return 0
 
 
 def mode_hum(args: argparse.Namespace) -> int:
     out_dir = get_settings().manual_dir / "hums"
     rows = pick_tracks(args.subset, args.n, args.seed, args.ids, args.known)
-    print(f"{len(rows)} morceaux à fredonner ({args.seconds} s par prise). Entrée = enregistrer, s = passer, r = refaire, q = quitter.")
+    print(f"{len(rows)} tracks to hum ({args.seconds} s per take). Enter = record, s = skip, r = redo, q = quit.")
     i, done = 0, 0
     while i < len(rows):
         r = rows[i]
         existing = sorted(out_dir.glob(f"{r['track_id']}_*.m4a"))
-        print(f"\n[{i + 1}/{len(rows)}] 🎵 {r['title']} — {r['artist']} ({r.get('year') or '?'})" + (f"  [{len(existing)} prise(s) déjà]" if existing else ""))
+        print(f"\n[{i + 1}/{len(rows)}] 🎵 {r['title']} — {r['artist']} ({r.get('year') or '?'})" + (f"  [{len(existing)} take(s) already]" if existing else ""))
         ans = input("  > ").strip().lower()
         if ans == "q":
             break
@@ -135,12 +135,12 @@ def mode_hum(args: argparse.Namespace) -> int:
         rec = ffmpeg_record(target, args.seconds, args.device)
         rec.wait()
         if rec.returncode != 0 or not target.exists():
-            print("  ⚠️ échec ffmpeg (autorisation micro ? périphérique ?) — voir --device")
+            print("  ⚠️ ffmpeg failed (microphone permission? device?) — see --device")
             return 1
         print(f"  ✅ {target.name}")
         done += 1
         i += 1
-    print(f"{done} prise(s) dans {out_dir}")
+    print(f"{done} take(s) in {out_dir}")
     return 0
 
 
@@ -149,11 +149,11 @@ def main() -> int:
     ap.add_argument("--mode", choices=["rerecord", "hum"], required=True)
     ap.add_argument("--subset", choices=["dev", "full"], default="dev")
     ap.add_argument("--n", type=int, default=20)
-    ap.add_argument("--seconds", type=float, default=None, help="durée d'une prise (défaut : 10 s rerecord, 12 s hum)")
-    ap.add_argument("--offset", type=float, default=8.0, help="rerecord : début de l'extrait rejoué, en s")
-    ap.add_argument("--ids", default=None, help="identifiants de morceaux séparés par des virgules")
-    ap.add_argument("--known", action="store_true", help="privilégier les morceaux les plus populaires")
-    ap.add_argument("--device", type=int, default=0, help="index AVFoundation du micro (ffmpeg -f avfoundation -list_devices true -i '')")
+    ap.add_argument("--seconds", type=float, default=None, help="duration of a take (default: 10 s rerecord, 12 s hum)")
+    ap.add_argument("--offset", type=float, default=8.0, help="rerecord: start of the replayed preview, in s")
+    ap.add_argument("--ids", default=None, help="comma-separated track identifiers")
+    ap.add_argument("--known", action="store_true", help="favour the most popular tracks")
+    ap.add_argument("--device", type=int, default=0, help="AVFoundation index of the microphone (ffmpeg -f avfoundation -list_devices true -i '')")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()

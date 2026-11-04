@@ -52,5 +52,5 @@ def test_extract_roundtrip(tmp_path):
     assert list(s.title) == ["Turn It Up", "Foghorn"] and "lyrics" not in s.columns
     a = pd.read_parquet(dst / "artists.parquet")
     assert a.location[0] == "England, Leeds" and list(a.genres[0]) == ["Rock"]
-    # reprise : rien n'est recalculé
+    # resume: nothing is recomputed
     assert wasabi.extract(src, dst) == counts

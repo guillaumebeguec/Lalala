@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from "framer-motion";
 
-/** Trois points (rose, jaune, blanc) : rebond en séquence, 900 ms par cycle. */
+/** Three dots (pink, yellow, white): bouncing in sequence, 900 ms per cycle. */
 export function ThreeDots({ size = 14 }: { size?: number }) {
   const reduce = useReducedMotion();
   const colors = ["bg-accent", "bg-yellow", "bg-text"];
