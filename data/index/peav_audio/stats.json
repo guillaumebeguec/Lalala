@@ -1,0 +1,11 @@
+{
+ "n": 2063,
+ "n_fail": 1,
+ "seconds": 10215.7,
+ "seconds_per_embedder": {
+  "peav": 9588.5
+ },
+ "subset": "dev",
+ "dim": 1024,
+ "embedder": "peav"
+}

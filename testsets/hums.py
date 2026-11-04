@@ -21,6 +21,17 @@ from testsets.common import testsets_dir, write_jsonl
 AUDIO_EXT = (".m4a", ".wav", ".mp3", ".webm", ".ogg", ".flac")
 
 
+
+def _rel(p) -> str:
+    """Path stored in the test sets: relative to the project root when inside it (portable across machines)."""
+    from pathlib import Path
+    from core.config import PROJECT_ROOT
+    p = Path(p).resolve()
+    try:
+        return str(p.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(p)
+
 def manual_hums(catalog_ids: set[str] | None = None) -> list[dict]:
     """T6b rows from both folders; `catalog_ids` filters on known answers."""
     rows: list[dict] = []
@@ -34,7 +45,7 @@ def manual_hums(catalog_ids: set[str] | None = None) -> list[dict]:
             tid = p.stem.split("_")[0]
             if catalog_ids is not None and tid not in catalog_ids:
                 continue
-            rows.append({"id": f"t6b_{kind}_{p.stem}", "reponse_id": tid, "kind": kind, "file": str(p)})
+            rows.append({"id": f"t6b_{kind}_{p.stem}", "reponse_id": tid, "kind": kind, "file": _rel(p)})
     return rows
 
 

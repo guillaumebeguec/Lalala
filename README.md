@@ -150,7 +150,9 @@ ollama pull llama3.1:8b && ollama serve &
 cp .env.example .env                      # LLM_BASE_URL, HF_TOKEN (SAM Audio), optional keys
 uv run python scripts/check_setup.py && uv run pytest
 
-# Build the dev catalogue and indexes (previews are streamed, nothing is written to disk)
+# The dev subset is ready to run: catalogue, song cards, test sets and every index (FAISS, BM25,
+# fingerprints, melody contours, lyric hashes, learned fusion) ship in data/ (≈ 95 MB, derived artefacts only).
+# Rebuild from scratch only if you want to (previews are streamed, nothing is written to disk):
 uv run python scripts/build_catalog.py && uv run python scripts/resolve_previews.py
 uv run python scripts/build_cards.py --subset dev                 # Llama descriptions + themes (~7 h on a laptop)
 uv run python scripts/build_embeddings.py --embedder peav,gemma,coverhunter --modality audio --subset dev
@@ -202,6 +204,7 @@ ours) plus `decord` / `xformers` without macOS wheels. It lives in its own venv 
 - **WASABI Song Corpus 2.0** (Zenodo 10.5281/zenodo.5603369, CC BY-NC 4.0, Buffa et al. ESWC 2021), extracted without lyrics. **ToT_Music** (Spotify Research, CC0) for memories, **MUSAN** (CC BY 4.0) for noise, **CHAD** hummings (CC BY-NC 4.0; YouTube originals are never downloaded, only public titles).
 - **30 s previews** come from the Deezer API (iTunes Search fallback). Deezer's developer terms forbid local storage of the audio, so previews are decoded in memory, embedded, and dropped; only vectors are kept. Playback in the app uses the official preview URL.
 - **No lyrics stored**: sung words are matched through one-way 64-bit hashes of word 4-grams.
+- **What ships in `data/`** (the reproducible pack): catalogue and song cards (Parquet, WASABI-derived metadata), frozen test sets (JSONL; the CHAD and MUSAN audio they point to must be downloaded from their sources), FAISS vectors, BM25 pickles, fingerprint databases, melody contours, lyric hashes, the learned fusion model and the melody calibration. No audio, no lyrics, no API caches, no raw corpora.
 - **Nothing leaves the machine** unless `USE_GEMINI=true` (previews and user recordings then go to Google) or the web branch gets a search key.
 - Test-set answers never appear in a prompt; the simulated user is fenced from them.
 - CoverHunter code (`alanngnet/CoverHunterMPS`) and checkpoint have no declared licence: experimental, local use only. RMVPE weights from `lj1995/VoiceConversionWebUI`, hum2song weights CC BY 4.0.

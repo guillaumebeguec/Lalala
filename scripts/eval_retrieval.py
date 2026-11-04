@@ -83,8 +83,8 @@ def eval_text_set(name: str, cases: list[dict], embedders: list[str], subset: st
 
 
 def _query_audio(case: dict, catalog_prev: pd.DataFrame | None) -> bytes | tuple[np.ndarray, int] | None:
-    if case.get("file"):   # real recordings, CHAD hums (T6a)
-        return Path(case["file"]).read_bytes()
+    if case.get("file"):   # real recordings, CHAD hums (T6a); paths are relative to the project root
+        return (PROJECT_ROOT / case["file"]).read_bytes()
     if "cover_preview_url" in case:
         return fetch_audio(f"cover{case['cover_deezer_id']}", case["cover_preview_url"], deezer_id=case["cover_deezer_id"])
     if "noise_parts" in case:

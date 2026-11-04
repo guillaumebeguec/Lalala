@@ -1,0 +1,12 @@
+{
+ "n": 2058,
+ "n_fail": 6,
+ "seconds": 56911.3,
+ "seconds_per_embedder": {
+  "clap": 2222.7,
+  "gemma": 2362.8
+ },
+ "subset": "dev",
+ "dim": 768,
+ "embedder": "gemma"
+}

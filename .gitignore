@@ -29,3 +29,41 @@ dist/
 
 # Local coding-assistant instructions (kept out of the repo)
 CLAUDE.md
+
+# Reproducible data pack (dev subset): derived artefacts only, no audio, no lyrics, no API caches
+!data/
+data/*
+!data/catalog/
+data/catalog/*
+!data/catalog/catalog.parquet
+!data/catalog/catalog_dev.parquet
+!data/catalog/previews.parquet
+!data/catalog/cards_dev.parquet
+!data/testsets/
+data/testsets/*
+!data/testsets/*.jsonl
+!data/testsets/*.json
+!data/index/
+data/index/*
+!data/index/gemma_audio/
+!data/index/gemma_text/
+!data/index/peav_audio/
+!data/index/peav_text/
+!data/index/coverhunter_audio/
+!data/index/hum2song_audio/
+!data/index/*.npz
+!data/index/*.pkl
+!data/index/*.pklz
+!data/index/lyrics_ngrams.parquet
+!data/index/fingerprints.npz
+!data/index/gemma_audio/*
+!data/index/gemma_text/*
+!data/index/peav_audio/*
+!data/index/peav_text/*
+!data/index/coverhunter_audio/*
+!data/index/hum2song_audio/*
+!data/manual/
+data/manual/*
+!data/manual/hums_synth/
+!data/manual/hums_synth/*
+!data/melody_calib_chad.csv

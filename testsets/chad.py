@@ -36,6 +36,17 @@ _NOISE_RE = re.compile(r"\s*[\(\[][^\)\]]*(official|video|audio|lyrics?|hd|hq|re
 _TAIL_RE = re.compile(r"\s*(official (music )?video|official audio|lyrics? video|lyrics|hd|hq)\s*$", re.IGNORECASE)
 
 
+
+def _rel(p) -> str:
+    """Path stored in the test sets: relative to the project root when inside it (portable across machines)."""
+    from pathlib import Path
+    from core.config import PROJECT_ROOT
+    p = Path(p).resolve()
+    try:
+        return str(p.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(p)
+
 def chad_dir() -> Path:
     return get_settings().data_dir / "raw" / "chad"
 
@@ -140,7 +151,7 @@ def build_t6a(catalog: pd.DataFrame, previews: pd.DataFrame | None, max_per_grou
     rows = []
     for g, tid in group_track.items():
         for r in hums[hums.group_id == g].head(max_per_group).itertuples(index=False):
-            rows.append({"id": f"t6a_{r.id}", "file": str(files[r.id]), "reponse_id": tid, "group_id": g, "fragment_id": r.fragment_id,
+            rows.append({"id": f"t6a_{r.id}", "file": _rel(files[r.id]), "reponse_id": tid, "group_id": g, "fragment_id": r.fragment_id,
                          "duration_s": float(r.duration) if r.duration else None, "original_interval": list(group_interval.get(g) or []),
                          "kind": "humming"})
     stats["cases"] = len(rows)
