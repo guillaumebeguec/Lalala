@@ -19,7 +19,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from catalog import build as cb  # noqa: E402
-from catalog.previews import fresh_preview_url, load_previews  # noqa: E402
+from catalog.previews import load_previews  # noqa: E402
 from core.config import PROJECT_ROOT  # noqa: E402
 from testsets.common import read_jsonl, testsets_dir  # noqa: E402
 
@@ -39,7 +39,7 @@ def main() -> int:
              "| # | Catalogue (title — artist, year) | Resolved (title — artist) | Mode | Score | Listen | OK? |", "|---|---|---|---|---|---|---|"]
     for i, (tid, r) in enumerate(sample.iterrows(), 1):
         c = cat.loc[tid]
-        url = fresh_preview_url(tid, r.preview_url, deezer_id=r.deezer_id) or r.preview_url
+        url = f"https://www.deezer.com/track/{int(r.deezer_id)}" if r.provider == "deezer" and r.deezer_id == r.deezer_id else (r.preview_url or "")
         year = int(c.year) if pd.notna(c.year) else "?"
         lines.append(f"| {i} | {c.title} — {c.artist}, {year} | {r.resolved_title} — {r.resolved_artist} | {r.get('resolved_by', r.provider)} | {r.match_score} | [listen]({url}) | |")
     t4 = testsets_dir() / "t4_covers.jsonl"
@@ -53,9 +53,8 @@ def main() -> int:
                   "| # | Cover (title — artist, type) | Original (title — artist, year) | Listen cover | Listen original | OK? |", "|---|---|---|---|---|---|"]
         for i, r in enumerate(rows, 1):
             o = cat.loc[r["reponse_id"]]
-            ou = fresh_preview_url(r["reponse_id"], prev.at[r["reponse_id"], "preview_url"] if r["reponse_id"] in prev.index else None,
-                                   deezer_id=prev.at[r["reponse_id"], "deezer_id"] if r["reponse_id"] in prev.index else None)
-            cu = fresh_preview_url(f"cover{r['cover_deezer_id']}", r["cover_preview_url"], deezer_id=r["cover_deezer_id"]) or r["cover_preview_url"]
+            ou = f"https://www.deezer.com/track/{int(prev.at[r['reponse_id'], 'deezer_id'])}" if r["reponse_id"] in prev.index and pd.notna(prev.at[r["reponse_id"], "deezer_id"]) else ""
+            cu = f"https://www.deezer.com/track/{int(r['cover_deezer_id'])}"
             year = int(o.year) if pd.notna(o.year) else "?"
             lines.append(f"| {i} | {r['cover_title']} — {r['cover_artist']}, {r['kind']} | {o.title} — {o.artist}, {year} | [listen]({cu}) | [listen]({ou}) | |")
     out = PROJECT_ROOT / "eval" / "manual_checks.md"
