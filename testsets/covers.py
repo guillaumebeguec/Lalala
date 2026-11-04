@@ -48,7 +48,8 @@ def find_covers(dz: DeezerClient, title: str, artist: str, per_kind: int = 2) ->
             seen.add(c["id"])
             s = track_summary(c)
             out.append({"cover_deezer_id": s["deezer_id"], "cover_title": s["title"], "cover_artist": s["artist"],
-                        "cover_preview_url": "",   # signed Deezer URL: not stored, re-read from cover_deezer_id "kind": kind, "same_artist": same_artist})
+                        "cover_preview_url": "",   # signed Deezer URL: not stored, re-read from cover_deezer_id
+                        "kind": kind, "same_artist": same_artist})
             n_kind += 1
             if n_kind >= per_kind:
                 break
