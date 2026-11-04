@@ -1,6 +1,11 @@
 # Lalala — find the song Shazam can't
 
-**Meta Global AI Developer Hackathon** (Oct 26 – Nov 4, 2026) · Indie track · theme *Build for Your World*
+**Meta Global AI Developer Hackathon** · hosted by Meta and Cerebral Valley · Oct 26 – Nov 4, 2026 · Indie developer track · theme *Build for Your World*
+
+> **Hackathon context.** A global, remote hackathon run by Meta with Cerebral Valley: ten days to apply Meta's models to a problem you know
+> firsthand (*Build for Your World*) or to push a technical frontier (*Push the Frontier*). Two tracks: Indie developers (judged on creativity,
+> technical ambition and whether it works) and Startups. Lalala is an Indie entry built by one person on one laptop, on Meta's open-weights
+> models, with every claim measured on frozen test sets. Submissions closed November 4, 2026.
 
 Shazam needs the exact recording. Lalala finds a song from what people actually have: **a hummed tune**, **a few sung
 words**, **a vague memory** ("the one with the whistling in a car ad, around 2008"), **a cover or a live version**, or

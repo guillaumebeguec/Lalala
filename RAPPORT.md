@@ -1,6 +1,6 @@
 # Lalala — hackathon journal
 
-Meta Global AI Developer Hackathon, October 26 – November 4, 2026, Indie track, theme "Build for Your World".
+Meta Global AI Developer Hackathon, hosted by Meta and Cerebral Valley, October 26 – November 4, 2026, Indie track, theme "Build for Your World".
 One MacBook M2 24 GB, Meta's open models (Llama 3.1, PE-AV, SAM Audio, FAISS), one week.
 
 ## Before starting
