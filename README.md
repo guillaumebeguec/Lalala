@@ -37,66 +37,24 @@ Gemini Embedding 2 is an optional extra embedder and the system runs with `USE_G
 
 ## How a query flows
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#211C3D', 'primaryTextColor': '#F7F3FF', 'primaryBorderColor': '#3a3160', 'lineColor': '#8b7cff', 'secondaryColor': '#2E2347', 'tertiaryColor': '#15122B', 'fontFamily': 'Inter, Helvetica, Arial, sans-serif', 'fontSize': '14px', 'clusterBkg': '#15122B', 'clusterBorder': '#3a3160'}}}%%
-flowchart TB
-    classDef meta fill:#0b2a66,stroke:#0866FF,color:#dbe8ff,stroke-width:2px
-    classDef input fill:#3a1f3a,stroke:#ff6fb5,color:#ffd3ea
-    classDef out fill:#3a3414,stroke:#FFE066,color:#fff3b0
-    classDef branch fill:#211C3D,stroke:#6b5fb0,color:#F7F3FF
-
-    subgraph IN[" Input "]
-        T[📝 Text memory]:::input
-        A[🎤 Audio: recording, cover, hum, sung words]:::input
-        V[🎬 Video clip]:::input
-    end
-    V --> A
-    T --> RW["Llama 3.1 · rewrite + grounded clues<br/><i>sound query / context query</i>"]:::meta
-    A --> AN[Analysis: voice only? noisy?]:::branch
-
-    RW --> B1["BM25 cards · BM25 sound<br/>EmbeddingGemma text→cards"]:::branch
-    RW --> B2["PE-AV text→audio<br/><i>when the memory describes a sound</i>"]:::meta
-    RW --> B3["Llama knowledge retriever<br/><i>titles resolved in the catalogue</i>"]:::meta
-
-    AN -->|recording| FP["audfprint / Chromaprint<br/>exact fingerprint"]:::branch
-    FP -->|no match and noisy| SAM["SAM Audio · isolate the music"]:::meta --> FP2[fingerprint, second chance]:::branch
-    AN -->|recording or cover| E["PE-AV + Gemma audio→audio<br/>CoverHunter versions"]:::meta
-    AN -->|voice only| M["RMVPE contour → melody alignment<br/><i>2 windows per track</i>"]:::branch
-    AN -->|voice with words| L["Whisper → lyric n-gram hashes"]:::branch
-
-    B1 & B2 & B3 & FP2 & E & M & L --> F["Fusion: learned logistic regression or RRF<br/>per-branch gates"]:::branch
-    F --> RR["Llama 3.1 · rerank top 10"]:::meta
-    RR --> C{Calibrated confidence}:::branch
-    C -->|high / medium| R[✅ Result + 30 s preview]:::out
-    C -->|low| S[🎧 Top-10 suggestions to listen to]:::out
-    C -->|text, uncertain| Q["❓ Agent asks the question<br/>with the highest information gain"]:::out --> RW
-```
-
-<p align="center"><img src="docs/img/pipeline-routes.png" alt="One pipeline, six kinds of input: each input takes its own road through analysis, search and decision" width="900"><br><sub>Routing by input type, as animated in the demo video: analysis → search branches → fusion and calibrated confidence.</sub></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/architecture-dark.png">
+    <img src="docs/img/architecture-light.png" alt="How a query flows: input, understanding (Llama 3.1), search branches (fingerprint, SAM Audio, PE-AV similarity, melody, lyrics, cards, Llama knowledge), fusion, Llama rerank, calibrated confidence, answer / top-10 / question" width="100%">
+  </picture>
+</p>
 
 An exact fingerprint match short-circuits everything (the Shazam case). For a hummed tune the melody branch decides
 alone: fusing it with the other audio branches destroys it (measured).
 
 ## The project in one picture
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#211C3D', 'primaryTextColor': '#F7F3FF', 'primaryBorderColor': '#3a3160', 'lineColor': '#8b7cff', 'fontFamily': 'Inter, Helvetica, Arial, sans-serif', 'fontSize': '14px'}}}%%
-flowchart LR
-    classDef meta fill:#0b2a66,stroke:#0866FF,color:#dbe8ff,stroke-width:2px
-    classDef data fill:#211C3D,stroke:#6b5fb0,color:#F7F3FF
-    classDef app fill:#3a1f3a,stroke:#ff6fb5,color:#ffd3ea
-    W["WASABI Song Corpus 2.0<br/>24,361 tracks, no lyrics"]:::data --> CAT["Catalogue<br/>dev subset 2,000"]:::data
-    CAT --> P["30 s previews<br/>Deezer, iTunes fallback<br/><i>streamed in memory, never stored</i>"]:::data
-    CAT --> K["Song cards<br/>Wikipedia summary + Llama audio description + lyrics theme"]:::meta
-    P --> IDX["Audio indexes<br/>FAISS: PE-AV · Gemma · CoverHunter<br/>audfprint + Chromaprint<br/>melody contours ×2 windows<br/>lyric n-gram hashes"]:::meta
-    K --> IDX2["Text indexes<br/>BM25 context · BM25 sound<br/>FAISS Gemma · PE-AV text"]:::data
-    TS["Test sets<br/>T1 ToT_Music memories · T3 MUSAN noise<br/>T4 covers · T6a CHAD hums · T6b home hums"]:::data --> EV["eval/*.md<br/>top-k, MRR, calibration"]:::data
-    IDX & IDX2 --> API["FastAPI · SSE steps"]:::app
-    API --> WEB["Lalala web app<br/>Vite + React, phone over LAN"]:::app
-    IDX & IDX2 --> EV
-```
-
-<p align="center"><img src="docs/img/data-pipeline.png" alt="Data pipeline: catalogue, previews in memory, song cards, indexes, frozen test sets" width="900"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/project-dark.png">
+    <img src="docs/img/project-light.png" alt="The project in one picture: sources, catalogue, previews in memory, song cards, indexes, serving, evidence" width="100%">
+  </picture>
+</p>
 
 ```
 api/        FastAPI: /api/search (SSE steps, Lalala contract), /session/* (agent), query persistence
@@ -122,11 +80,6 @@ tests/      pytest (92) · web/tests Vitest · web/e2e Playwright
 | Cover / live | T4, 44 pairs | Gemma 18 % top-1 / 25 % top-5 | RRF 32 % top-10 | below our demo threshold |
 | Hummed tune | T6a, 393 real CHAD hums | melody alignment **19.6 % top-1 / 29.8 % top-10**, MRR 0.23 | melody decides alone | works when the hummed passage is inside the 30 s window |
 | Synthetic hums | T6b, 6 | melody 100 % | | the pipeline is right, the 30 s window is the ceiling |
-
-<p align="center">
-  <img src="docs/img/melody-alignment.png" alt="Melody alignment: the hummed contour slid over the reference window, transposition and tempo tolerant" width="440">
-  <img src="docs/img/fusion-calibration.png" alt="Learned fusion weights and the humming confidence calibration by margin" width="440">
-</p>
 
 What the numbers taught us (details in [`eval/`](eval/) and [`RAPPORT.md`](RAPPORT.md)):
 
