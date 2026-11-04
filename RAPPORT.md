@@ -1,108 +1,137 @@
-# Lalala — journal de bord du hackathon
+# Lalala — journal du hackathon
 
-*Meta Global AI Developer Hackathon, 26 octobre – 4 novembre 2026. Piste Indie, thème « Build for Your World ».*
-*Un MacBook M2, une semaine, les modèles ouverts de Meta. Ce journal raconte le cheminement : la première idée, les fausses pistes, ce qui a été trouvé en cours de route et pourquoi.*
+Meta Global AI Developer Hackathon, 26 octobre – 4 novembre 2026, piste Indie, thème « Build for Your World ».
+Un MacBook M2 24 Go, les modèles ouverts de Meta (Llama 3.1, PE-AV, SAM Audio, FAISS), une semaine.
 
----
+## Avant de commencer
 
-## Le point de départ
+L'idée de départ : un Shazam qui marche quand on n'a pas l'enregistrement. Tout le monde a eu une chanson en tête sans
+retrouver le titre : un air qu'on fredonne, trois mots du refrain, « la pub de voiture avec un sifflement, vers 2008 »,
+une reprise dans un bar, une vidéo bruyante.
 
-Tout le monde a vécu ce moment : une chanson dans la tête, impossible de retrouver son nom. Shazam ne sert à rien, il lui faut l'enregistrement exact. On a un air qu'on fredonne, trois mots de refrain, un souvenir de pub de voiture « vers 2008, avec un sifflement », une reprise entendue dans un bar, un bout de vidéo bruyant.
+Première piste, la veille du kickoff : un RAG sur un catalogue de chansons. On tape le souvenir, un embedding cherche,
+un LLM répond. Abandonnée dans l'heure : le jury ne veut pas de « RAG basique », et un RAG ne fait rien d'un fredonnement.
+Nouvelle idée : un agent qui enquête. Plusieurs façons de chercher (texte, son, mélodie, paroles chantées), un vote,
+une confiance calibrée, et une question à l'utilisateur quand ça hésite. Nom de code SoundTrace, nom du produit Lalala.
 
-**La première piste**, un soir avant le kickoff : « un Shazam amélioré », un RAG sur un catalogue de chansons. On tape un souvenir, un modèle d'embedding cherche, un LLM répond. Elle a tenu une heure. Le jury dit explicitement qu'il ne veut pas de « RAG basique » ni de tableau de bord, et surtout un RAG ne sait rien faire d'un fredonnement. L'idée a basculé vers **un agent qui enquête** : plusieurs façons de chercher (le texte, le son, la mélodie, les paroles chantées), un vote entre elles, une confiance honnête, et une question posée à l'utilisateur quand ça hésite. Le nom de code est resté *SoundTrace* ; le produit s'est appelé *Lalala* parce que c'est ce qu'on fait quand on cherche un titre.
+Règles qu'on se donne : modèles Meta au cœur, tout en local, pas d'audio stocké, pas de paroles stockées, et des jeux de
+test que l'agent ne voit jamais. Cette dernière règle a évité plusieurs fausses joies.
 
-**Les contraintes qu'on s'est fixées dès le départ** : les modèles Meta au cœur (Llama, PE-AV, SAM Audio, FAISS), tout en local sur le Mac, jamais d'audio stocké, jamais de paroles stockées, et des mesures sur des jeux de test que l'agent ne voit jamais. La dernière règle a sauvé le projet plusieurs fois : sans elle, on aurait cru à des choses qui ne marchaient pas.
+## Jeudi 29 octobre
 
----
+Pas de pipeline aujourd'hui, d'abord de quoi mesurer.
 
-## Jeudi 29 octobre — « d'abord, de quoi mesurer »
+- Catalogue : WASABI 2.0, 24 361 chansons, extrait en flux sans les paroles. Extraits de 30 s via l'API Deezer,
+  iTunes en repli. Les conditions Deezer interdisent de stocker l'audio : les extraits sont lus en mémoire, embarqués,
+  jetés. On ne garde que les vecteurs. Les URL signées expirent en moins d'une heure, rafraîchissement à la demande.
+- Jeux de test, un par situation : souvenirs flous (ToT_Music, vraies demandes Reddit), enregistrements bruités (recette
+  MUSAN rejouable, 0/5/10 dB), reprises → original, 393 fredonnements réels (CHAD). Utilisateur simulé qui ne connaît
+  pas la réponse.
+- Sous-ensemble dev de 2 000 chansons pour itérer, complet pour la fin.
+- Idée notée pour plus tard : des fiches par chanson (résumé Wikipédia + description Llama « ça sonne comment, ça parle
+  de quoi »), pour que la recherche texte ait autre chose que des titres.
 
-La tentation du premier jour est d'écrire le pipeline. On a d'abord construit **ce qui permet de se tromper vite** : un catalogue et des jeux de test.
+## Vendredi 30 octobre
 
-- **Le catalogue** : le corpus WASABI, 24 361 chansons avec métadonnées, extrait en flux sans les paroles. Les extraits audio de 30 s viennent de Deezer, avec iTunes en repli. Première surprise : les conditions Deezer interdisent de stocker l'audio. Décision prise en dix minutes et jamais regrettée : les extraits sont lus **en mémoire**, embarqués, puis oubliés. Seuls les vecteurs restent. Deuxième surprise : les URL d'extrait expirent en moins d'une heure, d'où un rafraîchissement à la demande.
-- **Les jeux de test**, un par situation réelle : souvenirs flous (ToT_Music, des vraies demandes de Reddit), enregistrements bruités (recette rejouable avec les bruits MUSAN), reprises vers original, et 393 **vrais fredonnements** du jeu CHAD. Un utilisateur simulé, avec une cloison : il ne connaît pas la réponse attendue.
-- Un sous-ensemble de développement de 2 000 chansons pour itérer vite, le complet pour la fin.
+Journée de plomberie, objectif : une chaîne complète même médiocre.
 
-Idée venue ce jour-là, gardée pour plus tard : des **fiches** par chanson, mélange d'un résumé Wikipédia et d'une description générée par Llama (« ça sonne comment ? », « ça parle de quoi ? »), pour que la recherche texte ait autre chose que des titres à lire.
+- Embedders derrière une interface commune : PE-AV (audio, texte↔audio), EmbeddingGemma (texte↔fiches), CLAP pour
+  comparer, Gemini en option désactivable. FAISS pour les vecteurs, BM25 pour les mots, Chromaprint pour l'empreinte.
+- Llama en trois rôles : réécrire le souvenir en requête propre, reclasser le top 10, poser la question la plus utile
+  (croyance bayésienne, gain d'information).
+- API en SSE pour afficher l'enquête étape par étape avec le modèle qui travaille. Front Lalala : Capture, Searching,
+  Result. Test au téléphone sur le réseau local pour avoir un vrai micro.
+- macOS : faiss et torch embarquent chacun leur OpenMP, l'API plantait sans message. OMP_NUM_THREADS=1, réglé.
+- Le soir, première version du fredonnement avec hum2song (embedder de contour publié). 2 sur 6 dans le top 5. On y croit.
 
----
+## Samedi 31 octobre
 
-## Vendredi 30 octobre — tout brancher, bout à bout
+Premier rapport d'éval sur le panel dev. Il a réorganisé la semaine.
 
-Journée de construction. Le but était une chaîne complète, même médiocre, pour la voir fonctionner devant soi.
+- Bruit : empreinte 87 % top-1, fusion 97 % top-10. Scène acquise.
+- Reprises : 25 % top-5 au mieux. L'idée « jouer une reprise au piano et battre Shazam » ne tient pas sur des extraits de
+  30 s, la reprise et l'original ne se recouvrent pas sur la même fenêtre. Écrit dans DEMO.md : scène non retenue.
+- Fredonnement : hum2song à 0,5 % top-1 sur les 393 fredonnements réels. Tout le reste à zéro.
 
-- Les **embedders** derrière une seule interface : PE-AV pour l'audio et le texte↔audio, EmbeddingGemma pour texte↔fiches, CLAP en comparaison, Gemini en option désactivable. FAISS pour les vecteurs, BM25 pour les mots, Chromaprint pour l'empreinte exacte.
-- **Llama** en trois rôles : réécrire le souvenir en requête propre, reclasser les dix meilleurs candidats, et poser la question la plus utile quand l'agent hésite (croyance bayésienne, gain d'information).
-- L'**API** en événements SSE, pour que l'écran montre l'enquête étape par étape avec le nom du modèle qui travaille. Le **front Lalala** : trois écrans, Capture, Searching, Result, testable au téléphone sur le réseau local pour que le micro soit un vrai micro.
-- Première confrontation avec macOS : faiss et torch embarquent chacun leur OpenMP, l'API plantait en silence. `OMP_NUM_THREADS=1`, et on n'y touche plus.
+Huit idées de la nuit, appliquées dans la journée : routage par type d'entrée (un texte n'interroge l'index audio que
+s'il décrit un son), Llama comme moteur de recherche par connaissance (titres proposés puis résolus dans le catalogue),
+seuils par branche, fusion apprise à la place du RRF à poids égaux, thème des paroles dans les fiches, empreinte
+audfprint plus robuste au micro que Chromaprint.
 
-Le soir, le fredonnement a eu sa première version : hum2song, un embedder de contour mélodique publié par des chercheurs. Sur six fredonnements, deux dans le top 5. On y croyait encore.
+Pivot du jour : quand les gens « fredonnent », ils chantent souvent des mots. Des mots → Whisper. Et on peut chercher
+dans les paroles sans les stocker : hachés non réversibles de 4-grammes, calculés une fois depuis le corpus. 5 top-1 sur
+12 extraits chantés, les échecs sont tous des échecs de transcription. Le fredonnement devient deux problèmes : des mots,
+ou une mélodie.
 
----
+Fin de journée : fusion apprise entraînée, 28 % top-5 sur les souvenirs flous contre 21 % en RRF. L'agent et ses
+questions sur 15 cas : aucun gain avec un 8B. Fonctionnalité gardée, pas l'argument.
 
-## Samedi 31 octobre — les chiffres parlent, on tranche
+## Dimanche 1er novembre
 
-Premier rapport d'évaluation sur le panel. Il a réorganisé la semaine.
+Question du matin : hum2song échoue à cause de la voix ou de l'embedder ? Pour trancher, fredonnements synthétiques :
+on extrait la mélodie de l'extrait, on la rend en « mmm » avec transposition, tempo, vibrato. RMVPE la retrouve à 0,2
+demi-ton près, hum2song la rate quand même. C'est l'embedder.
 
-- **Le bruit** : l'empreinte retrouve 87 % des enregistrements bruités en premier, la fusion 97 % dans le top 10. Scène de démo acquise.
-- **Les reprises** : 25 % dans le top 5 au mieux. L'idée de « jouer une reprise au piano et battre Shazam » ne tient pas sur des extraits de 30 s : une reprise et son original ne se recouvrent pas forcément sur la même fenêtre. Plutôt que forcer, on l'a écrit noir sur blanc dans le scénario de démo : scène non retenue.
-- **Le fredonnement** : hum2song à 0,5 % de top-1 sur les 393 fredonnements réels. Tous les autres systèmes à zéro. Coup dur, mais c'était la raison d'avoir un jeu de test.
+Donc on l'enlève. Alignement direct des contours : la mélodie de la requête glissée sur celle de chaque extrait, tolérance
+à la transposition, au tempo (0,8–1,25) et aux silences. Sur les 393 fredonnements : 16 % top-1, 25 % top-10, trente fois
+mieux. Et un diagnostic clair : par position du passage fredonné, les débuts de morceau sont les moins reconnus parce que
+l'extrait de 30 s démarre souvent au refrain. Le plafond est la fenêtre, pas la méthode.
 
-Huit idées de la nuit précédente, appliquées dans la journée : router par type d'entrée (un texte n'interroge l'index audio que s'il décrit un son), utiliser **Llama comme moteur de recherche par connaissance** (« quelles chansons correspondent à cette description ? », titres ensuite résolus dans le catalogue), des seuils par branche pour qu'une branche faible ne vote pas, une **fusion apprise** à la place du RRF à poids égaux, un thème de paroles dans les fiches, et une **empreinte audfprint** plus robuste au micro que Chromaprint.
+SAM Audio, accès aux poids reçu. Installation pénible sur Mac (le paquet installe un module `core` comme le nôtre, deux
+dépendances sans roue macOS) : venv séparé, sous-processus, portage MLX trois fois plus rapide. Mesure sur 20 cas
+bruités : la séparation est générative, l'audio isolé dégrade l'empreinte et les embeddings en moyenne, mais sauve un
+cas que rien d'autre n'attrape. Politique : seconde chance pour l'empreinte seulement, jamais à la place de l'audio brut.
 
-**Le pivot du jour** est venu d'une observation simple : quand les gens « fredonnent », ils chantent souvent des mots. Si on a des mots, on a Whisper. Et si on a les mots, on peut chercher dans les paroles sans les stocker : des hachés non réversibles de 4-grammes de mots, calculés une fois depuis le corpus. Cinq top-1 sur douze extraits chantés, et tous les échecs sont des échecs de transcription, pas de recherche. Le fredonnement est devenu deux problèmes : **des mots** ou **une mélodie**.
+Llama 8B : à partir de « guitare ? » il inventait « rock, voix masculine » et cherchait ces mots dans les titres et les
+paroles. Deux corrections : un indice n'est gardé que s'il est dans les mots de l'utilisateur, et les mots qui décrivent
+un son interrogent les descriptions audio et l'index audio, pas les titres ni les paroles.
 
-En fin de journée, la fusion apprise entraînée : 28 % de top-5 sur les souvenirs flous contre 21 % en RRF. Pas spectaculaire, mais réel, et défendable. L'agent et ses questions, évalués sur quinze cas : les questions ne changent pas le résultat avec un Llama 8B. On a gardé la fonctionnalité, pas l'argument.
+## Lundi 2 novembre
 
----
+Au téléphone, un fredonnement sans mots tombait presque toujours sur « We couldn't pin it down ». Trois causes dans les
+journaux : Whisper hallucine des paroles (« Thank you for watching! ») sur un « mmm », les scores RRF sont toujours
+« bas » parce qu'ils n'ont pas d'échelle, et une branche Llama à 60 s traînait encore dans l'API.
 
-## Dimanche 1er novembre — pourquoi le fredonnement échoue, vraiment
+- Mots ou mélodie : détection de mots réels (probabilité de langue, qualité de transcription, liste d'hallucinations).
+  Sans mots, la mélodie décide seule.
+- Confiance : le score mélodique ne sépare pas un bon d'un mauvais résultat (0,73 contre 0,72). La marge entre le premier
+  et le deuxième, si. Calibrée sur les 393 fredonnements.
+- Plus d'impasse : en confiance basse, top 10 à écouter au lieu d'un échec.
+- Seconde fenêtre par chanson : l'extrait iTunes tombe souvent sur un autre passage que Deezer. 1 819 morceaux en ont
+  une. Fredonnement : 16 % → 19,6 % top-1, 30 % top-10.
 
-La question du matin : hum2song échoue-t-il à cause de la voix humaine, ou de l'embedder ? Pour y répondre, on a fabriqué des **fredonnements synthétiques** : on extrait la mélodie de l'extrait lui-même, on la rend en « mmm » avec transposition, tempo, vibrato. Un fredonnement parfait, sans l'humain. Résultat : le suiveur de hauteur (RMVPE) retrouve la mélodie à 0,2 demi-ton près, et hum2song la rate quand même. **C'est l'embedder appris qui échoue, pas la voix.**
+Nuit de calcul, un modèle à la fois pour ne pas faire chauffer le Mac : 2 000 fiches Llama, index texte et son, éval
+complète, cross-encoder maison, fusion réentraînée.
 
-Alors on a enlevé l'embedder. **Alignement direct des contours** : la mélodie de la requête est glissée sur celle de chaque extrait, avec tolérance à la transposition (on chante dans sa tonalité), au tempo (0,8 à 1,25) et aux silences. Sur les 393 fredonnements réels : **16 % de top-1, 25 % de top-10**. Trente fois mieux. Et une lecture claire de ce qui manque : quand on regroupe par position du passage fredonné dans la chanson, les fragments de début de morceau sont les moins bien reconnus, parce que l'extrait de 30 s commence souvent au refrain. Le plafond, c'est la fenêtre, pas la méthode.
+## Mardi 3 novembre
 
-Même journée, **SAM Audio** : l'accès aux poids est arrivé. L'installation sur Mac a été un petit combat (le paquet officiel installe un module nommé `core`, comme le nôtre ; pas de roue macOS pour deux dépendances), réglé par un venv séparé et un portage MLX trois fois plus rapide. Puis la mesure, et une leçon : la séparation est générative, elle produit un audio plausible, pas l'enregistrement exact. Sur vingt cas bruités, l'audio isolé **dégrade** l'empreinte et les embeddings en moyenne, mais sauve un cas que rien d'autre n'attrape. D'où la politique : SAM Audio n'intervient que comme **seconde chance** pour l'empreinte, jamais comme remplaçant de l'audio brut. On aurait pu afficher « SAM Audio dans la boucle » et s'arrêter là ; les chiffres ont dit non.
+Lecture de la nuit. PE-AV audio avait saturé la mémoire GPU à mi-chemin : libération entre les lots, reprise depuis le
+cache. Cross-encoder maison : dégrade le top-1, écarté. Thèmes de paroles : aucun gain sur les souvenirs flous, gardés
+dans les fiches, pas dans l'argumentaire. PE-AV seul un peu sous Gemma sur l'audio, mais la fusion avec lui monte à 93 %
+top-1 sur le bruit.
 
-Et une leçon sur **Llama 8B** : à partir du seul mot « guitare ? », il inventait « rock, voix masculine, tempo moyen » et cherchait ces mots dans les titres et les paroles. Deux corrections : un indice n'est gardé que s'il est dans les mots de l'utilisateur, et les mots qui décrivent un son (instruments, voix, tempo) interrogent les descriptions audio et l'index audio, jamais les titres ni les paroles. « Guitare » cherche désormais des morceaux qui sonnent guitare, pas des chansons qui s'appellent *Guitar*.
-
----
-
-## Lundi 2 novembre — rendre l'app honnête
-
-En testant au téléphone, un fredonnement sans mots tombait presque toujours sur « We couldn't pin it down ». Trois causes empilées, trouvées dans les journaux : Whisper hallucinait des paroles (« Thank you for watching ! ») sur un simple « mmm », les scores fusionnés étaient toujours « bas » parce qu'un score RRF n'a pas d'échelle, et une branche Llama à 60 s traînait encore dans l'API.
-
-- **Des mots ou une mélodie** : détection de mots réels (probabilité de langue, qualité de transcription, liste d'hallucinations connues). Sans mots, la mélodie décide seule.
-- **Une confiance qui veut dire quelque chose** : le score mélodique seul ne distingue pas un bon d'un mauvais résultat (0,73 contre 0,72). La **marge** entre le premier et le deuxième candidat, si. Calibrée sur les 393 fredonnements : au-delà d'une certaine marge, l'app a raison trois fois sur quatre et peut le dire.
-- **Plus d'impasse** : en confiance basse, l'app propose le **top 10 à écouter** au lieu d'avouer l'échec. C'est souvent là que l'utilisateur dit « c'est celle-là ! ».
-- **Une seconde fenêtre par chanson** : l'extrait iTunes tombe souvent sur un autre passage que l'extrait Deezer. 1 819 morceaux en ont une. Fredonnement : **16 % → 19,6 % de top-1**, 30 % de top-10. Le plafond de la fenêtre recule.
-
-La nuit a été laissée au Mac, un modèle à la fois pour éviter la surchauffe : 2 000 fiches Llama avec thème des paroles, index texte et son, évaluation complète, un cross-encoder maison, la fusion apprise réentraînée.
-
----
-
-## Mardi 3 novembre — bilan, dépôt, et ce qu'on ferait avec une semaine de plus
-
-Le matin, lecture des résultats de la nuit. PE-AV audio avait saturé la mémoire du GPU à mi-chemin : libération entre les lots, reprise depuis le cache, index complet. Le cross-encoder maison **dégrade** le top-1 : écarté. Les thèmes de paroles n'ont rien changé sur les souvenirs flous : gardés dans les fiches, pas dans l'argumentaire. PE-AV seul est un peu sous Gemma sur l'audio, mais la fusion avec lui monte à **93 % de top-1 sur le bruit**.
-
-| Situation | Résultat sur le panel dev | Ce qu'on en dit en démo |
+| Situation | Panel dev | En démo |
 |---|---|---|
-| Souvenir flou | 14 % top-1, 30 % top-5 (fusion apprise) | une liste courte, et l'agent pose une question |
-| Enregistrement bruité | 93 % top-1, 100 % top-5 | la scène forte |
-| Reprise / live | 32 % top-10 | non retenue, dit tel quel |
-| Fredonnement | 19,6 % top-1, 30 % top-10 | tient si le passage fredonné est dans la fenêtre |
+| Souvenir flou | 14 % top-1, 30 % top-5 (fusion apprise) | liste courte, l'agent pose une question |
+| Enregistrement bruité | 93 % top-1, 100 % top-5 | scène forte |
+| Reprise / live | 32 % top-10 | non retenue |
+| Fredonnement | 19,6 % top-1, 30 % top-10 | tient si le passage est dans la fenêtre |
 
-**Ce qu'on a appris en une semaine**
+Nettoyage du dépôt, README pour le jury, publication sur GitHub.
 
-1. Mesurer avant de construire a coûté une journée et en a économisé trois : trois idées séduisantes (hum2song, l'audio isolé pour la similarité, le cross-encoder) ont été écartées par les chiffres, pas par le goût.
-2. Un petit LLM invente ; il faut l'ancrer dans les mots de l'utilisateur et séparer « ça sonne comment » de « ça parle de quoi ».
-3. Quand un modèle appris échoue, fabriquer une entrée idéale (les fredonnements synthétiques) dit immédiatement si le problème est le modèle ou la donnée.
-4. La confiance affichée doit être calibrée sur des cas réels, sinon l'interface ment dans les deux sens.
-5. Les limites structurelles (la fenêtre de 30 s) méritent d'être nommées : c'est ce qui dit où chercher le prochain gain.
+## Ce qu'on retient
 
-**Avec une semaine de plus**
+- Mesurer d'abord a coûté une journée et en a économisé trois : hum2song, l'audio isolé pour la similarité et le
+  cross-encoder sont partis sur les chiffres.
+- Un petit LLM invente. Il faut l'ancrer dans les mots de l'utilisateur et séparer « ça sonne comment » de « ça parle de quoi ».
+- Quand un modèle appris échoue, fabriquer une entrée idéale dit tout de suite si c'est le modèle ou la donnée.
+- La confiance affichée se calibre sur des cas réels, sinon l'interface ment.
+- Nommer la limite structurelle (la fenêtre de 30 s) dit où est le prochain gain.
 
-- L'audio complet des quinze morceaux de démo (achat DRM-free) : la fenêtre disparaît, le fredonnement change de régime. Le code accepte déjà plusieurs fenêtres par morceau.
-- Un **Llama 70B** par API pour le moteur de recherche par connaissance et le reranking listwise : tout est branché, il manque le modèle.
-- Des enregistrements réels au micro (l'outil existe) à la place du bruit synthétique.
-- La vidéo avec les images PE-AV, prévue, non mesurée.
+## Avec une semaine de plus
+
+- L'audio complet des 15 morceaux de démo (achat DRM-free) : la fenêtre disparaît. Le code accepte déjà plusieurs
+  fenêtres par morceau.
+- Un Llama 70B par API pour le moteur de recherche par connaissance et le reranking listwise : branché, pas de modèle.
+- Des enregistrements réels au micro à la place du bruit synthétique (l'outil existe).
+- La vidéo avec les images PE-AV, prévue, pas mesurée.
